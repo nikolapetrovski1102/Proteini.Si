@@ -1,0 +1,90 @@
+.branches-page {
+  --branch-bg: #fff;
+  --branch-text: #171717;
+  --branch-muted: #646464;
+  --branch-border: #e4e4e4;
+  --branch-soft: #f7f7f7;
+  color: var(--branch-text);
+  background: var(--branch-bg);
+  letter-spacing: 0;
+}
+
+.branches-inner { max-width: 1440px; margin: 0 auto; padding: 36px 40px 64px; }
+.branches-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding-bottom: 26px; border-bottom: 1px solid var(--branch-border); }
+.branches-brand { font-size: 12px; font-weight: 700; color: var(--branch-muted); margin-bottom: 8px; }
+.branches-heading h1 { font-size: 30px; line-height: 1.2; font-weight: 700; }
+.branches-tabs { display: flex; gap: 4px; padding: 4px; background: var(--branch-soft); border: 1px solid var(--branch-border); border-radius: 4px; }
+.branches-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 8px 18px; color: var(--branch-muted); border-radius: 2px; font-size: 14px; font-weight: 600; }
+.branches-tabs button[aria-pressed="true"] { background: #ffcc00; color: #171717; }
+.branches-page svg { width: 18px; height: 18px; flex-shrink: 0; }
+.branches-page :is(button, a):focus-visible { outline: 2px solid #2096d8; outline-offset: 3px; }
+.branches-layout { display: grid; grid-template-columns: 310px minmax(0, 1fr); gap: 32px; margin-top: 28px; align-items: start; }
+.branches-directory { min-width: 0; border: 1px solid var(--branch-border); border-top: 3px solid #ffcc00; }
+.branches-directory-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 18px; border-bottom: 1px solid var(--branch-border); }
+.branches-directory-heading h2 { font-size: 15px; font-weight: 700; }
+.branches-directory-heading > span { font-size: 13px; color: var(--branch-muted); font-variant-numeric: tabular-nums; }
+.branches-list { max-height: 620px; overflow-y: auto; scrollbar-width: thin; }
+.branches-location { width: 100%; display: flex; align-items: start; gap: 12px; text-align: left; padding: 18px 14px; border-left: 3px solid transparent; }
+.branches-location + .branches-location { border-top: 1px solid var(--branch-border); }
+.branches-location:hover { background: var(--branch-soft); }
+.branches-location[aria-pressed="true"] { background: var(--branch-soft); border-left-color: #ffcc00; }
+.branches-pin { margin-top: 3px; color: var(--branch-muted); }
+.branches-location[aria-pressed="true"] .branches-pin { color: #2096d8; }
+.branches-location-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; overflow-wrap: anywhere; }
+.branches-location-copy strong { font-size: 14px; font-weight: 700; }
+.branches-location-copy > span { font-size: 12px; color: var(--branch-muted); }
+.branches-location-copy small { font-size: 12px; line-height: 1.5; color: var(--branch-muted); }
+.branches-chevron { width: 14px !important; margin-top: 3px; color: var(--branch-muted); }
+.branches-detail { min-width: 0; }
+.branches-detail-heading { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin-bottom: 22px; }
+.branches-detail-heading > div { min-width: 0; }
+.branches-detail-heading p { font-size: 12px; color: var(--branch-muted); margin-bottom: 5px; }
+.branches-detail-heading h2 { font-size: 23px; line-height: 1.3; font-weight: 700; overflow-wrap: anywhere; }
+.branches-detail-heading address { font-size: 13px; font-style: normal; color: var(--branch-muted); margin-top: 8px; overflow-wrap: anywhere; }
+.branches-directions { display: inline-flex; align-items: center; justify-content: center; gap: 9px; background: #2096d8; color: #fff; min-height: 44px; padding: 12px 16px; font-size: 13px; font-weight: 600; flex-shrink: 0; border-radius: 2px; }
+.branches-directions:hover { background: #1677ad; }
+.branches-map { height: 360px; background: var(--branch-soft); border: 1px solid var(--branch-border); }
+.branches-map iframe { display: block; width: 100%; height: 100%; border: 0; }
+.branches-information { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; padding-top: 24px; margin-top: 24px; border-top: 1px solid var(--branch-border); }
+.branches-contact { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.branches-contact-row { display: flex; align-items: start; gap: 12px; }
+.branches-contact-row > svg { color: var(--branch-muted); margin-top: 2px; }
+.branches-contact-row > div { min-width: 0; }
+.branches-contact-row h3 { font-size: 12px; color: var(--branch-muted); margin-bottom: 4px; }
+.branches-contact-row a { font-size: 14px; overflow-wrap: anywhere; }
+.branches-contact-row a:hover { color: #2096d8; text-decoration: underline; }
+.branches-hours { border-left: 1px solid var(--branch-border); padding-left: 28px; min-width: 0; }
+.branches-hours h3 { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+.branches-hours dl > div { display: flex; justify-content: space-between; gap: 16px; margin-top: 10px; font-size: 12px; }
+.branches-hours dt { color: var(--branch-muted); }
+.branches-hours dd { text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+html[data-theme="dark"] .branches-page {
+  --branch-bg: #181818;
+  --branch-text: #f5f5f5;
+  --branch-muted: #b4b4b4;
+  --branch-border: #383838;
+  --branch-soft: #232323;
+}
+
+@media (max-width: 1100px) {
+  .branches-inner { padding-inline: 24px; }
+  .branches-layout { grid-template-columns: 270px minmax(0, 1fr); gap: 24px; }
+  .branches-detail-heading { align-items: start; flex-direction: column; }
+  .branches-information { grid-template-columns: 1fr; }
+  .branches-hours { border-left: 0; padding-left: 0; border-top: 1px solid var(--branch-border); padding-top: 20px; }
+}
+
+@media (max-width: 767px) {
+  .branches-inner { padding: 24px 16px 40px; }
+  .branches-heading { flex-direction: column; align-items: stretch; gap: 20px; padding-bottom: 20px; }
+  .branches-heading h1 { font-size: 26px; }
+  .branches-tabs button { flex: 1; padding-inline: 12px; }
+  .branches-layout { grid-template-columns: minmax(0, 1fr); gap: 26px; margin-top: 20px; }
+  .branches-list { max-height: 235px; }
+  .branches-location { padding: 14px; }
+  .branches-detail-heading h2 { font-size: 21px; }
+  .branches-directions { width: 100%; }
+  .branches-map { height: 300px; }
+  .branches-information { gap: 22px; margin-top: 20px; padding-top: 20px; }
+}

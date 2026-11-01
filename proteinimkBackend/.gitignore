@@ -1,0 +1,33 @@
+# .NET build and publish output
+**/bin/
+**/obj/
+**/publish/
+release/
+TestResults/
+coverage/
+
+# Editors and operating systems
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+.DS_Store
+desktop.ini
+
+# Runtime files and private configuration
+*.log
+**/logs/
+**/Logs/
+.env
+.env.*
+**/appsettings.*.json
+!**/appsettings.*.example.json
+*.pfx
+*.p12
+*.pem
+*.key
+*.bak
+*.bacpac
+*.mdf
+*.ldf

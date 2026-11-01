@@ -1,0 +1,59 @@
+# Operating systems and editors
+.DS_Store
+desktop.ini
+Thumbs.db
+.vs/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.user
+*.suo
+*.sw?
+.claude/settings.local.json
+
+# Secrets and private configuration
+.env
+.env.*
+!.env.example
+!**/.env.example
+**/appsettings.*.json
+!**/appsettings.*.example.json
+*.pfx
+*.p12
+*.pem
+*.key
+
+# Logs
+logs/
+Logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Backend (.NET) build output
+**/bin/
+**/obj/
+**/publish/
+release/
+TestResults/
+
+# Database backups and data files
+*.bak
+*.bacpac
+*.mdf
+*.ldf
+
+# Frontend (Node / Vite)
+node_modules/
+dist/
+dist-ssr/
+*.local
+*.ntvs*
+*.njsproj
+
+# Test and coverage output
+coverage/
+test-results/
+playwright-report/

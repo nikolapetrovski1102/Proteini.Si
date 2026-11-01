@@ -1,0 +1,190 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  padding: 0;
+  margin: 0;
+}
+
+html[data-theme="dark"] body {
+  background: #111111;
+  color: #f4f4f5;
+}
+
+html[data-theme="dark"] .bg-white {
+  background-color: #171717 !important;
+}
+
+html[data-theme="dark"] .text-gray-900,
+html[data-theme="dark"] .text-gray-800,
+html[data-theme="dark"] .text-gray-700 {
+  color: #f4f4f5 !important;
+}
+
+html[data-theme="dark"] .text-gray-600,
+html[data-theme="dark"] .text-gray-500 {
+  color: #d4d4d8 !important;
+}
+
+html[data-theme="dark"] .border-gray-100,
+html[data-theme="dark"] .border-gray-200,
+html[data-theme="dark"] .border-\[\#E5E5E5\],
+html[data-theme="dark"] .border-\[\#cacaca\] {
+  border-color: #3f3f46 !important;
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+  background-color: #171717;
+  color: #f4f4f5;
+}
+
+/* For the thumbnails container */
+.thumbs-container {
+  overflow-y: auto; /* keep scrolling */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+}
+
+.thumbs-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Hide scrollbar arrows but keep functionality */
+.scrollbar-thin::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+  width: 0;
+}
+
+/* Custom thin scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border-radius: 20px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Chrome, Safari, Edge */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Prevent horizontal scroll on all devices */
+html,
+body {
+  width: 100%;
+  position: relative;
+}
+
+#root {
+  width: 100%;
+  position: relative;
+}
+
+.fixed-sidebar {
+  position: fixed !important;
+  top: 70px !important;
+  width: 350px !important;
+  z-index: 100 !important;
+}
+
+.absolute-sidebar {
+  position: absolute !important;
+  width: 350px !important;
+  z-index: 100 !important;
+  bottom: auto !important;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.product-description {
+  color: #4b5563;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.product-description p,
+.product-description ul,
+.product-description ol,
+.product-description blockquote {
+  margin: 0 0 1rem;
+}
+
+.product-description ul,
+.product-description ol {
+  padding-left: 1.5rem;
+}
+
+.product-description ul { list-style: disc; }
+.product-description ol { list-style: decimal; }
+.product-description li { margin-bottom: 0.25rem; }
+.product-description strong,
+.product-description b { font-weight: 700; color: #111827; }
+.product-description em,
+.product-description i { font-style: italic; }
+.product-description h2,
+.product-description h3,
+.product-description h4 {
+  color: #111827;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 1.5rem 0 0.75rem;
+}
+.product-description h2 { font-size: 1.5rem; }
+.product-description h3 { font-size: 1.25rem; }
+.product-description h4 { font-size: 1.1rem; }
+.product-description > :first-child { margin-top: 0; }
+
+.sticky-header {
+  position: sticky;
+  top: 0;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  transition: none !important;
+}
+
+.sticky-header * {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+@media (max-width: 1024px) {
+  .sticky-header {
+    position: -webkit-sticky;
+    position: sticky;
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./proteinimkFrontend/.env.production)",
+      "Edit(./proteinimkFrontend/.env.production)",
+      "Write(./proteinimkFrontend/.env.production)",
+      "Read(./proteinimkBackend/ProteinisiBackend/appsettings.Production.json)",
+      "Edit(./proteinimkBackend/ProteinisiBackend/appsettings.Production.json)",
+      "Write(./proteinimkBackend/ProteinisiBackend/appsettings.Production.json)",
+      "Bash(cat:*.env.production*)",
+      "Bash(cat:*appsettings.Production.json*)"
+    ]
+  }
+}

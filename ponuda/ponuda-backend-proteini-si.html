@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="mk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Понуда – Backend Proteini Si</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue: #2096D8;
+    --blue-dark: #1a7ab3;
+    --blue-soft: #e8f4fb;
+    --yellow: #FDC700;
+    --yellow-soft: #fff7d1;
+    --ink: #130c0e;
+    --muted: #6b6b6b;
+    --line: #e5e5e5;
+    --bg: #f4f4f5;
+    --card: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Montserrat", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    max-width: 860px;
+    margin: 24px auto;
+    background: var(--card);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 24px rgba(0,0,0,.06);
+  }
+  .stripe { height: 8px; background: linear-gradient(90deg, var(--yellow) 0 70%, var(--blue) 70% 100%); }
+  header.top {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;
+    padding: 28px 40px 20px;
+  }
+  header.top img { height: 44px; width: auto; display: block; }
+  .meta { text-align: right; font-size: 12.5px; color: var(--muted); }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .hero { padding: 8px 40px 28px; border-bottom: 1px solid var(--line); }
+  .eyebrow { color: var(--blue); font-weight: 700; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+  h1 { font-size: 30px; line-height: 1.15; margin: 6px 0 12px; font-weight: 800; letter-spacing: -.01em; }
+  h1 span { background: linear-gradient(transparent 62%, var(--yellow) 62%); }
+  .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  .party { background: var(--bg); border-radius: 10px; padding: 12px 16px; }
+  .party small { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+  .party div { font-weight: 600; }
+  [contenteditable] { outline: none; border-bottom: 1px dashed transparent; }
+  [contenteditable]:hover, [contenteditable]:focus { border-bottom-color: var(--blue); }
+
+  section { padding: 28px 40px; border-bottom: 1px solid var(--line); }
+  h2 { font-size: 18px; margin: 0 0 14px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  h2 .num {
+    display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--yellow); font-size: 13px; font-weight: 800;
+  }
+  p { margin: 0 0 10px; }
+  .muted { color: var(--muted); }
+
+  .findings { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .finding { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .finding b { display: block; margin-bottom: 2px; }
+  .finding.bad { border-left: 4px solid #e98286; }
+  .finding.good { border-left: 4px solid var(--blue); }
+
+  /* Controls */
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center;
+    background: var(--blue-soft); border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;
+  }
+  .controls label { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .controls input[type=number] {
+    width: 74px; padding: 6px 8px; border: 1px solid #b9dcf1; border-radius: 8px;
+    font: inherit; font-weight: 700; color: var(--ink); background: #fff;
+  }
+  .controls input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--blue); }
+
+  .packages { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 22px; }
+  .pkg {
+    text-align: left; font: inherit; color: inherit; cursor: pointer;
+    border: 2px solid var(--line); border-radius: 12px; padding: 14px 16px; background: #fff;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .pkg:hover { border-color: var(--blue); }
+  .pkg.active { border-color: var(--blue); box-shadow: 0 0 0 4px var(--blue-soft); }
+  .pkg .tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--blue); }
+  .pkg .name { font-weight: 700; font-size: 15px; margin: 2px 0 6px; }
+  .pkg .price { font-weight: 800; font-size: 22px; }
+  .pkg .sub { font-size: 12px; color: var(--muted); }
+  .pkg.recommended { position: relative; }
+  .pkg.recommended::after {
+    content: "Препорачано"; position: absolute; top: -10px; right: 12px;
+    background: var(--yellow); font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: .06em;
+  }
+
+  .group { margin-bottom: 20px; }
+  .group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-bottom: 6px; border-bottom: 2px solid var(--ink); margin-bottom: 4px; }
+  .group-head h3 { margin: 0; font-size: 15px; font-weight: 700; }
+  .group-head .gsum { font-size: 12.5px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+  .badge { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-left: 8px; vertical-align: 2px; text-transform: uppercase; letter-spacing: .05em; }
+  .badge.req { background: #fde4e5; color: #b4454b; }
+  .badge.rec { background: var(--yellow-soft); color: #8a6d00; }
+  .badge.pro { background: var(--blue-soft); color: var(--blue-dark); }
+
+  .module {
+    display: grid; grid-template-columns: 26px 1fr auto auto; gap: 12px; align-items: start;
+    padding: 10px 2px; border-bottom: 1px solid var(--line); cursor: pointer;
+  }
+  .module input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--blue); cursor: pointer; }
+  .module .check { display: none; color: var(--blue); font-weight: 800; }
+  .module .title { font-weight: 600; }
+  .module .desc { font-size: 12.5px; color: var(--muted); }
+  .module .hrs { font-size: 12.5px; color: var(--muted); white-space: nowrap; padding-top: 2px; }
+  .module .amt { font-weight: 700; white-space: nowrap; min-width: 78px; text-align: right; }
+  .module:not(.on) .title, .module:not(.on) .amt { color: #a3a3a3; }
+  .module:not(.on) .amt { text-decoration: line-through; }
+
+  .free { display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px; background: var(--yellow-soft); border-radius: 10px; margin-top: 8px; font-weight: 600; }
+
+  /* Summary */
+  .summary { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+  .totals { background: var(--ink); color: #fff; border-radius: 14px; padding: 20px 22px; }
+  .totals .row { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 13.5px; }
+  .totals .row span:first-child { color: #bdbdbd; }
+  .totals .grand { border-top: 1px solid #3a3335; margin-top: 8px; padding-top: 12px; align-items: baseline; }
+  .totals .grand span:first-child { color: #fff; font-weight: 600; }
+  .totals .grand b { font-size: 30px; font-weight: 800; color: var(--yellow); }
+  .totals .mkd { text-align: right; color: #bdbdbd; font-size: 13px; }
+  .facts { display: grid; gap: 10px; align-content: start; }
+  .fact { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; justify-content: space-between; gap: 12px; }
+  .fact span { color: var(--muted); }
+  .fact b { text-align: right; }
+
+  .pay { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+  .pay div { border-radius: 10px; padding: 10px 12px; background: var(--blue-soft); }
+  .pay small { display: block; color: var(--blue-dark); font-weight: 700; font-size: 11.5px; }
+  .pay b { font-size: 16px; }
+
+  .note {
+    margin-top: 16px; padding: 12px 14px; border-radius: 10px; font-size: 13px;
+    background: #fff4f4; border: 1px solid #f6d0d2;
+  }
+  .note[hidden] { display: none; }
+
+  ul.clean { margin: 0; padding-left: 18px; }
+  ul.clean li { margin-bottom: 4px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+  .maint { display: flex; justify-content: space-between; align-items: center; gap: 14px; border: 2px dashed var(--line); border-radius: 12px; padding: 14px 16px; }
+  .maint .price { font-weight: 800; font-size: 18px; white-space: nowrap; }
+
+  .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding: 36px 40px 40px; }
+  .sign .line { border-top: 1.5px solid var(--ink); padding-top: 6px; margin-top: 48px; font-size: 12.5px; }
+  .sign .line b { display: block; }
+
+  .actions { position: sticky; bottom: 0; display: flex; justify-content: center; gap: 10px; padding: 14px; background: linear-gradient(transparent, var(--bg) 40%); }
+  .btn {
+    font: inherit; font-weight: 700; border: 0; border-radius: 999px; padding: 12px 22px; cursor: pointer;
+    background: var(--blue); color: #fff; box-shadow: 0 4px 14px rgba(32,150,216,.35);
+  }
+  .btn:hover { background: var(--blue-dark); }
+  .btn.alt { background: var(--yellow); color: var(--ink); box-shadow: 0 4px 14px rgba(253,199,0,.35); }
+
+  @media (max-width: 720px) {
+    .page { margin: 0; border-radius: 0; }
+    header.top, .hero, section, .sign { padding-left: 16px; padding-right: 16px; }
+    header.top { flex-direction: column; }
+    .meta { text-align: left; }
+    h1 { font-size: 24px; }
+    .parties, .findings, .packages, .summary, .cols, .sign, .pay { grid-template-columns: 1fr; }
+    .module { grid-template-columns: 26px 1fr auto; }
+    .module .hrs { grid-column: 2; padding-top: 0; }
+    .module .amt { grid-column: 3; grid-row: 1; }
+  }
+
+  @media print {
+    @page { size: A4; margin: 12mm; }
+    body { background: #fff; font-size: 12px; }
+    .page { margin: 0; max-width: none; box-shadow: none; border-radius: 0; }
+    .no-print, .actions { display: none !important; }
+    .module:not(.on) { display: none; }
+    .module input { display: none; }
+    .module .check { display: block; }
+    .module { cursor: default; }
+    .group.empty { display: none; }
+    .pkg { break-inside: avoid; }
+    section, .summary, .sign { break-inside: avoid; }
+    [contenteditable] { border: 0 !important; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="stripe"></div>
+
+  <header class="top">
+    <img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJhIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNzIuNzIgNDUuODciPjxkZWZzPjxzdHlsZT4uYntmaWxsOiNmZmNkMDA7fS5je2ZpbGw6IzEzMGMwZTt9PC9zdHlsZT48L2RlZnM+PHBhdGggY2xhc3M9ImIiIGQ9Ik0xNDcuODEsMzQuNjRoLTNsLjkyLTQuMTRoM2wtLjkzLDQuMTRaIi8+PGc+PHBhdGggY2xhc3M9ImIiIGQ9Ik0xNjUuNDUsMjkuNmMtLjI5LDEuMzMtLjk5LDIuNTEtMi4xLDMuNTMtMS4xMiwxLjAxLTIuMzEsMS41MS0zLjU2LDEuNTFoLTEwLjM2bC45MS00LjE5aDkuNzdjLjMzLDAsLjYzLS4xMywuOTEtLjM4LC4yOS0uMjYsLjQ3LS41NiwuNTQtLjg4LC4wMy0uMTcsLjAzLS4zMywwLS40OC0uMDMtLjE1LS4wOS0uMjktLjE3LS40LS4wOC0uMTEtLjE5LS4yLS4zMi0uMjctLjEzLS4wNi0uMjctLjEtLjQzLS4xaC02LjE3Yy0xLjI2LDAtMi4yNC0uNTEtMi45My0xLjUyLS42OC0xLjA0LS44OC0yLjIxLS42LTMuNTIsLjI4LTEuMzMsLjk3LTIuNSwyLjA5LTMuNSwxLjEyLTEuMDIsMi4zMS0xLjUyLDMuNTgtMS41MmgxMC4zNGwtLjg3LDQuMTloLTkuNzZjLS4zMywwLS42NCwuMTMtLjkyLC4zOC0uMywuMjUtLjQ4LC41My0uNTQsLjg3LS4wNCwuMTctLjA1LC4zMy0uMDIsLjQ4LC4wMywuMTUsLjA4LC4yOSwuMTcsLjQsLjA5LC4xMSwuMiwuMjEsLjMzLC4yNywuMTMsLjA3LC4yOCwuMTEsLjQ0LC4xMWg2LjE2YzEuMjcsMCwyLjI0LC41MSwyLjkyLDEuNTIsLjY5LDEuMDIsLjg5LDIuMTksLjYxLDMuNVoiLz48cGF0aCBjbGFzcz0iYiIgZD0iTTE2OS4xNiwzNC42NGgtMy45OGwzLjU2LTE2Ljc4aDMuOThsLTMuNTYsMTYuNzhaIi8+PC9nPjxwYXRoIGNsYXNzPSJjIiBkPSJNMTA1LjM0LDI3LjkzaDcuMzdjMS4yNiwwLDIuNDUtLjUxLDMuNTctMS41MywxLjEyLTEuMDIsMS44Mi0yLjE5LDIuMS0zLjUyLC4yOC0xLjMxLC4wOC0yLjQ4LS42MS0zLjUtLjY3LTEuMDItMS42NS0xLjUzLTIuOTEtMS41M2gtNi4zNmMtMS4zOCwwLTIuNjYsLjUyLTMuODUsMS41NS0uMzIsLjI3LS42LC41Ni0uODYsLjg2bC41MS0yLjQxaC0xMy45NmwtLjQ0LDIuMDZjLS4wOS0uMTctLjItLjM0LS4zMi0uNTEtLjc2LTEuMDMtMS44My0xLjU1LTMuMi0xLjU1aC01Ljk3Yy0xLjM4LDAtMi42NiwuNTItMy44NSwxLjU1LS44NCwuNzItMS40NSwxLjUzLTEuODUsMi40NS0uMDEtLjkyLS4yOC0xLjc0LS44MS0yLjQ1LS43Ni0xLjAzLTEuODMtMS41NS0zLjItMS41NWgtMTAuOTZsLS44MiwzLjg2Yy0uMDQtLjg2LS4zLTEuNjMtLjgxLTIuMzEtLjc2LTEuMDMtMS44My0xLjU1LTMuMi0xLjU1aC0xMC45NWwtMy41NywxNi43OGgzLjk4bC45MS00LjE5aDYuOTZjMS4zNywwLDIuNjUtLjUxLDMuODUtMS41NCwuNzktLjY4LDEuMzgtMS40NSwxLjc5LTIuMzFsLTEuNzEsOC4wM2gzLjk4bC45MS00LjE5LDQuMjgsNC4xOWg1Ljc3bC00LjY2LTQuMTloMS41N2MxLjM3LDAsMi42Ni0uNTEsMy44NS0xLjU0LC42Ny0uNTgsMS4yLTEuMjMsMS42LTEuOTRsLS41MiwyLjQyYy0uMywxLjQzLS4wNywyLjY2LC42OSwzLjcxLC43NiwxLjAzLDEuODMsMS41NCwzLjIsMS41NGg1Ljk2YzEuMzcsMCwyLjY1LS41MSwzLjg1LTEuNTQsMS4yLTEuMDQsMS45Ni0yLjI4LDIuMjYtMy43MWwxLjM0LTYuM2MuMDgtLjM2LC4xMi0uNzEsLjEzLTEuMDVoNC4wNmwtMi42OSwxMi41OWgzLjk4bDIuNjktMTIuNTloNC4yNmMtLjEzLC4zMy0uMjQsLjY4LS4zMSwxLjA1bC0xLjM1LDYuM2MtLjMxLDEuNDMtLjA4LDIuNjYsLjY5LDMuNzEsLjc2LDEuMDMsMS44MywxLjU0LDMuMiwxLjU0aDkuOTRsLjkxLTQuMTloLTkuNzdjLS4xNiwwLS4zMS0uMDQtLjQ0LS4xMWwtLjMzLS4yOGMtLjA5LS4xMi0uMTQtLjI1LS4xOC0uNC0uMDMtLjE1LS4wMy0uMzEsMC0uNDlsLjI3LTEuMjVabTEtNC42MmMuMDYtLjM0LC4yNS0uNjMsLjU0LS44NywuMjgtLjI1LC41OS0uMzgsLjkyLS4zOGg1LjU4Yy4zNSwwLC42MSwuMTIsLjc3LC4zNSwuMTYsLjI0LC4yLC41NCwuMTMsLjktLjA4LC4zNy0uMjYsLjY3LS41MiwuOTEtLjI3LC4yNC0uNTcsLjM2LS45MiwuMzZoLTYuNzlsLjI4LTEuMjdabS01MS41OCwuMjFsLS4yOCwxLjI3Yy0uMDksLjQxLS4zLC43Ni0uNjMsMS4wNC0uMzMsLjI4LS42OSwuNDMtMS4wNywuNDNoLTYuNTlsLjkxLTQuMmg2LjU5Yy4xOCwwLC4zNSwuMDQsLjUsLjEyLC4xNSwuMDgsLjI4LC4xOSwuMzcsLjMyLC4xLC4xMywuMTcsLjI5LC4yLC40NywuMDQsLjE4LC4wMywuMzcsMCwuNTdabTE1Ljc4LDBsLS4yOCwxLjI3Yy0uMDksLjQxLS4zLC43Ni0uNjMsMS4wNC0uMzQsLjI4LS42OSwuNDMtMS4wNywuNDNoLTYuNTlsLjkxLTQuMmg2LjU5Yy4xOCwwLC4zNSwuMDQsLjUsLjEyLC4xNSwuMDgsLjI4LC4xOSwuMzcsLjMyLC4xLC4xMywuMTcsLjI5LC4yLC40NywuMDQsLjE4LC4wMywuMzcsMCwuNTdabTE1LjY3LDBsLTEuMTgsNS40NmMtLjA4LC40Mi0uMjksLjc3LS42MiwxLjA1LS4zMywuMjktLjY5LC40My0xLjA2LC40M2gtNS4yMWMtLjM4LDAtLjY4LS4xNC0uOS0uNDMtLjIyLS4yOS0uMjgtLjY0LS4xOS0xLjA1bDEuMTctNS40NmMuMDgtLjQsLjI5LS43NCwuNjItMS4wMywuMzQtLjI4LC42OS0uNDMsMS4wNy0uNDNoNS4yMWMuMTgsMCwuMzQsLjA0LC41LC4xMiwuMTUsLjA4LC4yOCwuMTgsLjM3LC4zMSwuMSwuMTMsLjE3LC4yOSwuMiwuNDcsLjA0LC4xOCwuMDQsLjM3LDAsLjU2WiIvPjxwb2x5Z29uIGNsYXNzPSJjIiBwb2ludHM9IjEyMC4yMyAxNy44NiAxMTYuNjcgMzQuNjQgMTIwLjY1IDM0LjY0IDEyNC4yMSAxNy44NiAxMjAuMjMgMTcuODYiLz48cGF0aCBjbGFzcz0iYyIgZD0iTTEzOS42NywxOS40MWMtLjc2LTEuMDMtMS44My0xLjU1LTMuMi0xLjU1aC0xMC45NmwtMy41NywxNi43OGgzLjk4bDIuNjktMTIuNTloNi41OWMuMTgsMCwuMzQsLjA0LC41LC4xMiwuMTUsLjA4LC4yOCwuMTgsLjM4LC4zMSwuMSwuMTMsLjE3LC4yOSwuMiwuNDcsLjA0LC4xOCwuMDQsLjM3LDAsLjU2bC0yLjM3LDExLjEzaDMuOThsMi40Ni0xMS41NGMuMy0xLjQ0LC4wOC0yLjY2LS42OS0zLjY5WiIvPjxwb2x5Z29uIGNsYXNzPSJjIiBwb2ludHM9IjE0Mi44MSAxNy44NiAxMzkuMjQgMzQuNjQgMTQzLjIzIDM0LjY0IDE0Ni44IDE3Ljg2IDE0Mi44MSAxNy44NiIvPjxwYXRoIGNsYXNzPSJjIiBkPSJNNDIuOTYsNS4wMnMtLjA1LS4wNy0uMDUtLjA3bC0uMjEtLjE2cy0uMDUtLjAzLS4wNy0uMDJjLS4wMiwwLS4wNSwuMDUtLjA1LC4wNWwtLjYxLC45OSwuNjktMS44NHMuMDMtLjA3LC4wMi0uMWMwLS4wNCwwLS4wNC0uMDUtLjA3LS4wNy0uMDQtLjE3LS4wOS0uMjEtLjEyLS4wMi0uMDEtLjA1LS4wMi0uMDgtLjAxLS4wMiwwLS4wNiwuMDUtLjA2LC4wNWwtLjk3LDEuODcsLjgzLTIuMjdzMC0uMDUsMC0uMDdjLS4wMS0uMDItLjA1LS4wNi0uMDUtLjA2bC0uMjUtLjFzLS4wNCwwLS4wNSwwYy0uMDIsMC0uMDYsLjA2LS4wNiwuMDZsLTEuMDMsMi4yNC0uMDctLjAyLC41MS0yLjA4cy4wMi0uMDcsMC0uMWMtLjAxLS4wMi0uMDYtLjA0LS4wNi0uMDRsLS4yLS4wNnMtLjA1LDAtLjA2LDBjLS4wMiwwLS4wNCwuMDQtLjA0LC4wNGwtMS4zOSwzLjIzaC0uMThjLjEtMS4yMi0uNTYtMS41NS0uNTYtMS41NS0uMzktLjA3LS4xOCwuMzQtLjE4LC4zNCwuNDMsLjY1LDAsMS42OSwwLDEuNjktLjE1LC4yNS0uMDIsLjQ1LS4wMiwuNDUsLjE0LC4xNywuNDQsMS4xOSwuNDQsMS4xOSwuMDUsLjExLDAsLjI0LS4wNywuMzIsMCwwLS4xOSwuMzItLjIzLC40MS0uMDYsLjEtLjcyLC44My0uOTUsMS4wNWwtLjAyLC4wMmgtLjAyYy0uNTQsLjEyLTEuMDUsLjMzLTEuNTYsLjY1bC0uMDcsLjA0LS4wNC0uMDdjLS40Mi0uNjQtMS0xLjI0LTEuODMtMS44OWwtLjAzLS4wMnYtLjA0YzAtLjMyLS4xMi0uNTYtLjIxLS44Mi0uMDUtLjE2LS4yNS0uNTYtLjI1LS41NiwwLDAsLjUyLC4wNSwuNjEsLjA0LC4xNCwwLC4zOS0uMDIsLjU0LS40NmwuNDEtLjAzcy4yNy0uMDIsLjE3LS4yM2wtLjA1LS4xNywuMy0uMDZzLjIzLS4wMiwuMTItLjM1bC0uMDctLjM1cy41Ni0uMDYsLjU1LS4yMWMtLjAxLS4xNy0uMzQtMS4yLS4zNC0xLjIsMCwwLDAtLjAzLDAtLjA1LDAtLjAxLC4wMy0uMDUsLjAzLS4wNWwuMzMtLjM0cy4wNS0uMDcsLjA2LS4wOWMuMDItLjAzLC4wNC0uMTMsLjA0LS4xMywwLDAsLjA4LS40LC4wOC0uNTMsMC0uMTEtLjAzLS40My0uMDMtLjQzLDAsMC0uMDgtLjk2LS43NC0xLjczLS4xNy0uMi0uNDctLjQ2LS45MS0uNzUtLjM0LS4yMi0uOTItLjQxLTEuMjEtLjQ1LS4xOS0uMDItMS0uMDctMS42OSwuMTctLjE1LC4wNS0uOCwuMzEtMS4wMSwuNzMsMCwwLS4xNiwuMzUtLjIxLC40Ny0uMjEsLjU2LS40LDEuMzQtLjUyLDIuMDUsMCwwLS4wOSwuNDEtLjE2LC41My0uMDUsLjA4LS4yNiwuMjQtLjI2LC4yNGwtLjEzLC4wN2MtLjMzLC4wNS0xLjA2LC4yMS0xLjcyLC43aC0uMDJzLS4xMSwwLS4xMSwwYy0uMTctLjAzLS4zNS0uMDUtLjU0LS4wNS0uMTQsMC0uMjksMC0uNDQsLjAzLS4yMiwuMDMtLjM4LC4wOS0uMzgsLjA5LS4xOSwuMDUtLjM2LC4xNC0uNSwuMjEtLjE2LC4wOC0uMjgsLjE0LS4zOSwuMTRsLS4zLS4wNi0uMi0uMDVjLS4yNC0uMDQtLjQ2LS4wOS0uNjUtLjEzLS4yNy0uMDYtLjUtLjExLS43NS0uMTNoLS4yOWMtLjcyLS4wMS0xLjY5LC4xNy0xLjk3LC4yM2wtLjIzLC4wNWMtLjIyLC4wNC0uNDUsLjA5LS42NywuMTFoLS4zM3MtLjA4LDAtLjA4LDBoLS4yOGMtLjE2LS4wMS0uMzMtLjAyLS40OS0uMDJoLS4zN3MtLjI4LC4wNy0uNTEsLjJjLS4wMywuMDItLjk0LC43MS0xLjQxLDEuMDQtLjMzLC4yMi0uOTgsLjY1LS45OCwuNjUtLjIzLC4xNS0uNDIsLjI3LS41OCwuMzctLjI0LC4xNS0uNCwuMjUtLjU0LC4zNi0uMjQsLjItMS4zMSwxLjM0LTEuNTksMS42OS0uMDYsLjA3LS4zMywuNDUtLjYxLC44NS0uMjYsLjM2LS41NCwuNzUtLjcsLjk3bC0uMDMsLjAzaC0uMDRzLS4xOSwwLS4xOSwwYy0uNTEsMC0uOTYsLjExLTEuMzgsLjIybC0uMjMsLjA2LS4xNCwuMDRjLS4xNSwuMDQtLjMsLjA5LS40MywuMDloLS4wNWMtLjA1LDAtLjE5LS4wNy0uNTctLjIzLS40Ni0uMi0xLjA3LS40Ni0xLjUyLS42LS4wMiwwLS4wMy0uMDEtLjA1LDAsMCwwLS4wMiwuMDMtLjAyLC4wM2wtLjA4LC4xMXMtLjAxLC4wMy0uMDEsLjA0YzAsLjAyLDAsLjAzLC4wMiwuMDQsLjE4LC4xNiwuNjMsLjQzLC45MywuNjIsLjIxLC4xMywuMzgsLjIzLC40NSwuMjhsLjI0LC4xOS0uMDIsLjE0LS4wMiwuMDNoLS4wNHMtLjMzLC4wNS0uMzMsLjA1Yy0uMTcsMC0uMzktLjAzLS42Mi0uMDUtLjQ0LS4wNC0uOTUtLjA4LTEuMjUtLjA4aC0uMDhzLS4wNiwwLS4wOCwuMDJjMCwwLS4wNCwuMDQtLjA1LC4wNy0uMDMsLjA3LS4wNSwuMTUtLjA0LC4yNywwLC4wMiwwLC4wMiwuMDIsLjAzLC4wMSwuMDEsLjAyLC4wMiwuMDQsLjAyLC41OCwuMDQsMS45OCwuMzIsMi4yMywuMzl2LjE2Yy0uNDEsLjA3LTIuMDUsLjQ3LTIuNDYsLjU5LS4wMiwwLS4wMywuMDItLjA0LC4wMy0uMDEsLjAxLS4wMSwuMDItLjAxLC4wNCwwLC4xLC4wMywuMTgsLjA4LC4yNSwwLC4wMSwuMDIsLjAyLC4wMywuMDIsLjAyLDAsLjA0LDAsLjA2LDAsLjI2LS4wMiwuNTItLjA0LC43Ny0uMDcsLjQ1LS4wNCwuOTMtLjA5LDEuNDEtLjFsLjAzLC4xNS0xLjUzLC41NnMtLjAzLC4wMS0uMDQsLjAzLDAsLjA2LDAsLjA2bC4wNywuMjJzLjAxLC4wNCwuMDMsLjA0Yy4wMiwuMDEsLjAzLC4wMiwuMDUsLjAxLC4zNy0uMDQsMS4yMy0uMjIsMi4wMS0uMzgsLjgyLS4xNywxLjUyLS4zMiwxLjcyLS4zMmguMDRzLjA5LC4wMiwuMDksLjAybC0uMDMsLjA5Yy0uMTMsLjM4LS4yMywuODktLjE2LDEuMjUsMCwuMDIsMCwuMDQsLjAzLC4wNSwwLDAsLjA0LC4wMSwuMDQsLjAxaC4xMnMuMTUsMCwuMTUsMGMwLDAsLjA3LDAsLjA4LS4wMiwuMDItLjAyLC4wMi0uMDQsLjAzLS4wNywuMDgtLjMsLjE4LS41NSwuMjgtLjhsLjEtLjI2di0uMDNzLjA1LS4wMSwuMDUtLjAxYy4xNC0uMDUsLjM3LS4yLC41My0uMzMsLjA4LS4wNywuMzUtLjc2LC40NC0xLjE0di0uMDJzLjAyLS4wMiwuMDItLjAyYy41MS0uNTEsMS4wOS0uOTQsMS42NC0xLjM2LC41MS0uMzgsMS4wMy0uNzgsMS41LTEuMjJsLjAyLS4wMmguMDJjLjY1LS4xNywyLjA4LS43NiwyLjA5LS43NywuNTEtLjI0LC45Ny0uNTgsMS40MS0uOTIsLjMzLS4yNSwuNjctLjUsMS4wMy0uNzFsLjA0LS4wMiwuMDQsLjAzLC4zNiwuMTgsLjE1LC4wNywuMzEsLjExYy4xNywuMDYsLjMzLC4xLC41LC4xNCwwLDAsLjI2LC4wNiwuNTcsLjEsLjQsLjA2LC45MSwuMTEsMS4wNiwuMTIsLjAxLDAsMS42NywwLDIuMDMtLjEtLjAxLDAtMS4xMSwuNTUtMi4yMSwuNjlsLS4wNSwuMDljLS4yNywuNTItLjU1LDEuMDYtLjc2LDEuNjYtLjExLC4zLS4xNiwuNzItLjIxLDEuMDhsLS4wNCwuMjZjLS4wMiwuMTQtLjAzLC4yOS0uMDMsLjQ0LDAsLjIyLS4wMiwuNDUtLjA4LC42Ny0uMDQsLjE0LS4xMywuMzEtLjIxLC40NmwtLjIsLjM4Yy0uMTUsLjI5LS4zMSwuNTktLjQ0LC44OHYuMDNzLS4wNCwuMDEtLjA0LC4wMWwtLjA3LC4wM2MtLjM4LC4xNi0uNzcsLjMzLTEuMTgsLjU0LTEuNjUsLjg2LTEuOTEsMi41Ny0xLjk4LDIuOTUtLjEyLC42Mi0uMjIsMS4xMS0uMzgsMS44NS0uMDIsLjExLS4wNCwuMjUtLjA2LC4zOS0uMDMsLjI2LS4wNywuNTItLjE0LC42OC0uMDYsLjEzLS4yNCwuMjUtLjQyLC4zN2wtLjE5LC4xNC0uMiwuMTZjLS4yNSwuMi0uNzUsLjY5LS45MSwuOTEtLjI1LC4zMy0uNjUsMS4wNC0uODMsMS40OC0uMjUsLjU5LS40NiwxLjA5LS43NSwxLjYtLjE0LC4yNS0uNzYsMS4xNS0uOTUsMS4zNy0uMTgsLjIxLS44NSwuODQtMS4wNCwuOTRsLS4xNywuMWMtLjk2LC41NS0xLjA5LC42LTEuMTksLjY2LS4zNywuMjEtMS4wNywuNTUtMS40NSwuNzgtLjM2LC4yMi0xLjA1LDEuMDYtMS4yNywxLjM3LS4yMiwuMzMtMS4xMSwxLjM5LTEuMzIsMS42LTEuMiwxLjI5LTIuNDUsMi40Mi0zLjc3LDMuNjJsLS4wNCwuMDQtLjAzLC4wMmgtLjAzYy0uMzYtLjAzLTEuNTctLjA5LTIuMDItLjA5LS4wMywwLS4wOSwwLS4xMywuMDItLjA2LC4wMi0uMTQsLjA0LS4xNywuMDctLjA2LC4wNC0uMTEsLjEtLjE1LC4xNC0uMDIsLjAzLS4wNCwuMDktLjA1LC4xMi0uMDgsLjc5LS4wNCwyLjg3LS4wOCw0LjQ1LS4wMywxLjEzLC4zNSwyLjMxLC40MywyLjUzLC4xMywuMzYsLjQ3LDEuMzIsLjgzLDEuNDFoLjEycy4zNy0uMDcsLjM3LS4wN2MuMTctLjA3LC4zMy0uMTQsLjQxLS4zNCwwLS4yNy0uMDEtLjQzLS4wMy0uNTgtLjAyLS4xNS0uMDQtLjI5LS4wMy0uNTMsMC0uMjEsLjIzLTEuODUsMi4yOC00Ljk3LC43MS0xLjA4LDEwLjktOC41MSwxMS4yOS04LjkzbC4wMi0uMDJoLjAzYy41OC0uMTQsMS4wOC0uMzEsMS40OS0uNWwuMTUtLjA2LC4yNC0uMTFjLjQ3LS4yNywuODEtLjYsLjg5LS42OSwuMDgtLjEsNC4wNy00LjUyLDQuNDItNC45My0yLjg3LS43Ny0zLjA1LTMuNDgtMy4wNS0zLjUxLC42LDEuNzIsMi4wMSwyLjM4LDIuOTYsMi42MywuMzIsLjA4LDEuNjQsLjQ2LDMuNDIsLjM5LC4yNCwwLDEuMi0uMSwxLjY3LS4yNCwuMzgtLjExLDEuNzQtLjUyLDEuOS0uNTgsLjQ1LS4xOSwuOTEtLjM4LDEuMzYtLjU3LC4yNS0uMTEsMS4xOS0uMzksMS40MS0uNDNsLjExLS4wMmMuMTctLjAzLC4zOS0uMDcsLjUzLS4wOGguMTFzLS4wMiwuMS0uMDIsLjFjLS4xMSwuNDUtLjE0LC41OS0uMTYsLjY0LS4yMSwuNzItLjMzLDEuMzgtLjM2LDIuMDIsMCwuMTgsLjAzLC4zNywuMDYsLjU1LC4wNCwuMiwuMDgsLjQxLC4wNiwuNjEtLjAyLC4yLS4wOSwuNDItLjE2LC42M2wtLjA4LC4yNmMtLjEsLjM0LS4yMSwuNzEtLjMyLDEuMDktLjE0LC40Ni0uMjgsLjkzLS40MSwxLjM4LS4yNCwuOC0uNTYsMS41NC0uODgsMi4yNSwwLDAtLjM3LC43Ny0uNTUsMS4wOCwwLDAtLjU0LDEuMDctLjU0LDEuMDctLjA3LC4xNy0uMTQsLjMzLS4xNiwuNDUtLjAyLC4xNC0uMDIsLjMyLC4wMywuNDEsLjA1LC4wOSwuMTUsLjI0LC4yNywuMzIsLjIsLjEzLC42MiwuMTksLjYyLC4xOSwuNCwuMDgsMS4wNiwuMTgsMS4wNywuMThoLjAyYy40NSwwLDEuNTgsLjE1LDIuNDgsLjI4LC4yMiwuMDMsLjQyLC4wNiwuNTksLjA4aC4xOGMuMjgsMCwuNjUtLjAzLC43Ny0uMDZsLjA5LS4wMmMuMzUtLjA5LDEuNDItLjM2LDEuODItLjUxLC4xNi0uMDUsLjU2LS4yMSwuNzUtLjI5LDAsMCwuMTgtLjExLC4yMy0uMzYsMC0uMTYtLjA5LS4yOS0uMTUtLjM5bC0uMTEtLjE0Yy0uMDUtLjAzLS40My0uMS0uNTctLjEzbC0uMS0uMDJjLS4yMS0uMDQtLjQ2LS4xMS0uNjctLjE3bC0uMy0uMDhjLS4yNC0uMDYtLjczLS4xNy0xLjMyLS41LS42NS0uMzctMS4xNi0uODEtMS4yMS0uODgtLjA2LS4wOS0uMTQtLjIxLS4xNS0uNDQsMCwwLDAtLjAyLDAtLjAydi0uMTJjLjI3LTEsLjc5LTIuNjQsMi40OC01LjU1LC43OC0xLjM1LDEuNzctNS4xMiwxLjg0LTUuNjIsLjExLS43OC0uMDItMS4zNy0uMzEtMS44Mi0uNTEtLjgtMS40NC0xLjEyLTEuODEtMS4yMS00LjE5LTEtNy45Mi0uMzMtNy45Mi0uMzMtLjE2LDAtLjI4LS4wNS0uMzctLjE2bC0uMDYtLjA2LC4wNi0uMDVjLjQxLS4yNSwxLjItLjg3LDEuNjYtMS4yNCwuNC0uMzMsLjUzLTEuMTksLjUzLTEuMTlsLjIzLS4yYy4xOC0uMTEsLjM0LS4yMywuNDctLjM4bC4yLS4yNWMuMjctLjM0LC41Ni0uNjgsLjc3LTEuMDdoMGMuMDQtLjA5LC43LTEuNTIsLjc3LTEuODV2LS4wNHMwLC4wMiwwLC4wMnYuMDZjLS4wNCwuMjEtLjA3LDEuMy0uMzEsMi4wOSwuMjksLjI1LC41OSwuNSwuOSwuNzVsLjQxLC4zNGMuMjcsLjIzLC41OCwuNDYsLjg4LC42OCwuMTUsLjExLC4yOSwuMjIsLjQ0LC4zMywuMTQsLjExLC45MSwuNDgsMS4xMSwuNTMsLjQ3LS4wOCwyLjA2LTEuMzksMy4wOS0zLjAyLC41NS0uODcsMS4xOC0yLjQ2LDEuMTgtMi40NiwuNTEtLjMyLDEuMS0xLjE0LDEuMS0xLjE0LC40NS0uNiwuNTctMS40NiwuNTctMS40NmwuOTItMS43N3MuMDItLjA3LC4wMi0uMDlaIi8+PC9zdmc+" alt="Proteini Si">
+    <div class="meta">
+      <div>Понуда бр. <b contenteditable="true">П-2026-031</b></div>
+      <div>Датум: <b id="today"></b></div>
+      <div>Важи до: <b id="validUntil"></b></div>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="eyebrow">Понуда за серверски дел (backend)</div>
+    <h1>Безбеден, брз и <span>подготвен за купувачи</span></h1>
+    <p class="muted">Понудата е составена врз основа на детален преглед на постоечкиот серверски дел на proteini.mk: безбедноста, базата на податоци, брзината и архитектурата. Изберете ги ставките што ви требаат и цената ќе се пресмета автоматски.</p>
+    <div class="parties">
+      <div class="party"><small>Нарачател</small><div contenteditable="true">Proteini Si / proteini.mk</div></div>
+      <div class="party"><small>Изведувач</small><div contenteditable="true">Никола Петровски</div></div>
+    </div>
+  </div>
+
+  <section>
+    <h2><span class="num">1</span>Што најдовме при прегледот</h2>
+    <div class="findings">
+      <div class="finding bad"><b>Критичен безбедносен пропуст</b>Преку пребарувањето на производи, без лозинка, може да се пристапи до базата на податоци (купувачи, нарачки, адреси).</div>
+      <div class="finding bad"><b>Нема заштита од автоматски напади</b>Неограничено погодување на лозинки, промо кодови и ваучери, како и спам нарачки и мејлови.</div>
+      <div class="finding bad"><b>Базата нема доволно правила</b>Недостасуваат клучеви и ограничувања меѓу табелите, па можни се дупликати и „осиротени“ записи.</div>
+      <div class="finding bad"><b>Архитектура и брзина</b>Логиката е во многу големи контролери, без посебен слој за сервиси. Под поголем сообраќај сајтот ќе забави, а надградбите се скапи.</div>
+      <div class="finding good"><b>Што е добро направено</b>Лозинките се правилно шифрирани, цените се пресметуваат на серверот, а плаќањата преку cPay се проверуваат.</div>
+      <div class="finding good"><b>Залиха, ваучери и промоции</b>Логиката е добро осмислена и се задржува. Не се почнува од нула.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span>Пакети и ставки</h2>
+
+    <div class="controls no-print">
+      <label>Цена по час (€) <input type="number" id="rate" min="1" step="1" value="10"></label>
+      <label><input type="checkbox" id="vat"> Пресметај ДДВ (18%)</label>
+      <span class="muted" style="font-size:12.5px">Кликнете на пакет или вклучете/исклучете поединечни ставки.</span>
+    </div>
+
+    <div class="packages" id="packages"></div>
+    <div id="groups"></div>
+
+    <div class="free"><span>Бесплатно поправање на грешки по пуштањето во живо</span><span id="supportWeeks"></span></div>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span>Пресметка</h2>
+    <div class="summary">
+      <div class="totals">
+        <div class="row"><span>Избран пакет</span><b id="pkgName"></b></div>
+        <div class="row"><span>Вкупно часови</span><b id="sumHours"></b></div>
+        <div class="row"><span>Цена по час</span><b id="sumRate"></b></div>
+        <div class="row" id="vatRow"><span>ДДВ 18%</span><b id="sumVat"></b></div>
+        <div class="row grand"><span>Вкупно за плаќање</span><b id="sumTotal"></b></div>
+        <div class="mkd" id="sumMkd"></div>
+      </div>
+      <div class="facts">
+        <div class="fact"><span>Рок на изработка</span><b id="duration"></b></div>
+        <div class="fact"><span>Поддршка по пуштање</span><b id="support2"></b></div>
+        <div class="fact"><span>Изглед на сајтот за купувачите</span><b>Останува ист</b></div>
+        <div class="fact"><span>Тестирање</span><b>На тест-околина, пред пуштање</b></div>
+      </div>
+    </div>
+
+    <div class="pay">
+      <div><small>30% при потпишување</small><b id="pay1"></b></div>
+      <div><small>40% на средина на проектот</small><b id="pay2"></b></div>
+      <div><small>30% при пуштање во живо</small><b id="pay3"></b></div>
+    </div>
+
+    <div class="note" id="minNote" hidden>
+      <b>Важно:</b> Пакетот „Итна заштита“ ги затвора најопасните пропусти, но не ја решава архитектурата и брзината. Тие проблеми остануваат и подоцна ќе чинат повеќе.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span>Опционално: месечно одржување</h2>
+    <div class="maint">
+      <div>
+        <b>Одржување и поддршка</b>
+        <div class="muted" style="font-size:12.5px">Безбедносни надградби, следење на серверот, резервни копии и до 8 часа помали измени месечно. Не е вклучено во цената погоре.</div>
+      </div>
+      <div class="price" id="maint"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="cols">
+      <div>
+        <h2><span class="num">5</span>Услови</h2>
+        <ul class="clean">
+          <li>Фиксна цена за избраниот обем на работа.</li>
+          <li>До 2 круга на корекции по секоја фаза.</li>
+          <li>Работа надвор од обемот се наплаќа по истата цена по час, со претходна согласност.</li>
+          <li>Изворниот код и сите права се на нарачателот по целосна исплата.</li>
+          <li id="vatTerm">Цените се без ДДВ.</li>
+          <li>Понудата важи 15 дена од датумот на издавање.</li>
+        </ul>
+      </div>
+      <div>
+        <h2><span class="num">6</span>Не е вклучено</h2>
+        <ul class="clean">
+          <li>Промени на изгледот и фронтендот на сајтот.</li>
+          <li>Нови функционалности што не се наведени во понудата.</li>
+          <li>Трошоци за хостинг, домен, SMTP и банкарски провизии.</li>
+          <li>Доцнења предизвикани од cPay или банката.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="sign">
+    <div class="line"><b>Изведувач</b>Име, потпис и датум</div>
+    <div class="line"><b>Нарачател</b>Име, потпис, печат и датум</div>
+  </div>
+</div>
+
+<div class="actions no-print">
+  <button class="btn" onclick="window.print()">Зачувај како PDF / Печати</button>
+</div>
+
+<script>
+  const EUR_TO_MKD = 61.5;
+  const HOURS_PER_WEEK = 30;
+  const MAINTENANCE_HOURS = 8;
+
+  const groups = [
+    { id: "A", title: "Итна безбедност", badge: ["req", "Неопходно"] },
+    { id: "B", title: "Стабилизација и брзина", badge: ["rec", "Препорачано"] },
+    { id: "C", title: "Целосна професионална изработка", badge: ["pro", "Професионално"] },
+  ];
+
+  const modules = [
+    { g: "A", h: 4,  t: "Затворање на SQL injection пропустот", d: "Пропустот во пребарувањето на производи и проверка на сите влезни податоци." },
+    { g: "A", h: 8,  t: "Заштита од автоматски напади (rate limiting)", d: "Најава, ресет на лозинка, билтен, нарачки, ваучери и промо кодови." },
+    { g: "A", h: 6,  t: "Безбедност на најава и токени", d: "Нов таен клуч, посебни токени за ресет на лозинка, заштита на административниот пристап." },
+    { g: "A", h: 6,  t: "HTTPS, безбедносни заглавја и CORS", d: "Отстранување на лични податоци од логовите." },
+    { g: "A", h: 16, t: "Ревизија и основни правила во базата", d: "Уникатни е-пошти, клучеви меѓу табели, залиха никогаш под нула, чистење на дупликати." },
+    { g: "A", h: 10, t: "Тестирање на критичните текови и пуштање", d: "Нарачка, плаќање, ваучер, промо код и најава." },
+
+    { g: "B", h: 30, t: "Посебен сервисен слој за нарачки и плаќања", d: "Логиката за нарачки и cPay се одвојува од контролерите и станува тестабилна." },
+    { g: "B", h: 12, t: "Асинхрона работа со базата", d: "Правилно отворање и затворање на конекции. Серверот опслужува повеќе купувачи истовремено." },
+    { g: "B", h: 8,  t: "Кеширање и компресија", d: "Побрзо вчитување на почетната страна, производите и филтрите." },
+    { g: "B", h: 16, t: "Автоматски тестови", d: "Тестови за нарачка, плаќање, ваучер, промо код и најава при секоја промена." },
+    { g: "B", h: 8,  t: "Мониторинг, резервни копии и објавување", d: "Известување при грешки, автоматски backup на базата, безбедно објавување на нови верзии." },
+
+    { g: "C", h: 30, t: "Нова архитектура", d: "Dependency injection, репозиториуми, сервиси и централна конфигурација." },
+    { g: "C", h: 35, t: "База: складирани процедури и индекси", d: "Процедури за критичните операции (нарачка, залиха, ваучери), индекси и миграции со верзии." },
+    { g: "C", h: 60, t: "Каталог", d: "Производи, варијанти, нутритивни табели, галерии, филтри и пребарување." },
+    { g: "C", h: 55, t: "Комерција", d: "Кошничка, нарачки, ваучери, промоции, подароци, поени за лојалност и мејлови." },
+    { g: "C", h: 12, t: "Корисници", d: "Регистрација, најава, профил и ресет на лозинка." },
+    { g: "C", h: 40, t: "CMS и администрација", d: "Сите содржини на сајтот, извештаи и CSV извоз." },
+    { g: "C", h: 45, t: "Целосно регресиско тестирање", d: "Проверка на секоја страна и функција заедно со постоечкиот фронтенд." },
+    { g: "C", h: 15, t: "Миграција на податоци и пуштање во живо", d: "Тест-околина (staging), пренос на податоците и контролирано префрлување." },
+  ].map((m, i) => ({ ...m, id: "m" + i }));
+
+  const packages = [
+    { id: "min",  tag: "Пакет 1", name: "Итна заштита",     groups: ["A"] },
+    { id: "stab", tag: "Пакет 2", name: "Стабилизација",    groups: ["A", "B"], recommended: true },
+    { id: "full", tag: "Пакет 3", name: "Целосна изработка", groups: ["A", "B", "C"] },
+  ];
+
+  const selected = new Set(modules.filter(m => m.g !== "C").map(m => m.id));
+  const $ = id => document.getElementById(id);
+  const fmt = n => new Intl.NumberFormat("mk-MK", { maximumFractionDigits: 0 }).format(Math.round(n));
+  const eur = n => fmt(n) + " €";
+  const mkd = n => fmt(n * EUR_TO_MKD) + " ден.";
+
+  function rate() { return Math.max(1, Number($("rate").value) || 0); }
+  function vatOn() { return $("vat").checked; }
+  function withVat(n) { return vatOn() ? n * 1.18 : n; }
+  function hoursOf(ids) { return modules.filter(m => ids.has(m.id)).reduce((s, m) => s + m.h, 0); }
+  function idsFor(pkg) { return new Set(modules.filter(m => pkg.groups.includes(m.g)).map(m => m.id)); }
+  function sameSet(a, b) { return a.size === b.size && [...a].every(x => b.has(x)); }
+  function weeksText(h) {
+    const w = Math.max(1, Math.ceil(h / HOURS_PER_WEEK));
+    if (w <= 6) return w + (w === 1 ? " недела" : " недели");
+    return w + " недели (≈ " + (w / 4.33).toFixed(1).replace(".", ",") + " месеци)";
+  }
+
+  function renderGroups() {
+    $("groups").innerHTML = groups.map(g => `
+      <div class="group" data-group="${g.id}">
+        <div class="group-head">
+          <h3>${g.title}<span class="badge ${g.badge[0]}">${g.badge[1]}</span></h3>
+          <span class="gsum" id="gsum-${g.id}"></span>
+        </div>
+        ${modules.filter(m => m.g === g.id).map(m => `
+          <label class="module" data-id="${m.id}">
+            <input type="checkbox" data-id="${m.id}">
+            <span class="check">✓</span>
+            <span><div class="title">${m.t}</div><div class="desc">${m.d}</div></span>
+            <span class="hrs">${m.h} ч.</span>
+            <span class="amt" data-amt="${m.id}"></span>
+          </label>`).join("")}
+      </div>`).join("");
+
+    $("groups").addEventListener("change", e => {
+      const id = e.target.dataset.id;
+      if (!id) return;
+      e.target.checked ? selected.add(id) : selected.delete(id);
+      update();
+    });
+  }
+
+  function renderPackages() {
+    $("packages").innerHTML = packages.map(p => `
+      <button type="button" class="pkg${p.recommended ? " recommended" : ""}" data-pkg="${p.id}">
+        <div class="tag">${p.tag}</div>
+        <div class="name">${p.name}</div>
+        <div class="price" data-pprice="${p.id}"></div>
+        <div class="sub" data-psub="${p.id}"></div>
+      </button>`).join("");
+
+    $("packages").addEventListener("click", e => {
+      const btn = e.target.closest("[data-pkg]");
+      if (!btn) return;
+      const pkg = packages.find(p => p.id === btn.dataset.pkg);
+      selected.clear();
+      idsFor(pkg).forEach(id => selected.add(id));
+      update();
+    });
+  }
+
+  function update() {
+    const r = rate();
+    const hours = hoursOf(selected);
+    const subtotal = hours * r;
+    const vat = vatOn() ? subtotal * 0.18 : 0;
+    const total = subtotal + vat;
+    const hasFull = modules.some(m => m.g === "C" && selected.has(m.id));
+    const supportWeeks = hours === 0 ? "–" : (hasFull ? "4 недели" : "2 недели");
+    const active = packages.find(p => sameSet(idsFor(p), selected));
+
+    modules.forEach(m => {
+      const on = selected.has(m.id);
+      document.querySelector(`input[data-id="${m.id}"]`).checked = on;
+      document.querySelector(`.module[data-id="${m.id}"]`).classList.toggle("on", on);
+      document.querySelector(`[data-amt="${m.id}"]`).textContent = eur(withVat(m.h * r));
+    });
+
+    groups.forEach(g => {
+      const ids = new Set(modules.filter(m => m.g === g.id && selected.has(m.id)).map(m => m.id));
+      const h = hoursOf(ids);
+      $("gsum-" + g.id).textContent = h ? `${h} ч. · ${eur(withVat(h * r))}` : "не е избрано";
+      document.querySelector(`.group[data-group="${g.id}"]`).classList.toggle("empty", h === 0);
+    });
+
+    packages.forEach(p => {
+      const h = hoursOf(idsFor(p));
+      document.querySelector(`[data-pprice="${p.id}"]`).textContent = eur(withVat(h * r));
+      document.querySelector(`[data-psub="${p.id}"]`).textContent = `${h} часа · ${weeksText(h)}`;
+      document.querySelector(`[data-pkg="${p.id}"]`).classList.toggle("active", active === p);
+    });
+
+    $("pkgName").textContent = active ? active.name : "Прилагоден избор";
+    $("sumHours").textContent = hours + " ч.";
+    $("sumRate").textContent = eur(r);
+    $("vatRow").style.display = vatOn() ? "" : "none";
+    $("sumVat").textContent = eur(vat);
+    $("sumTotal").textContent = eur(total);
+    $("sumMkd").textContent = "≈ " + mkd(total) + (vatOn() ? " со ДДВ" : " без ДДВ");
+    $("duration").textContent = hours ? weeksText(hours) : "–";
+    $("supportWeeks").textContent = supportWeeks;
+    $("support2").textContent = supportWeeks;
+    $("pay1").textContent = eur(total * 0.3);
+    $("pay2").textContent = eur(total * 0.4);
+    $("pay3").textContent = eur(total * 0.3);
+    $("minNote").hidden = !(active && active.id === "min");
+    $("vatTerm").textContent = vatOn() ? "Цените се со вклучен ДДВ од 18%." : "Цените се без ДДВ.";
+
+    const m = withVat(MAINTENANCE_HOURS * r);
+    $("maint").textContent = `${eur(m)} / месечно`;
+  }
+
+  const now = new Date();
+  const valid = new Date(now); valid.setDate(valid.getDate() + 15);
+  const dfmt = d => d.toLocaleDateString("mk-MK", { day: "2-digit", month: "2-digit", year: "numeric" });
+  $("today").textContent = dfmt(now);
+  $("validUntil").textContent = dfmt(valid);
+
+  renderGroups();
+  renderPackages();
+  $("rate").addEventListener("input", update);
+  $("vat").addEventListener("change", update);
+  update();
+</script>
+</body>
+</html>
