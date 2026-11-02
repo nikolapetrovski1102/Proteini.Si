@@ -1,7 +1,6 @@
 ﻿using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Newtonsoft.Json;
 using ProteiniSi.Api.Database;
 using ProteiniSi.Api.Models;

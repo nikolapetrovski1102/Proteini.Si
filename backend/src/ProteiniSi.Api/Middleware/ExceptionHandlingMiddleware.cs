@@ -1,4 +1,4 @@
-using ProteiniSi.Api.Exceptions;
+using ProteiniSi.Contracts.Exceptions;
 
 namespace ProteiniSi.Api.Middleware;
 

@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProteiniSi.Models\ProteiniSi.Models.csproj" />
+    <ProjectReference Include="..\ProteiniSi.Dtos\ProteiniSi.Dtos.csproj" />
+  </ItemGroup>
+
+</Project>

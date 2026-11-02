@@ -1,17 +1,20 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ProteiniSi.Api.Models;
-using ProteiniSi.Api.Services.Interfaces;
+using Microsoft.AspNetCore.OutputCaching;
+using ProteiniSi.Api.Caching;
+using ProteiniSi.Contracts.Services;
+using ProteiniSi.Models;
 
 namespace ProteiniSi.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "SuperAdmin")]
-public class BranchLocationsController(IBranchLocationService service) : ControllerBase
+public class BranchLocationsController(IBranchLocationService service, IOutputCacheStore cache) : ControllerBase
 {
     [AllowAnonymous]
     [HttpGet]
+    [OutputCache(Tags = [CacheTags.BranchLocations])]
     public async Task<IActionResult> GetActiveLocations([FromQuery] string? type = null)
     {
         var locations = await service.GetActiveAsync(type);
@@ -29,6 +32,7 @@ public class BranchLocationsController(IBranchLocationService service) : Control
     public async Task<IActionResult> CreateLocation([FromBody] BranchLocation location)
     {
         var id = await service.CreateAsync(location);
+        await cache.EvictByTagAsync(CacheTags.BranchLocations, default);
         return Ok(new { status = true, id, message = "Location created successfully" });
     }
 
@@ -36,6 +40,7 @@ public class BranchLocationsController(IBranchLocationService service) : Control
     public async Task<IActionResult> UpdateLocation([FromBody] BranchLocation location)
     {
         await service.UpdateAsync(location);
+        await cache.EvictByTagAsync(CacheTags.BranchLocations, default);
         return Ok(new { status = true, message = "Location updated successfully" });
     }
 
@@ -43,6 +48,7 @@ public class BranchLocationsController(IBranchLocationService service) : Control
     public async Task<IActionResult> DeleteLocation(int id)
     {
         await service.DeleteAsync(id);
+        await cache.EvictByTagAsync(CacheTags.BranchLocations, default);
         return Ok(new { status = true, message = "Location deleted successfully" });
     }
 }

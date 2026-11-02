@@ -1,17 +1,20 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ProteiniSi.Api.Models.Dtos;
-using ProteiniSi.Api.Services.Interfaces;
+using Microsoft.AspNetCore.OutputCaching;
+using ProteiniSi.Api.Caching;
+using ProteiniSi.Contracts.Services;
+using ProteiniSi.Dtos;
 
 namespace ProteiniSi.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "SuperAdmin")]
-public class TipArticlesController(ITipArticleService service) : ControllerBase
+public class TipArticlesController(ITipArticleService service, IOutputCacheStore cache) : ControllerBase
 {
     [AllowAnonymous]
     [HttpGet]
+    [OutputCache(Tags = [CacheTags.TipArticles])]
     public async Task<IActionResult> GetActiveArticles()
     {
         var articles = await service.GetActiveAsync();
@@ -20,6 +23,7 @@ public class TipArticlesController(ITipArticleService service) : ControllerBase
 
     [AllowAnonymous]
     [HttpGet("by-slug/{slug}")]
+    [OutputCache(Tags = [CacheTags.TipArticles])]
     public async Task<IActionResult> GetArticleBySlug(string slug)
     {
         var article = await service.GetActiveBySlugAsync(slug);
@@ -37,6 +41,7 @@ public class TipArticlesController(ITipArticleService service) : ControllerBase
     public async Task<IActionResult> CreateArticle([FromForm] TipArticleForm form)
     {
         var id = await service.CreateAsync(form);
+        await cache.EvictByTagAsync(CacheTags.TipArticles, default);
         return Ok(new { status = true, id, message = "Article created successfully" });
     }
 
@@ -44,6 +49,7 @@ public class TipArticlesController(ITipArticleService service) : ControllerBase
     public async Task<IActionResult> UpdateArticle([FromForm] TipArticleForm form)
     {
         await service.UpdateAsync(form);
+        await cache.EvictByTagAsync(CacheTags.TipArticles, default);
         return Ok(new { status = true, message = "Article updated successfully" });
     }
 
@@ -51,6 +57,7 @@ public class TipArticlesController(ITipArticleService service) : ControllerBase
     public async Task<IActionResult> DeleteArticle(int id)
     {
         await service.DeleteAsync(id);
+        await cache.EvictByTagAsync(CacheTags.TipArticles, default);
         return Ok(new { status = true, message = "Article deleted successfully" });
     }
 }

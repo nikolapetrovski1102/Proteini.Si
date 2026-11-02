@@ -1,17 +1,20 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ProteiniSi.Api.Models.Dtos;
-using ProteiniSi.Api.Services.Interfaces;
+using Microsoft.AspNetCore.OutputCaching;
+using ProteiniSi.Api.Caching;
+using ProteiniSi.Contracts.Services;
+using ProteiniSi.Dtos;
 
 namespace ProteiniSi.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "SuperAdmin")]
-public class HomepageCardsController(IHomepageCardService service) : ControllerBase
+public class HomepageCardsController(IHomepageCardService service, IOutputCacheStore cache) : ControllerBase
 {
     [AllowAnonymous]
     [HttpGet]
+    [OutputCache(Tags = [CacheTags.HomepageCards])]
     public async Task<IActionResult> GetActive([FromQuery] string? section = null)
     {
         var cards = await service.GetActiveAsync(section);
@@ -29,6 +32,7 @@ public class HomepageCardsController(IHomepageCardService service) : ControllerB
     public async Task<IActionResult> Create([FromForm] HomepageCardForm form)
     {
         var id = await service.CreateAsync(form);
+        await cache.EvictByTagAsync(CacheTags.HomepageCards, default);
         return Ok(new { status = true, id });
     }
 
@@ -36,6 +40,7 @@ public class HomepageCardsController(IHomepageCardService service) : ControllerB
     public async Task<IActionResult> Update(int id, [FromForm] HomepageCardForm form)
     {
         await service.UpdateAsync(id, form);
+        await cache.EvictByTagAsync(CacheTags.HomepageCards, default);
         return Ok(new { status = true });
     }
 
@@ -43,6 +48,7 @@ public class HomepageCardsController(IHomepageCardService service) : ControllerB
     public async Task<IActionResult> Delete(int id)
     {
         await service.DeleteAsync(id);
+        await cache.EvictByTagAsync(CacheTags.HomepageCards, default);
         return Ok(new { status = true });
     }
 }
