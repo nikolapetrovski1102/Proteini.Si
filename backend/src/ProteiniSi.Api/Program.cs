@@ -5,8 +5,14 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using ProteiniSi.Api.Services;
+using ProteiniSi.Api.Extensions;
+using ProteiniSi.Api.Middleware;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, configuration) =>
+    configuration.ReadFrom.Configuration(context.Configuration));
 
 // Services
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
@@ -14,9 +20,10 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
+builder.Services.AddDataAccess();
+builder.Services.AddApplicationServices();
 builder.Services.AddScoped<CPayService>();
 builder.Services.AddScoped<RelatedProductService>();
-builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:6800") });
 builder.WebHost.ConfigureKestrel(options =>
 {
@@ -116,6 +123,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 var app = builder.Build();
+
+app.UseSerilogRequestLogging();
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // Pipeline
 if (app.Environment.IsDevelopment())
