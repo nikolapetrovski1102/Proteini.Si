@@ -314,7 +314,8 @@ WHERE 1=1
                 }
 
                 // Add sorting and pagination
-                query += $" ORDER BY {orderByColumn} {searchDto.SortOrder}";
+                var sortDirection = string.Equals(searchDto.SortOrder, "desc", StringComparison.OrdinalIgnoreCase) ? "DESC" : "ASC";
+                query += $" ORDER BY {orderByColumn} {sortDirection}";
                 query += " OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
 
                 var offset = (searchDto.Page - 1) * searchDto.PageSize;
