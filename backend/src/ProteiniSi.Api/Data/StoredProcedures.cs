@@ -22,4 +22,15 @@ public static class StoredProcedures
         public const string Update = "dbo.usp_TipArticle_Update";
         public const string Delete = "dbo.usp_TipArticle_Delete";
     }
+
+    public static class HomepageCards
+    {
+        public const string GetActive = "dbo.usp_HomepageCard_GetActive";
+        public const string GetAll = "dbo.usp_HomepageCard_GetAll";
+        public const string GetById = "dbo.usp_HomepageCard_GetById";
+        public const string SlugExists = "dbo.usp_HomepageCard_SlugExists";
+        public const string Create = "dbo.usp_HomepageCard_Create";
+        public const string Update = "dbo.usp_HomepageCard_Update";
+        public const string Delete = "dbo.usp_HomepageCard_Delete";
+    }
 }

@@ -14,6 +14,7 @@ public static class ServiceRegistration
 
         services.AddScoped<IBranchLocationProvider, BranchLocationProvider>();
         services.AddScoped<ITipArticleProvider, TipArticleProvider>();
+        services.AddScoped<IHomepageCardProvider, HomepageCardProvider>();
 
         return services;
     }
@@ -23,6 +24,7 @@ public static class ServiceRegistration
         services.AddScoped<IImageStorageService, ImageStorageService>();
         services.AddScoped<IBranchLocationService, BranchLocationService>();
         services.AddScoped<ITipArticleService, TipArticleService>();
+        services.AddScoped<IHomepageCardService, HomepageCardService>();
 
         return services;
     }
