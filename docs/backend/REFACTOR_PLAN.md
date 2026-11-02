@@ -45,9 +45,18 @@ snapshot commit, so no meaningful history is lost by starting fresh.
 Proteini.Si/
 ├── backend/
 │   ├── ProteiniSi.sln
-│   ├── src/
+│   ├── Directory.Build.props          (shared target framework: net10.0)
+│   ├── Presentation/
 │   │   └── ProteiniSi.Api/            (was ProteinisiBackend/)
-│   ├── tests/
+│   ├── Application/
+│   │   ├── ProteiniSi.Contracts/
+│   │   ├── ProteiniSi.Dtos/
+│   │   └── ProteiniSi.Services/
+│   ├── Domain/
+│   │   └── ProteiniSi.Models/
+│   ├── Infrastructure/
+│   │   └── ProteiniSi.Data/
+│   ├── Tests/
 │   │   └── ProteiniSi.Api.Tests/      (was ProteinisiBackend.Tests/)
 │   └── tools/                         (was scripts/*.sh — email/ops helpers)
 ├── database/
@@ -65,7 +74,7 @@ Proteini.Si/
 
 ### Steps
 
-1. **Secrets first.** Revert or blank `TokenKey` in `backend/src/ProteiniSi.Api/appsettings.json`
+1. **Secrets first.** Revert or blank `TokenKey` in `backend/Presentation/ProteiniSi.Api/appsettings.json`
    and move it to the ignored `appsettings.Development.json`. Rotate the key afterwards, as it has been
    stored in plain text. Run a secret scan (e.g. `gitleaks detect --no-git`) before the first push.
 2. Remove the nested `.git` folders from `proteinimkBackend/` and `proteinimkFrontend/` (after the
@@ -97,27 +106,38 @@ HTTP ─► Controller ─► IXxxService ─► IXxxProvider ─► ISqlHelper 
             └── DTO validation, auth attributes, IActionResult mapping only
 ```
 
-### Folder structure inside `ProteiniSi.Api`
+### Solution layers
+
+Each layer is its own folder (and solution folder). References only point inward:
+`Presentation → Application ← Infrastructure`, and everything may reference `Domain`.
 
 ```
-ProteiniSi.Api/
-├── Controllers/                  thin, no SQL, no business rules
-├── Services/
-│   ├── Interfaces/               IProductService, IOrderService, ICartService ...
-│   └── Implementation/           ProductService, OrderService, CartService ...
-├── Providers/
-│   ├── Interfaces/               IProductProvider, IOrderProvider ...
-│   └── Implementation/           ProductProvider, OrderProvider ...
-├── Data/
-│   ├── ISqlHelper.cs
-│   ├── SqlHelper.cs              the only class that opens connections
-│   └── StoredProcedures.cs       procedure name constants
-├── Helpers/                      static, stateless helpers
-├── Models/
-│   ├── Entities/                 rows returned from procedures
-│   └── Dtos/                     request/response contracts
-├── Middleware/                   exception handling, request logging, correlation id
+Presentation/ProteiniSi.Api/          host: controllers, middleware, startup extensions
+├── Controllers/                      thin, no SQL, no business rules
+├── Middleware/                       exception handling
+├── Extensions/                       security, Swagger, compression/caching setup
+├── Caching/                          output cache tags
 └── Program.cs
+
+Application/ProteiniSi.Contracts/     interfaces and errors shared by all layers
+├── Services/                         IProductService, IOrderService ...
+├── Providers/                        IProductProvider, IOrderProvider ...
+└── Exceptions/                       BadRequest, NotFound, Conflict ...
+
+Application/ProteiniSi.Dtos/          request/response classes
+
+Application/ProteiniSi.Services/      business rules
+├── *Service.cs                       ProductService, OrderService ...
+├── Helpers/                          static, stateless helpers
+└── ServiceRegistration.cs
+
+Domain/ProteiniSi.Models/             rows returned from procedures
+
+Infrastructure/ProteiniSi.Data/       data access, stored procedures only
+├── ISqlHelper.cs / SqlHelper.cs      the only class that opens connections
+├── StoredProcedures.cs               procedure name constants
+├── Providers/                        ProductProvider, OrderProvider ...
+└── DataRegistration.cs
 ```
 
 ### Responsibilities
@@ -289,7 +309,7 @@ Track every SQL string in a checklist (`docs/backend/sql-inventory.md`): file, l
 
 - Create a dedicated DB login for the app: `GRANT EXECUTE ON SCHEMA::dbo` and **no** `SELECT/INSERT/UPDATE/DELETE`
   on tables. From that moment, even a missed raw query fails instead of leaking data.
-- Add a test/analyzer check that fails the build if `CommandType.Text` or `ExecuteRawSql` appears in `src/`.
+- Add a test/analyzer check that fails the build if `CommandType.Text` or `ExecuteRawSql` appears in the backend projects.
 
 Done when: 0 raw SQL strings in C#, app login has EXECUTE-only permissions, all endpoints pass regression on staging.
 
@@ -329,7 +349,7 @@ Done when: 0 raw SQL strings in C#, app login has EXECUTE-only permissions, all 
   (message, exception, properties). Clicking a correlation id shows the whole request.
 - Retention job: `usp_AppLog_Purge @OlderThanDays = 30` (SQL Agent job or a hosted `BackgroundService`).
 
-Done when: no `Console.WriteLine` in `src/`, every error on staging appears in the preview with its correlation id.
+Done when: no `Console.WriteLine` in the backend projects, every error on staging appears in the preview with its correlation id.
 
 ---
 

@@ -12,8 +12,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ProteiniSi.Data\ProteiniSi.Data.csproj" />
-    <ProjectReference Include="..\ProteiniSi.Services\ProteiniSi.Services.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\ProteiniSi.Data\ProteiniSi.Data.csproj" />
+    <ProjectReference Include="..\..\Application\ProteiniSi.Services\ProteiniSi.Services.csproj" />
   </ItemGroup>
 
 </Project>

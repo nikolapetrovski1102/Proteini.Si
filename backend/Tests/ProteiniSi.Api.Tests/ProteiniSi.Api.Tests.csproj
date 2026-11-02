@@ -12,6 +12,6 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/ProteiniSi.Api/ProteiniSi.Api.csproj" />
+    <ProjectReference Include="..\..\Presentation\ProteiniSi.Api\ProteiniSi.Api.csproj" />
   </ItemGroup>
 </Project>
