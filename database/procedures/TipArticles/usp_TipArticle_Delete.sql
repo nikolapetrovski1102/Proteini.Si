@@ -1,0 +1,12 @@
+CREATE OR ALTER PROCEDURE dbo.usp_TipArticle_Delete
+    @Id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DELETE FROM dbo.TipArticles
+    WHERE Id = @Id;
+
+    SELECT @@ROWCOUNT AS RowsAffected;
+END
+GO

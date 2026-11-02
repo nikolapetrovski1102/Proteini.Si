@@ -13,13 +13,16 @@ public static class ServiceRegistration
         services.AddScoped<ISqlHelper, SqlHelper>();
 
         services.AddScoped<IBranchLocationProvider, BranchLocationProvider>();
+        services.AddScoped<ITipArticleProvider, TipArticleProvider>();
 
         return services;
     }
 
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
+        services.AddScoped<IImageStorageService, ImageStorageService>();
         services.AddScoped<IBranchLocationService, BranchLocationService>();
+        services.AddScoped<ITipArticleService, TipArticleService>();
 
         return services;
     }

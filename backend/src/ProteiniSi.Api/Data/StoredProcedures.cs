@@ -10,4 +10,16 @@ public static class StoredProcedures
         public const string Update = "dbo.usp_BranchLocation_Update";
         public const string Delete = "dbo.usp_BranchLocation_Delete";
     }
+
+    public static class TipArticles
+    {
+        public const string GetActive = "dbo.usp_TipArticle_GetActive";
+        public const string GetAll = "dbo.usp_TipArticle_GetAll";
+        public const string GetById = "dbo.usp_TipArticle_GetById";
+        public const string GetActiveBySlug = "dbo.usp_TipArticle_GetActiveBySlug";
+        public const string SlugExists = "dbo.usp_TipArticle_SlugExists";
+        public const string Create = "dbo.usp_TipArticle_Create";
+        public const string Update = "dbo.usp_TipArticle_Update";
+        public const string Delete = "dbo.usp_TipArticle_Delete";
+    }
 }
