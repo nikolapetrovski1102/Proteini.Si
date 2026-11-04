@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 const siteUrl = (process.env.SITE_URL || "https://proteini.mk").replace(/\/$/, "");
 const apiUrl = (process.env.SITEMAP_API_BASE_URL || `${siteUrl}/api`).replace(/\/$/, "");
+const clientKey = process.env.API_CLIENT_KEY || process.env.VITE_API_CLIENT_KEY;
 
 const staticPaths = [
   "/",
@@ -32,7 +33,7 @@ const toArray = (value) => (Array.isArray(value) ? value : []);
 
 async function fetchJson(path) {
   const response = await fetch(`${apiUrl}${path}`, {
-    headers: { Accept: "application/json" },
+    headers: { Accept: "application/json", ...(clientKey && { "X-Api-Key": clientKey }) },
   });
   if (!response.ok) throw new Error(`${path} returned HTTP ${response.status}`);
   return response.json();

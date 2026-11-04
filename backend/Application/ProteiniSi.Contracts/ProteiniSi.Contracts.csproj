@@ -1,8 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Domain\ProteiniSi.Models\ProteiniSi.Models.csproj" />
-    <ProjectReference Include="..\ProteiniSi.Dtos\ProteiniSi.Dtos.csproj" />
+    <ProjectReference Include="..\..\Domain\ProteiniSi.Models\ProteiniSi.Models.csproj">
+      <ReferenceSourceTarget></ReferenceSourceTarget>
+    </ProjectReference>
+    <ProjectReference Include="..\ProteiniSi.Dtos\ProteiniSi.Dtos.csproj">
+      <ReferenceSourceTarget></ReferenceSourceTarget>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>

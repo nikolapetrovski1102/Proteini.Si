@@ -10,7 +10,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Application\ProteiniSi.Contracts\ProteiniSi.Contracts.csproj" />
+    <ProjectReference Include="..\..\Application\ProteiniSi.Contracts\ProteiniSi.Contracts.csproj">
+      <ReferenceSourceTarget></ReferenceSourceTarget>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>

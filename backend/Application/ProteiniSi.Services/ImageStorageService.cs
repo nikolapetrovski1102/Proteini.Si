@@ -8,6 +8,8 @@ namespace ProteiniSi.Services;
 
 public class ImageStorageService(IWebHostEnvironment environment) : IImageStorageService
 {
+    private string WebRoot => environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot");
+
     public async Task<string?> SaveAsync(IFormFile? image, string folder, string filePrefix)
     {
         if (!ImageHelper.HasFile(image))
@@ -17,15 +19,34 @@ public class ImageStorageService(IWebHostEnvironment environment) : IImageStorag
         if (error != null)
             throw new BadRequestException(error);
 
-        var webRoot = environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot");
-        var uploadsFolder = Path.Combine(webRoot, "uploads", folder);
-        Directory.CreateDirectory(uploadsFolder);
-
         var fileName = $"{filePrefix}_{Guid.NewGuid():N}{Path.GetExtension(image!.FileName).ToLowerInvariant()}";
 
-        await using var stream = new FileStream(Path.Combine(uploadsFolder, fileName), FileMode.Create);
-        await image.CopyToAsync(stream);
+        return await SaveFileAsync(image, $"uploads/{folder}", fileName);
+    }
 
-        return $"/uploads/{folder}/{fileName}";
+    public async Task<string> SaveFileAsync(IFormFile file, string webFolder, string fileName)
+    {
+        var folder = Path.Combine(WebRoot, webFolder);
+        Directory.CreateDirectory(folder);
+
+        await using var stream = new FileStream(Path.Combine(folder, Path.GetFileName(fileName)), FileMode.Create);
+        await file.CopyToAsync(stream);
+
+        return $"/{webFolder}/{Path.GetFileName(fileName)}";
+    }
+
+    public void Delete(string? webPath)
+    {
+        if (string.IsNullOrWhiteSpace(webPath))
+            return;
+
+        var root = Path.GetFullPath(WebRoot);
+        var fullPath = Path.GetFullPath(Path.Combine(root, webPath.TrimStart('/', '\\')));
+
+        if (!fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            return;
+
+        if (File.Exists(fullPath))
+            File.Delete(fullPath);
     }
 }

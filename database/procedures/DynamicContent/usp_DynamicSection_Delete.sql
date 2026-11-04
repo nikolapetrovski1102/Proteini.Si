@@ -1,0 +1,16 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.usp_DynamicSection_Delete
+    @Id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    DELETE FROM dbo.DynamicSections WHERE Section_Id = @Id;
+
+    SELECT @@ROWCOUNT AS RowsAffected;
+END
+GO

@@ -1,0 +1,16 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.usp_Product_Delete
+    @ProductId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    DELETE FROM dbo.Products
+    OUTPUT deleted.Img AS OldImg, CAST(NULL AS NVARCHAR(MAX)) AS NewImg
+    WHERE Product_Id = @ProductId;
+END
+GO

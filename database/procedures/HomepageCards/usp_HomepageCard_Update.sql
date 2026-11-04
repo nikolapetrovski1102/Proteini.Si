@@ -1,3 +1,7 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
 CREATE OR ALTER PROCEDURE dbo.usp_HomepageCard_Update
     @Id INT,
     @Section NVARCHAR(20),

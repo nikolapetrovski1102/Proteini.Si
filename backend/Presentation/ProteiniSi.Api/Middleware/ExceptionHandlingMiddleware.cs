@@ -15,7 +15,10 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
             logger.LogWarning("{Method} {Path} returned {StatusCode}: {Message}",
                 context.Request.Method, context.Request.Path, ex.StatusCode, ex.Message);
 
-            await WriteErrorAsync(context, ex.StatusCode, ex.Message);
+            if (ex.Body is null)
+                await WriteErrorAsync(context, ex.StatusCode, ex.Message);
+            else
+                await WriteBodyAsync(context, ex.StatusCode, ex.Body);
         }
         catch (Exception ex)
         {
@@ -33,5 +36,24 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         context.Response.Clear();
         context.Response.StatusCode = statusCode;
         await context.Response.WriteAsJsonAsync(new { status = false, message, traceId = context.TraceIdentifier });
+    }
+
+    private static async Task WriteBodyAsync(HttpContext context, int statusCode, object body)
+    {
+        if (context.Response.HasStarted)
+            return;
+
+        context.Response.Clear();
+        context.Response.StatusCode = statusCode;
+
+        if (body is string text)
+        {
+            context.Response.ContentType = "text/plain; charset=utf-8";
+            await context.Response.WriteAsync(text);
+        }
+        else
+        {
+            await context.Response.WriteAsJsonAsync(body, body.GetType());
+        }
     }
 }

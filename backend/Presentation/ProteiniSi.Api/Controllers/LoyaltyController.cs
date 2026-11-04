@@ -1,61 +1,51 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ProteiniSi.Api.Models.DTOs;
-using ProteiniSi.Api.Services;
-using System.Security.Claims;
+using ProteiniSi.Contracts.Services;
 
-namespace ProteiniSi.Api.Controllers
+namespace ProteiniSi.Api.Controllers;
+
+[Authorize]
+[Route("api/[controller]")]
+public class LoyaltyController(ILoyaltyService loyaltyService) : ControllerBase
 {
-    [Authorize]
-    [Route("api/[controller]")]
-    public class LoyaltyController : ControllerBase
+    private int GetCurrentUserId()
     {
-        private readonly ILoyaltyService _loyaltyService;
+        var userIdClaim = User.FindFirst("userId")?.Value;
+        if (string.IsNullOrEmpty(userIdClaim))
+            return 0;
+        return int.Parse(userIdClaim);
+    }
 
-        public LoyaltyController(ILoyaltyService loyaltyService)
-        {
-            _loyaltyService = loyaltyService;
-        }
+    [HttpGet("summary")]
+    public async Task<IActionResult> GetPointsSummary()
+    {
+        var userId = GetCurrentUserId();
+        if (userId == 0)
+            return Unauthorized(new { message = "User not authenticated" });
 
-        private int GetCurrentUserId()
-        {
-            var userIdClaim = User.FindFirst("userId")?.Value;
-            if (string.IsNullOrEmpty(userIdClaim))
-                return 0;
-            return int.Parse(userIdClaim);
-        }
+        var summary = await loyaltyService.GetUserPointsSummaryAsync(userId);
+        return Ok(new { status = true, data = summary });
+    }
 
-        [HttpGet("summary")]
-        public async Task<IActionResult> GetPointsSummary()
-        {
-            var userId = GetCurrentUserId();
-            if (userId == 0)
-                return Unauthorized(new { message = "User not authenticated" });
+    [HttpGet("history")]
+    public async Task<IActionResult> GetPointsHistory([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == 0)
+            return Unauthorized(new { message = "User not authenticated" });
 
-            var summary = await _loyaltyService.GetUserPointsSummaryAsync(userId);
-            return Ok(new { status = true, data = summary });
-        }
+        var history = await loyaltyService.GetUserPointsHistoryAsync(userId, page, pageSize);
+        return Ok(new { status = true, data = history, page, pageSize });
+    }
 
-        [HttpGet("history")]
-        public async Task<IActionResult> GetPointsHistory([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
-        {
-            var userId = GetCurrentUserId();
-            if (userId == 0)
-                return Unauthorized(new { message = "User not authenticated" });
+    [HttpGet("available")]
+    public async Task<IActionResult> GetAvailablePoints()
+    {
+        var userId = GetCurrentUserId();
+        if (userId == 0)
+            return Unauthorized(new { message = "User not authenticated" });
 
-            var history = await _loyaltyService.GetUserPointsHistoryAsync(userId, page, pageSize);
-            return Ok(new { status = true, data = history, page = page, pageSize = pageSize });
-        }
-
-        [HttpGet("available")]
-        public async Task<IActionResult> GetAvailablePoints()
-        {
-            var userId = GetCurrentUserId();
-            if (userId == 0)
-                return Unauthorized(new { message = "User not authenticated" });
-
-            var points = await _loyaltyService.GetAvailablePointsAsync(userId);
-            return Ok(new { status = true, availablePoints = points });
-        }
+        var points = await loyaltyService.GetAvailablePointsAsync(userId);
+        return Ok(new { status = true, availablePoints = points });
     }
 }

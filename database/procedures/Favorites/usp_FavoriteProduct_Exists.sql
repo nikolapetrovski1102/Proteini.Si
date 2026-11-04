@@ -1,0 +1,14 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.usp_FavoriteProduct_Exists
+    @UserId INT,
+    @ProductId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT CAST(CASE WHEN EXISTS (SELECT 1 FROM dbo.FavoriteProducts WHERE UserId = @UserId AND ProductId = @ProductId) THEN 1 ELSE 0 END AS BIT);
+END
+GO

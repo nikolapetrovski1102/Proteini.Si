@@ -1,3 +1,7 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
 CREATE OR ALTER PROCEDURE dbo.usp_TipArticle_Update
     @Id INT,
     @Category NVARCHAR(100),

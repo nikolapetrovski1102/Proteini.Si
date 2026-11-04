@@ -1,0 +1,16 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.usp_Order_GetCartId
+    @UserId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT TOP 1 Cart_Id
+    FROM dbo.ShoppingCart
+    WHERE User_Id = @UserId
+    ORDER BY Cart_Id;
+END
+GO

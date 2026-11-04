@@ -1,3 +1,7 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
 CREATE OR ALTER PROCEDURE dbo.usp_HomepageCard_SlugExists
     @Slug NVARCHAR(160),
     @ExcludingId INT = NULL

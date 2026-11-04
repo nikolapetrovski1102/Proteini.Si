@@ -1,0 +1,15 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.usp_Order_Exists
+    @OrderId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT COUNT(1)
+    FROM dbo.Orders
+    WHERE Order_Id = @OrderId;
+END
+GO

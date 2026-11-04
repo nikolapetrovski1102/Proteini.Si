@@ -14,8 +14,22 @@ For an existing base schema missing these features, the documented order is:
 4. `migrations/0004_add-product-sale-pricing.sql`
 5. `migrations/0005_complete-ecommerce-features.sql`
 6. `migrations/0006_add-variant-option-type.sql`
+7. `migrations/0007_create-branch-locations.sql`
+8. `migrations/0008_create-homepage-cards.sql`
+9. `migrations/0009_create-procedure-table-types.sql` (table types used by the stored procedures; run before deploying `procedures/`)
+10. `migrations/0010_create-newsletter-subscribers.sql`
 
-The last script adds `ProductVariants.Option_Type`, marks existing shaker variants as colors and adds the allowed-value constraint. It is required for the current variant code and is newer than the existing 2026-10-14 deployment checklist.
+Script 0006 adds `ProductVariants.Option_Type`, marks existing shaker variants as colors and adds the allowed-value constraint. It is required for the current variant code and is newer than the existing 2026-10-14 deployment checklist.
+
+## Stored procedures
+
+The API runs no inline SQL. Every query goes through a stored procedure in `procedures/<area>/`, one `CREATE OR ALTER PROCEDURE` per file. After migrations 0009 and 0010 have run, deploy every file in `procedures/` before starting a new API build, for example:
+
+```sh
+for f in database/procedures/*/*.sql; do sqlcmd -S <server> -d proteinimkdb -b -I -i "$f" || break; done
+```
+
+The scripts are idempotent and safe to re-run. Deploy them again whenever a procedure file changes.
 
 ## Other SQL scripts
 

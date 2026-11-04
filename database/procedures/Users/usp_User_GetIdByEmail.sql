@@ -1,0 +1,13 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.usp_User_GetIdByEmail
+    @Email NVARCHAR(4000)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT User_Id FROM dbo.[User] WHERE User_Email = @Email;
+END
+GO

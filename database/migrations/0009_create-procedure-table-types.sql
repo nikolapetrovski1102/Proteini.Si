@@ -1,0 +1,11 @@
+IF TYPE_ID(N'dbo.IntList') IS NULL
+    CREATE TYPE dbo.IntList AS TABLE (Id INT NOT NULL PRIMARY KEY);
+GO
+
+IF TYPE_ID(N'dbo.IdOrderList') IS NULL
+    CREATE TYPE dbo.IdOrderList AS TABLE (Id INT NOT NULL, DisplayOrder INT NOT NULL);
+GO
+
+IF TYPE_ID(N'dbo.StringList') IS NULL
+    CREATE TYPE dbo.StringList AS TABLE (Value NVARCHAR(MAX) NOT NULL);
+GO

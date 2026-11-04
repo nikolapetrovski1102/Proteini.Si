@@ -1,4 +1,4 @@
-using ProteiniSi.Api.Services;
+using ProteiniSi.Services.Helpers;
 using Xunit;
 
 namespace ProteiniSi.Api.Tests;

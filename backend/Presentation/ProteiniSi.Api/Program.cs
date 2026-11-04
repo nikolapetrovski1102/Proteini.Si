@@ -1,8 +1,5 @@
-using Microsoft.Extensions.Options;
 using ProteiniSi.Api.Extensions;
 using ProteiniSi.Api.Middleware;
-using ProteiniSi.Api.Models;
-using ProteiniSi.Api.Services;
 using ProteiniSi.Data;
 using ProteiniSi.Services;
 using Serilog;
@@ -25,12 +22,6 @@ builder.Services.AddApiDocumentation();
 builder.Services.AddDataAccess();
 builder.Services.AddApplicationServices();
 
-builder.Services.Configure<MailModel>(builder.Configuration.GetSection("MailSettings"));
-builder.Services.AddSingleton(provider => provider.GetRequiredService<IOptions<MailModel>>().Value);
-builder.Services.AddScoped<ILoyaltyService, LoyaltyService>();
-builder.Services.AddScoped<CPayService>();
-builder.Services.AddScoped<RelatedProductService>();
-
 var app = builder.Build();
 
 app.UseResponseCompression();
@@ -43,6 +34,7 @@ if (app.Environment.IsDevelopment())
 app.UseCachedStaticFiles();
 app.UseRouting();
 app.UseCors(SecurityExtensions.StorefrontCorsPolicy);
+app.UseMiddleware<ClientKeyMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseOutputCache();
