@@ -7,7 +7,7 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((context, configuration) => configuration.ReadFrom.Configuration(context.Configuration));
-builder.WebHost.ConfigureKestrel(options => options.ListenAnyIP(6800));
+builder.WebHost.ConfigureKestrel(options => options.ListenAnyIP(builder.Configuration.GetValue("ApiPort", 6800)));
 
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();

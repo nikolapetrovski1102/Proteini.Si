@@ -23,13 +23,13 @@ const paymentStatusOptions = [
 ];
 
 const actions = [
-  { label: "Confirm", order_Status: "confirmed" },
+  { label: "Confirm", order_Status: "confirmed", notifyCustomer: true },
   { label: "Processing", order_Status: "processing" },
-  { label: "Reject", order_Status: "rejected" },
+  { label: "Reject", order_Status: "rejected", notifyCustomer: true },
   { label: "Mark Paid", order_Status: "paid", payment_Status: "completed" },
   { label: "Complete", order_Status: "completed", payment_Status: "completed" },
   { label: "Refund", order_Status: "refunded", payment_Status: "refunded" },
-  { label: "Shipped", order_Status: "shipped" },
+  { label: "Shipped", order_Status: "shipped", notifyCustomer: true },
   { label: "Delivered", order_Status: "delivered" },
 ];
 
@@ -100,7 +100,8 @@ export default function AdminOrders() {
 
   const handleAction = async (order, action) => {
     const ok = window.confirm(
-      `${action.label} order #${order.order_Number || order.Order_Number}?`,
+      `${action.label} order #${order.order_Number || order.Order_Number}?` +
+        (action.notifyCustomer ? "\n\nThe customer will be notified by email." : ""),
     );
     if (!ok) return;
 
@@ -123,15 +124,20 @@ export default function AdminOrders() {
     setError("");
 
     try {
-      await api.updateAdminOrderStatus({
+      const result = await api.updateAdminOrderStatus({
         order_Id: order.order_Id || order.Order_Id,
         order_Status: action.order_Status,
         payment_Status: action.payment_Status,
         transaction_Id: null,
         tracking_Number: trackingNumber?.trim() || null,
         tracking_Url: trackingUrl?.trim() || null,
-        send_Email: false,
+        send_Email: Boolean(action.notifyCustomer),
       });
+      if (action.notifyCustomer && result?.emailSent === false) {
+        setError(
+          `Order #${order.order_Number || order.Order_Number} updated, but the customer email could not be sent.`,
+        );
+      }
       await fetchOrders();
     } catch (err) {
       setError(err.message || "Failed to update order");

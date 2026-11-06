@@ -171,43 +171,23 @@ function AppContent() {
         <Route path="/checkout" element={<Checkout />} />
         <Route
           path="/mock-payment"
-          element={
-            <ProtectedRoute>
-              <MockPayment />
-            </ProtectedRoute>
-          }
+          element={<MockPayment />}
         />
         <Route
           path="/order-confirmation/:orderId"
-          element={
-            <ProtectedRoute>
-              <OrderConfirmation />
-            </ProtectedRoute>
-          }
+          element={<OrderConfirmation />}
         />
         <Route
           path="/payment/success"
-          element={
-            <ProtectedRoute>
-              <PaymentSuccess />
-            </ProtectedRoute>
-          }
+          element={<PaymentSuccess />}
         />
         <Route
           path="/payment/cancel"
-          element={
-            <ProtectedRoute>
-              <PaymentCancel />
-            </ProtectedRoute>
-          }
+          element={<PaymentCancel />}
         />
         <Route
           path="/payment/failure"
-          element={
-            <ProtectedRoute>
-              <PaymentFailure />
-            </ProtectedRoute>
-          }
+          element={<PaymentFailure />}
         />
 
         {/* ADMIN ONLY ROUTES */}

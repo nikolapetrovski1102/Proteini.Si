@@ -819,16 +819,12 @@ export default function ProductDetail() {
   }, [activeTab, isScrolling]);
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#2096D8]"></div>
-      </div>
-    );
+    return <ProductDetailSkeleton />;
   }
 
   if (error || !productData?.product) {
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="flex justify-center items-center min-h-[60vh]">
         <div className="text-center">
           <p className="text-red-500 text-xl">{error || "Product not found"}</p>
           <button
@@ -919,7 +915,7 @@ export default function ProductDetail() {
     <div className="w-full flex justify-center bg-gray-50">
       <div className="max-w-[1240px] py-12 px-4 w-full max-lg:flex max-lg:flex-col">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_390px] gap-8 items-start">
-          <div className="flex flex-col items-center w-full border-r border-[#E5E5E5]">
+          <div className="flex flex-col items-center w-full lg:border-r border-[#E5E5E5]">
             {/* Breadcrumb */}
             <div className="text-[12px] text-gray-500 mb-[20px] w-full">
               <Link to="/" className="hover:text-[#2096D8]">
@@ -1036,6 +1032,201 @@ export default function ProductDetail() {
                   }}
                   onAnimationEnd={() => setImageDirection("")}
                 />
+              </div>
+            </div>
+
+            {/* Mobile/Tablet Layout */}
+            <div className="block lg:hidden mb-8 w-full max-w-[600px] mx-auto">
+              <div className="bg-white p-6 shadow-md rounded-xl">
+                <h1 className="text-[26px] font-bold mb-2">{displayName}</h1>
+                {product.shortExpiry && (
+                  <p className="mb-3 inline-block bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900">
+                    {translate("shortExpiry")}
+                    {product.expiryDate
+                      ? ` · ${translate("bestBefore")} ${new Date(product.expiryDate).toLocaleDateString()}`
+                      : ""}
+                  </p>
+                )}
+                <p className="text-gray-500 text-sm mb-4">
+                  {product.BrandName && `Brand: ${product.BrandName}`}
+                  {selectedVariant?.flavor_Name &&
+                    ` | ${variantOptionLabel}: ${selectedVariant.flavor_Name}`}
+                  {selectedVariant?.packaging_Name &&
+                    ` | ${translate("size")}: ${selectedVariant.packaging_Name}`}
+                </p>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="flex text-yellow-400">
+                    <IoIosStarOutline />
+                    <IoIosStarOutline />
+                    <IoIosStarOutline />
+                    <IoIosStarOutline />
+                    <IoIosStarOutline />
+                  </span>
+                  <span className="text-xs text-gray-500">(0 reviews)</span>
+                </div>
+
+                {product.isGiftVoucher && (
+                  <label className="mb-4 block text-sm font-medium text-gray-700">
+                    {translate("voucherAmount")}
+                    <input
+                      type="number"
+                      min={product.voucherMinAmount || 500}
+                      max={product.voucherMaxAmount || undefined}
+                      step="100"
+                      value={voucherAmount}
+                      onChange={(event) => setVoucherAmount(event.target.value)}
+                      onBlur={() => {
+                        const minimum = Number(product.voucherMinAmount) || 500;
+                        const maximum = product.voucherMaxAmount
+                          ? Number(product.voucherMaxAmount)
+                          : Number.POSITIVE_INFINITY;
+                        setVoucherAmount(Math.min(maximum, Math.max(minimum, Number(voucherAmount) || minimum)));
+                      }}
+                      className="mt-2 w-full border border-gray-300 px-3 py-2 text-lg font-semibold"
+                    />
+                    <span className="mt-1 block text-xs text-gray-500">
+                      {translate("voucherMinimum")} {Number(product.voucherMinAmount || 500).toFixed(0)} MKD
+                    </span>
+                  </label>
+                )}
+
+                <div>
+                  {originalPrice > 0 && originalPrice !== currentPrice && (
+                    <p className="text-lg text-gray-400 line-through mb-1">
+                      MKD {originalPrice.toFixed(2)}
+                    </p>
+                  )}
+                  <p className="text-3xl font-bold text-[#2096D8] mb-4">
+                    MKD {currentPrice.toFixed(2)}
+                  </p>
+                  {originalPrice > 0 && originalPrice !== currentPrice && (
+                    <p className="text-sm text-green-600 mb-2">
+                      Save MKD {(originalPrice - currentPrice).toFixed(2)} (
+                      {Math.round(
+                        ((originalPrice - currentPrice) / originalPrice) * 100,
+                      )}
+                      % off)
+                    </p>
+                  )}
+                  {originalPrice > 0 && originalPrice !== currentPrice && (
+                    <div className="mb-4 flex flex-wrap items-center gap-2 text-sm font-semibold">
+                      <span className="bg-red-600 px-2 py-1 text-white">
+                        {Math.round(((originalPrice - currentPrice) / originalPrice) * 100)}% {translate("promotionBadge")}
+                      </span>
+                      {saleEndDate && (
+                        <span className="text-red-600">{translate("saleEnds")} {saleEndDate}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {hasVariants && availableFlavors.length > 0 && (
+                  <FlavorImageSelector
+                    flavors={availableFlavors}
+                    variants={variants}
+                    packageVariants={packageVariants}
+                    selectedFlavorName={selectedFlavorName}
+                    onSelect={handleFlavorSelect}
+                    imageUrl={getImageUrl}
+                    label={variantOptionLabel}
+                  />
+                )}
+
+                {hasVariants && availablePackagings.length > 0 && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {translate("packaging")}
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {[...availablePackagings]
+                        .sort(sortPackagingsByWeight)
+                        .map((packaging) => {
+                          const hasStock = variants.some(
+                            (v) => v.packaging_Name === packaging.id &&
+                              v.quantity > 0 && v.isActive,
+                          );
+                          const isSelected = selectedPackagingName === packaging.id;
+                          return (
+                            <button
+                              key={packaging.id}
+                              onClick={() =>
+                                hasStock && handlePackagingSelect(packaging.id)
+                              }
+                              disabled={!hasStock}
+                              className={`px-4 py-2 text-sm font-medium transition-all ${
+                                isSelected
+                                  ? "bg-[#2096D8] text-white shadow-md"
+                                  : hasStock
+                                    ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                              }`}
+                            >
+                              {packaging.name}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mb-2 flex justify-end text-xs font-semibold text-[#1b88c5]">
+                  {loyaltyPoints} {translate("loyaltyPoints")}
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex border border-gray-300">
+                    <button
+                      onClick={decreaseQuantity}
+                      disabled={currentStock === 0 || quantity <= 1}
+                      className="w-[40px] py-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      value={quantity}
+                      onChange={handleQuantityChange}
+                      min="1"
+                      max={currentStock > 0 ? currentStock : 1}
+                      disabled={currentStock === 0}
+                      className="w-12 text-center border-x border-gray-300 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed appearance-none"
+                    />
+                    <button
+                      onClick={increaseQuantity}
+                      disabled={currentStock === 0 || quantity >= currentStock}
+                      className="w-[40px] py-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={adding || currentStock === 0}
+                    className={`flex-1 py-2 font-semibold transition-colors max-sm:text-sm ${
+                      currentStock === 0
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-[#FDC700] hover:bg-[#e7b700] text-black"
+                    }`}
+                  >
+                    {adding
+                      ? "Adding..."
+                      : currentStock === 0
+                        ? "Out of Stock"
+                        : "Add to Cart"}
+                  </button>
+                  <button
+                    onClick={handleToggleFavorite}
+                    disabled={favoriteLoading}
+                    className={`p-2 hover:bg-gray-50 transition-colors ${
+                      favoriteLoading ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {isFavorite ? (
+                      <FaHeart size={22} color="#1b88c5" />
+                    ) : (
+                      <FiHeart size={22} color="#1b88c5" strokeWidth={2} />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1500,7 +1691,7 @@ export default function ProductDetail() {
           </div>
 
           {/* RIGHT COLUMN - Desktop only */}
-          <div className="hidden lg:block sticky top-4">
+          <div className="hidden lg:block sticky top-32 max-h-[calc(100vh-9rem)] overflow-y-auto">
             <div className="bg-white rounded-xl p-6 shadow-md">
               <h1 className="text-[26px] font-bold mb-2">{displayName}</h1>
               {product.shortExpiry && (
@@ -1696,200 +1887,6 @@ export default function ProductDetail() {
           </div>
         </div>
 
-        {/* Mobile/Tablet Layout */}
-        <div className="block lg:hidden mb-8 max-w-[600px]">
-          <div className="sticky top-4 bg-white p-6 shadow-md">
-            <h1 className="text-[26px] font-bold mb-2">{displayName}</h1>
-            {product.shortExpiry && (
-              <p className="mb-3 inline-block bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900">
-                {translate("shortExpiry")}
-                {product.expiryDate
-                  ? ` · ${translate("bestBefore")} ${new Date(product.expiryDate).toLocaleDateString()}`
-                  : ""}
-              </p>
-            )}
-            <p className="text-gray-500 text-sm mb-4">
-              {product.BrandName && `Brand: ${product.BrandName}`}
-              {selectedVariant?.flavor_Name &&
-                ` | ${variantOptionLabel}: ${selectedVariant.flavor_Name}`}
-              {selectedVariant?.packaging_Name &&
-                ` | ${translate("size")}: ${selectedVariant.packaging_Name}`}
-            </p>
-            <div className="flex items-center gap-2 mb-4">
-              <span className="flex text-yellow-400">
-                <IoIosStarOutline />
-                <IoIosStarOutline />
-                <IoIosStarOutline />
-                <IoIosStarOutline />
-                <IoIosStarOutline />
-              </span>
-              <span className="text-xs text-gray-500">(0 reviews)</span>
-            </div>
-
-            {product.isGiftVoucher && (
-              <label className="mb-4 block text-sm font-medium text-gray-700">
-                {translate("voucherAmount")}
-                <input
-                  type="number"
-                  min={product.voucherMinAmount || 500}
-                  max={product.voucherMaxAmount || undefined}
-                  step="100"
-                  value={voucherAmount}
-                  onChange={(event) => setVoucherAmount(event.target.value)}
-                  onBlur={() => {
-                    const minimum = Number(product.voucherMinAmount) || 500;
-                    const maximum = product.voucherMaxAmount
-                      ? Number(product.voucherMaxAmount)
-                      : Number.POSITIVE_INFINITY;
-                    setVoucherAmount(Math.min(maximum, Math.max(minimum, Number(voucherAmount) || minimum)));
-                  }}
-                  className="mt-2 w-full border border-gray-300 px-3 py-2 text-lg font-semibold"
-                />
-                <span className="mt-1 block text-xs text-gray-500">
-                  {translate("voucherMinimum")} {Number(product.voucherMinAmount || 500).toFixed(0)} MKD
-                </span>
-              </label>
-            )}
-
-            <div>
-              {originalPrice > 0 && originalPrice !== currentPrice && (
-                <p className="text-lg text-gray-400 line-through mb-1">
-                  MKD {originalPrice.toFixed(2)}
-                </p>
-              )}
-              <p className="text-3xl font-bold text-[#2096D8] mb-4">
-                MKD {currentPrice.toFixed(2)}
-              </p>
-              {originalPrice > 0 && originalPrice !== currentPrice && (
-                <p className="text-sm text-green-600 mb-2">
-                  Save MKD {(originalPrice - currentPrice).toFixed(2)} (
-                  {Math.round(
-                    ((originalPrice - currentPrice) / originalPrice) * 100,
-                  )}
-                  % off)
-                </p>
-              )}
-              {originalPrice > 0 && originalPrice !== currentPrice && (
-                <div className="mb-4 flex flex-wrap items-center gap-2 text-sm font-semibold">
-                  <span className="bg-red-600 px-2 py-1 text-white">
-                    {Math.round(((originalPrice - currentPrice) / originalPrice) * 100)}% {translate("promotionBadge")}
-                  </span>
-                  {saleEndDate && (
-                    <span className="text-red-600">{translate("saleEnds")} {saleEndDate}</span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {hasVariants && availableFlavors.length > 0 && (
-              <FlavorImageSelector
-                flavors={availableFlavors}
-                variants={variants}
-                packageVariants={packageVariants}
-                selectedFlavorName={selectedFlavorName}
-                onSelect={handleFlavorSelect}
-                imageUrl={getImageUrl}
-                label={variantOptionLabel}
-              />
-            )}
-
-            {hasVariants && availablePackagings.length > 0 && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {translate("packaging")}
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {[...availablePackagings]
-                    .sort(sortPackagingsByWeight)
-                    .map((packaging) => {
-                      const hasStock = variants.some(
-                        (v) => v.packaging_Name === packaging.id &&
-                          v.quantity > 0 && v.isActive,
-                      );
-                      const isSelected = selectedPackagingName === packaging.id;
-                      return (
-                        <button
-                          key={packaging.id}
-                          onClick={() =>
-                            hasStock && handlePackagingSelect(packaging.id)
-                          }
-                          disabled={!hasStock}
-                          className={`px-4 py-2 text-sm font-medium transition-all ${
-                            isSelected
-                              ? "bg-[#2096D8] text-white shadow-md"
-                              : hasStock
-                                ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          }`}
-                        >
-                          {packaging.name}
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
-
-            <div className="mb-2 flex justify-end text-xs font-semibold text-[#1b88c5]">
-              {loyaltyPoints} {translate("loyaltyPoints")}
-            </div>
-            <div className="flex gap-4">
-              <div className="flex border border-gray-300">
-                <button
-                  onClick={decreaseQuantity}
-                  disabled={currentStock === 0 || quantity <= 1}
-                  className="w-[40px] py-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  value={quantity}
-                  onChange={handleQuantityChange}
-                  min="1"
-                  max={currentStock > 0 ? currentStock : 1}
-                  disabled={currentStock === 0}
-                  className="w-12 text-center border-x border-gray-300 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed appearance-none"
-                />
-                <button
-                  onClick={increaseQuantity}
-                  disabled={currentStock === 0 || quantity >= currentStock}
-                  className="w-[40px] py-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  +
-                </button>
-              </div>
-              <button
-                onClick={handleAddToCart}
-                disabled={adding || currentStock === 0}
-                className={`flex-1 py-2 font-semibold transition-colors max-sm:text-sm ${
-                  currentStock === 0
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-[#FDC700] hover:bg-[#e7b700] text-black"
-                }`}
-              >
-                {adding
-                  ? "Adding..."
-                  : currentStock === 0
-                    ? "Out of Stock"
-                    : "Add to Cart"}
-              </button>
-              <button
-                onClick={handleToggleFavorite}
-                disabled={favoriteLoading}
-                className={`p-2 hover:bg-gray-50 transition-colors ${
-                  favoriteLoading ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                {isFavorite ? (
-                  <FaHeart size={22} color="#1b88c5" />
-                ) : (
-                  <FiHeart size={22} color="#1b88c5" strokeWidth={2} />
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
 
         <ProductQuestionForm productName={displayName} />
       </div>
@@ -2036,5 +2033,42 @@ function ProductQuestionForm({ productName }) {
         )}
       </form>
     </section>
+  );
+}
+
+function ProductDetailSkeleton() {
+  return (
+    <div
+      className="w-full flex justify-center bg-gray-50"
+      aria-busy="true"
+      aria-label="Loading product"
+    >
+      <div className="max-w-[1240px] py-12 px-4 w-full animate-pulse">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_390px] gap-8 items-start">
+          <div className="w-full">
+            <div className="mb-[20px] h-3 w-40 bg-gray-200" />
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="order-2 md:order-1 flex flex-row md:flex-col gap-3 md:w-28">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-20 w-20 md:h-24 md:w-24 bg-gray-200" />
+                ))}
+              </div>
+              <div className="order-1 md:order-2 flex-1 flex justify-center">
+                <div className="aspect-square w-full max-w-[550px] bg-gray-200" />
+              </div>
+            </div>
+          </div>
+          <div className="w-full max-w-[600px] mx-auto lg:max-w-none bg-white rounded-xl p-6 shadow-md space-y-4">
+            <div className="h-7 w-3/4 bg-gray-200" />
+            <div className="h-3 w-1/2 bg-gray-200" />
+            <div className="h-4 w-1/3 bg-gray-200" />
+            <div className="h-8 w-1/3 bg-gray-200" />
+            <div className="h-10 w-full bg-gray-200" />
+            <div className="h-10 w-full bg-gray-200" />
+            <div className="h-11 w-full bg-gray-200" />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

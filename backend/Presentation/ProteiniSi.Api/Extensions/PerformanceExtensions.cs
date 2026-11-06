@@ -23,15 +23,24 @@ public static class PerformanceExtensions
         return services;
     }
 
+    // Uploaded image folders. Every upload gets a unique file name, so these files never
+    // change in place and can be cached for a year by browsers and the CDN edge.
+    private static readonly string[] ImmutableImageFolders =
+    [
+        "/uploads", "/home-slider", "/product-images", "/product-gallery", "/variant-images", "/variant-gallery"
+    ];
+
     public static WebApplication UseCachedStaticFiles(this WebApplication app)
     {
         app.UseStaticFiles(new StaticFileOptions
         {
             OnPrepareResponse = context =>
             {
-                var isUpload = context.Context.Request.Path.StartsWithSegments("/uploads");
-                var maxAge = isUpload ? TimeSpan.FromDays(365) : TimeSpan.FromDays(1);
-                context.Context.Response.Headers[HeaderNames.CacheControl] = $"public,max-age={(int)maxAge.TotalSeconds}";
+                var path = context.Context.Request.Path;
+                var isImage = ImmutableImageFolders.Any(folder => path.StartsWithSegments(folder));
+                context.Context.Response.Headers[HeaderNames.CacheControl] = isImage
+                    ? "public,max-age=31536000,immutable"
+                    : $"public,max-age={(int)TimeSpan.FromDays(1).TotalSeconds}";
             }
         });
 

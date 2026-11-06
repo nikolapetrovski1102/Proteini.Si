@@ -1,5 +1,12 @@
 // src/contexts/AuthContext.jsx
-import React, { createContext, useState, useContext, useEffect } from "react";
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import { api } from "../services/api";
 import { useLocation } from "react-router-dom";
 
@@ -13,34 +20,23 @@ export const useAuth = () => {
   return context;
 };
 
+// Helper function to check if token is expired
+const isTokenExpired = (token) => {
+  if (!token) return true;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const exp = payload.exp;
+    if (!exp) return true;
+    return Date.now() >= exp * 1000;
+  } catch {
+    return true;
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
-
-  // Helper function to check if token is expired
-  const isTokenExpired = (token) => {
-    if (!token) return true;
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      const exp = payload.exp;
-      if (!exp) return true;
-      return Date.now() >= exp * 1000;
-    } catch (error) {
-      return true;
-    }
-  };
-
-  // Check and handle token expiration
-  const checkTokenValidity = () => {
-    const token = api.getToken();
-    if (token && isTokenExpired(token)) {
-      api.logout();
-      setUser(null);
-      return false;
-    }
-    return !!token;
-  };
 
   // Check token on mount and route changes
   useEffect(() => {
@@ -59,8 +55,11 @@ export const AuthProvider = ({ children }) => {
 
   // Check token validity on route changes
   useEffect(() => {
-    if (!loading) {
-      checkTokenValidity();
+    if (loading) return;
+    const token = api.getToken();
+    if (token && isTokenExpired(token)) {
+      api.logout();
+      setUser(null);
     }
   }, [location.pathname, loading]);
 
@@ -79,7 +78,7 @@ export const AuthProvider = ({ children }) => {
     return () => clearInterval(interval);
   }, []);
 
-  const login = async (credentials) => {
+  const login = useCallback(async (credentials) => {
     const response = await api.login(credentials);
     if (response.status && response.token) {
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -87,9 +86,9 @@ export const AuthProvider = ({ children }) => {
       setUser(storedUser);
     }
     return response;
-  };
+  }, []);
 
-  const register = async (userData) => {
+  const register = useCallback(async (userData) => {
     const response = await api.register(userData);
     if (response.status && response.token) {
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -97,40 +96,43 @@ export const AuthProvider = ({ children }) => {
       setUser(storedUser);
     }
     return response;
-  };
+  }, []);
 
-  const forgotPassword = async (data) => {
-    return await api.forgotPassword(data);
-  };
+  const forgotPassword = useCallback((data) => api.forgotPassword(data), []);
 
-  const resetPassword = async (data) => {
-    return await api.resetPassword(data);
-  };
+  const resetPassword = useCallback((data) => api.resetPassword(data), []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     api.logout();
     setUser(null);
-  };
+  }, []);
 
-  const isAuthenticated = () => {
+  // Stable reference so effects that depend on it don't re-run every render.
+  const isAuthenticated = useCallback(() => {
     const token = api.getToken();
     if (!token) return false;
     return !isTokenExpired(token);
-  };
+  }, []);
+
+  // Recomputed on navigation as well, so consumers re-check isAuthenticated() after
+  // a token was removed outside this provider (e.g. a 401 handler in api.js).
+  const value = useMemo(
+    () => ({
+      user,
+      login,
+      register,
+      logout,
+      loading,
+      isAuthenticated,
+      forgotPassword,
+      resetPassword,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, loading, location.pathname, login, register, logout, isAuthenticated, forgotPassword, resetPassword],
+  );
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        login,
-        register,
-        logout,
-        loading,
-        isAuthenticated,
-        forgotPassword,
-        resetPassword,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

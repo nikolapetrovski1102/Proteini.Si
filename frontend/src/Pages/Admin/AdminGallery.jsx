@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../../services/api";
+import ResetCacheButton from "./ResetCacheButton";
 
 export default function AdminGallery() {
   const [sliders, setSliders] = useState([]);
@@ -235,12 +236,15 @@ export default function AdminGallery() {
           <h1 className="text-2xl font-bold text-gray-800">
             Home Slider Management
           </h1>
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="bg-[#2096D8] hover:bg-[#007bff] text-white px-4 py-2 transition-colors"
-          >
-            + Add New Slide
-          </button>
+          <div className="flex items-start gap-3">
+            <ResetCacheButton />
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="bg-[#2096D8] hover:bg-[#007bff] text-white px-4 py-2 transition-colors"
+            >
+              + Add New Slide
+            </button>
+          </div>
         </div>
 
         {/* Error message */}

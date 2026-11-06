@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -71,7 +72,8 @@ public class OrderController(
                 promoDiscount = result.PromoDiscount,
                 giftVoucherAmount = result.GiftVoucherAmount,
                 freeGift = result.FreeGift,
-                pointsToEarn = result.PointsToEarn
+                pointsToEarn = result.PointsToEarn,
+                guestAccessToken = result.GuestAccessToken
             });
         }
 
@@ -89,7 +91,8 @@ public class OrderController(
             promoDiscount = result.PromoDiscount,
             giftVoucherAmount = result.GiftVoucherAmount,
             freeGift = result.FreeGift,
-            pointsToEarn = result.PointsToEarn
+            pointsToEarn = result.PointsToEarn,
+            guestAccessToken = result.GuestAccessToken
         });
     }
 
@@ -145,28 +148,47 @@ public class OrderController(
             var transactionId = GetFirstValue(callbackParams, "transaction_id", "TransactionId", "cPayPaymentRef", "PaymentRef");
 
             if (orderId <= 0)
-                return Redirect($"{frontendUrl}/payment/failure?error=missing-order-id");
+                return BrowserRedirect($"{frontendUrl}/payment/failure?error=missing-order-id");
+
+            if (!HasCpayChecksum(callbackParams) || !cpayService.ProcessCallback(callbackParams))
+            {
+                logger.LogWarning("cPay {Result} return could not be verified. OrderId={OrderId}", result, orderId);
+                return BrowserRedirect($"{frontendUrl}/payment/failure?orderId={orderId}&error=payment-verification-failed");
+            }
+
+            // Only grants access to guest orders, so it is safe to add for every order.
+            var guestToken = orderService.CreateGuestAccessToken(orderId);
 
             if (string.Equals(result, "success", StringComparison.OrdinalIgnoreCase))
             {
-                if (!HasCpayChecksum(callbackParams) || !cpayService.ProcessCallback(callbackParams))
-                {
-                    logger.LogWarning("cPay success return could not be verified. OrderId={OrderId}", orderId);
-                    return Redirect($"{frontendUrl}/payment/failure?orderId={orderId}&error=payment-verification-failed");
-                }
+                var completion = await orderService.CompleteCPayPaymentAsync(orderId, GetFirstValue(callbackParams, "AmountToPay"), transactionId);
+                if (!completion.Success)
+                    return BrowserRedirect($"{frontendUrl}/payment/failure?orderId={orderId}&token={guestToken}&error=payment-verification-failed");
 
-                var completion = await orderService.CompletePaidOrderAsync(orderId, transactionId);
-                return Redirect($"{frontendUrl}/payment/success?orderId={orderId}&transaction_id={Uri.EscapeDataString(transactionId ?? string.Empty)}&emailSent={completion.EmailSent.ToString().ToLowerInvariant()}");
+                return BrowserRedirect($"{frontendUrl}/payment/success?orderId={orderId}&token={guestToken}&transaction_id={Uri.EscapeDataString(transactionId ?? string.Empty)}&emailSent={completion.EmailSent.ToString().ToLowerInvariant()}");
             }
 
             await orderService.MarkPaymentFailedAsync(orderId, transactionId);
-            return Redirect($"{frontendUrl}/payment/failure?orderId={orderId}&error=payment-failed");
+            return BrowserRedirect($"{frontendUrl}/payment/failure?orderId={orderId}&token={guestToken}&error=payment-failed");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error processing cPay return");
-            return Redirect($"{frontendUrl}/payment/failure?error=payment-processing-error");
+            return BrowserRedirect($"{frontendUrl}/payment/failure?error=payment-processing-error");
         }
+    }
+
+    // cPay sends the same request to the OK/Fail URL both as a browser redirect and as a server push,
+    // and retries the push until it gets 200 OK, so redirects are done client-side instead of with a 302.
+    private ContentResult BrowserRedirect(string url)
+    {
+        var htmlUrl = WebUtility.HtmlEncode(url);
+        var jsUrl = JsonSerializer.Serialize(url);
+
+        return Content(
+            $"<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"0;url={htmlUrl}\"></head>" +
+            $"<body><script>window.location.replace({jsUrl});</script><a href=\"{htmlUrl}\">Continue</a></body></html>",
+            "text/html");
     }
 
     private async Task<Dictionary<string, string>> ReadPaymentCallbackParametersAsync()
@@ -426,15 +448,34 @@ public class OrderController(
         });
     }
 
+    [AllowAnonymous]
     [HttpGet("Confirmation/{orderId}")]
-    public async Task<IActionResult> GetOrderConfirmation(int orderId)
+    public async Task<IActionResult> GetOrderConfirmation(int orderId, [FromQuery] string? token = null)
     {
         var userId = GetCurrentUserId();
-        if (userId == 0)
-            return Unauthorized(new { message = "User not authenticated" });
-
-        var (order, items) = await orderService.GetConfirmationAsync(orderId, userId);
+        var (order, items) = userId > 0
+            ? await orderService.GetConfirmationAsync(orderId, userId)
+            : await orderService.GetGuestConfirmationAsync(orderId, token);
         return Ok(new { status = true, order, items });
+    }
+
+    // Stands in for cPay while CPayConfiguration:TestMode is on (stage/dev); it does not exist otherwise.
+    [AllowAnonymous]
+    [HttpPost("MockPayment")]
+    public async Task<IActionResult> MockPayment([FromBody] MockPaymentDto payment)
+    {
+        if (!config.GetSection("CPayConfiguration").GetValue<bool>("TestMode", false))
+            return NotFound();
+
+        var userId = GetCurrentUserId();
+        if (userId > 0)
+            await orderService.GetConfirmationAsync(payment.Order_Id, userId);
+        else
+            await orderService.GetGuestConfirmationAsync(payment.Order_Id, payment.Token);
+
+        var status = string.Equals(payment.Payment_Status, "completed", StringComparison.OrdinalIgnoreCase) ? "completed" : "failed";
+        var result = await orderService.ApplyPaymentStatusAsync(payment.Order_Id, status, $"MOCK_{Guid.NewGuid():N}");
+        return Ok(new { status = result?.Success ?? true, message = result?.Message ?? "Payment status updated" });
     }
 
     [HttpPost("Cancel/{orderId}")]

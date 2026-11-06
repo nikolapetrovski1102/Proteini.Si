@@ -1,101 +1,185 @@
-// src/hooks/useCart.js
-import { useState, useEffect, useCallback } from "react";
+// src/Pages/Hooks/useCart.js
+//
+// One shared cart store for the whole app. Every component that calls useCart()
+// reads the same state, so the cart is fetched once (not once per component),
+// in-flight requests are shared, and the header badge updates instantly after
+// any add/update/remove without polling.
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { api } from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 
-export const useCart = () => {
-  const [cart, setCart] = useState(null);
-  const [loading, setLoading] = useState(false);
+const GUEST_CART_KEY = "guestCart";
+const DEFAULT_LOYALTY_PERCENTAGE = 2.0;
+const EMPTY_CART = Object.freeze({ items: [], total: 0, totalItems: 0 });
 
-  // Safely get auth context - handle case when called outside AuthProvider
-  let authContext;
+let state = { cart: null, loading: false, mode: null };
+let inflight = null; // { mode, promise }
+const listeners = new Set();
+
+const emit = (patch) => {
+  state = { ...state, ...patch };
+  listeners.forEach((listener) => listener());
+};
+
+const subscribe = (listener) => {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+};
+
+const getSnapshot = () => state;
+
+const withLoyalty = (cart) => {
+  if (!cart || !Array.isArray(cart.items)) return cart;
+  return {
+    ...cart,
+    items: cart.items.map((item) => ({
+      ...item,
+      loyaltyPercentage: item.loyaltyPercentage ?? DEFAULT_LOYALTY_PERCENTAGE,
+    })),
+  };
+};
+
+const readGuestCart = () => {
+  try {
+    const saved = localStorage.getItem(GUEST_CART_KEY);
+    const parsed = saved ? JSON.parse(saved) : null;
+    if (parsed && Array.isArray(parsed.items)) return parsed;
+  } catch (error) {
+    console.error("Error reading guest cart:", error);
+  }
+  return { items: [], total: 0, totalItems: 0 };
+};
+
+const recalculate = (cart) => {
+  cart.totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+  cart.total = cart.items.reduce((sum, item) => sum + item.subtotal, 0);
+  return cart;
+};
+
+const writeGuestCart = (cart) => {
+  localStorage.setItem(GUEST_CART_KEY, JSON.stringify(cart));
+  emit({ cart: withLoyalty(cart), mode: "guest", loading: false });
+};
+
+/** Loads the cart for the given mode. Concurrent callers share one request. */
+const loadCart = (isAuthenticated, { force = false } = {}) => {
+  const mode = isAuthenticated ? "user" : "guest";
+
+  if (!force && state.mode === mode && state.cart) {
+    return Promise.resolve(state.cart);
+  }
+  if (inflight && inflight.mode === mode) {
+    return inflight.promise;
+  }
+
+  if (mode === "guest") {
+    const cart = withLoyalty(readGuestCart());
+    emit({ cart, mode, loading: false });
+    return Promise.resolve(cart);
+  }
+
+  // Only show a loading state when there is nothing to show yet; refetches after
+  // a change keep the current cart on screen instead of flashing a spinner.
+  const hasCartForMode = state.mode === mode && state.cart;
+  emit({ loading: !hasCartForMode, mode, cart: hasCartForMode ? state.cart : null });
+
+  const promise = api
+    .getCart()
+    .then((data) => {
+      const cart = withLoyalty(data) ?? { ...EMPTY_CART };
+      if (state.mode === mode) emit({ cart, loading: false });
+      return cart;
+    })
+    .catch((error) => {
+      console.error("Error fetching cart:", error);
+      if (state.mode === mode) {
+        emit({ loading: false, cart: state.cart ?? { ...EMPTY_CART } });
+      }
+      return state.cart;
+    })
+    .finally(() => {
+      if (inflight?.promise === promise) inflight = null;
+    });
+
+  inflight = { mode, promise };
+  return promise;
+};
+
+/** Clears the locally stored guest cart and updates every subscriber. */
+export const clearGuestCart = () => {
+  localStorage.removeItem(GUEST_CART_KEY);
+  if (state.mode === "guest") emit({ cart: { ...EMPTY_CART } });
+};
+
+// Keep tabs in sync for guest carts and allow other code to request a refresh.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key === GUEST_CART_KEY && state.mode === "guest") {
+      emit({ cart: withLoyalty(readGuestCart()) });
+    }
+  });
+  window.addEventListener("cartUpdated", () => {
+    if (state.mode) loadCart(state.mode === "user", { force: true });
+  });
+}
+
+export const useCart = () => {
   let isAuthenticated = false;
   try {
-    authContext = useAuth();
-    isAuthenticated = authContext ? authContext.isAuthenticated() : false;
-  } catch (error) {
-    // If useAuth fails, we're in guest mode
-    console.debug("AuthProvider not available, using guest mode for cart");
+    const auth = useAuth();
+    isAuthenticated = auth ? auth.isAuthenticated() : false;
+  } catch {
+    // Outside AuthProvider: treat as guest.
     isAuthenticated = false;
   }
 
-  const fetchCart = useCallback(async () => {
-    setLoading(true);
-    try {
-      if (isAuthenticated) {
-        const data = await api.getCart();
-        // Ensure loyaltyPercentage is included in cart items
-        if (data && data.items) {
-          data.items = data.items.map((item) => ({
-            ...item,
-            loyaltyPercentage: item.loyaltyPercentage ?? 2.0,
-          }));
-        }
-        setCart(data);
-      } else {
-        const savedCart = localStorage.getItem("guestCart");
-        if (savedCart) {
-          const parsedCart = JSON.parse(savedCart);
-          // Ensure loyaltyPercentage is included in guest cart items
-          if (parsedCart && parsedCart.items) {
-            parsedCart.items = parsedCart.items.map((item) => ({
-              ...item,
-              loyaltyPercentage: item.loyaltyPercentage ?? 2.0,
-            }));
-          }
-          setCart(parsedCart);
-        } else {
-          setCart({ items: [], total: 0, totalItems: 0 });
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching cart:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated]);
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const mode = isAuthenticated ? "user" : "guest";
 
   useEffect(() => {
-    fetchCart();
-  }, [fetchCart]);
+    loadCart(isAuthenticated);
+  }, [isAuthenticated]);
 
-  const addToCart = async (productId, quantity, product = null) => {
-    try {
-      if (isAuthenticated) {
-        // Prepare variant data if product has variant info
-        const variantData = product
-          ? {
-              variant_Id: product.variant_Id,
-              variant_Name: product.variant_Name,
-              variant_Packaging: product.variant_Packaging,
-              variant_Weight_Grams: product.variant_Weight_Grams,
-              price: product.price,
-              loyaltyPercentage: product.loyaltyPercentage ?? 2.0, // ✅ ADD THIS
-            }
-          : null;
+  const refreshCart = useCallback(
+    () => loadCart(isAuthenticated, { force: true }),
+    [isAuthenticated],
+  );
 
-        await api.addToCart(productId, quantity, variantData);
-        await fetchCart();
-      } else {
-        const guestCart = JSON.parse(
-          localStorage.getItem("guestCart") ||
-            '{"items":[], "total":0, "totalItems":0}',
-        );
+  const addToCart = useCallback(
+    async (productId, quantity, product = null) => {
+      try {
+        if (isAuthenticated) {
+          const variantData = product
+            ? {
+                variant_Id: product.variant_Id,
+                variant_Name: product.variant_Name,
+                variant_Packaging: product.variant_Packaging,
+                variant_Weight_Grams: product.variant_Weight_Grams,
+                price: product.price,
+                loyaltyPercentage:
+                  product.loyaltyPercentage ?? DEFAULT_LOYALTY_PERCENTAGE,
+              }
+            : null;
 
+          await api.addToCart(productId, quantity, variantData);
+          await loadCart(true, { force: true });
+          return true;
+        }
+
+        const guestCart = readGuestCart();
         const variantIdToAdd = product?.variant_Id || null;
         const existingItem = guestCart.items.find(
           (item) =>
             item.product_Id === productId &&
             (item.variant_Id || null) === variantIdToAdd,
         );
-
-        // Get loyalty percentage from product or default to 2%
-        const loyaltyPercentage = product?.loyaltyPercentage ?? 2.0;
+        const loyaltyPercentage =
+          product?.loyaltyPercentage ?? DEFAULT_LOYALTY_PERCENTAGE;
 
         if (existingItem) {
           existingItem.quantity += quantity;
           existingItem.subtotal = existingItem.price * existingItem.quantity;
-          existingItem.loyaltyPercentage = loyaltyPercentage; // ✅ UPDATE loyalty
+          existingItem.loyaltyPercentage = loyaltyPercentage;
           existingItem.variant_Weight_Grams =
             product?.variant_Weight_Grams ?? existingItem.variant_Weight_Grams;
           existingItem.weight_Grams =
@@ -108,15 +192,14 @@ export const useCart = () => {
             product_Img:
               product.img || product.product_Img || "/placeholder-image.jpg",
             price: product.price || 0,
-            quantity: quantity,
+            quantity,
             subtotal: (product.price || 0) * quantity,
             variant_Id: product.variant_Id || null,
             variant_Name: product.variant_Name || null,
             variant_Packaging: product.variant_Packaging || null,
             variant_Weight_Grams: product.variant_Weight_Grams || null,
             weight_Grams: product.weight_Grams || null,
-            loyaltyPercentage: loyaltyPercentage, // ✅ ADD THIS
-            // For variant products, store the compare price info
+            loyaltyPercentage,
             variant_Compare_Price: product.variant_Compare_Price || null,
             variant_Original_Price: product.variant_Original_Price || null,
           });
@@ -124,17 +207,16 @@ export const useCart = () => {
           try {
             const productData = await api.getProductById(productId);
             const productInfo = productData.product;
-            const productLoyalty = productInfo?.loyaltyPercentage ?? 2.0;
-
             guestCart.items.push({
               cartItem_Id: Date.now(),
               product_Id: productId,
               product_Name: productInfo?.name || "Product",
               product_Img: productInfo?.img || "/placeholder-image.jpg",
               price: productInfo?.price || 0,
-              quantity: quantity,
+              quantity,
               subtotal: (productInfo?.price || 0) * quantity,
-              loyaltyPercentage: productLoyalty, // ✅ ADD THIS
+              loyaltyPercentage:
+                productInfo?.loyaltyPercentage ?? DEFAULT_LOYALTY_PERCENTAGE,
               variant_Compare_Price: null,
               variant_Original_Price: null,
             });
@@ -146,116 +228,91 @@ export const useCart = () => {
               product_Name: "Product",
               product_Img: "/placeholder-image.jpg",
               price: 0,
-              quantity: quantity,
+              quantity,
               subtotal: 0,
-              loyaltyPercentage: 2.0, // ✅ ADD THIS
+              loyaltyPercentage: DEFAULT_LOYALTY_PERCENTAGE,
             });
           }
         }
 
-        guestCart.totalItems = guestCart.items.reduce(
-          (sum, item) => sum + item.quantity,
-          0,
-        );
-        guestCart.total = guestCart.items.reduce(
-          (sum, item) => sum + item.subtotal,
-          0,
-        );
-
-        localStorage.setItem("guestCart", JSON.stringify(guestCart));
-        setCart(guestCart);
+        writeGuestCart(recalculate(guestCart));
+        return true;
+      } catch (error) {
+        console.error("Error adding to cart:", error);
+        return false;
       }
-      return true;
-    } catch (error) {
-      console.error("Error adding to cart:", error);
-      return false;
-    }
-  };
+    },
+    [isAuthenticated],
+  );
 
-  const updateQuantity = async (cartItemId, quantity) => {
-    try {
-      if (isAuthenticated) {
-        await api.updateCartItem(cartItemId, quantity);
-        await fetchCart();
-      } else {
-        const guestCart = JSON.parse(
-          localStorage.getItem("guestCart") ||
-            '{"items":[], "total":0, "totalItems":0}',
-        );
-        const item = guestCart.items.find(
-          (item) => item.cartItem_Id === cartItemId,
-        );
+  const updateQuantity = useCallback(
+    async (cartItemId, quantity) => {
+      try {
+        if (isAuthenticated) {
+          await api.updateCartItem(cartItemId, quantity);
+          await loadCart(true, { force: true });
+          return;
+        }
+
+        const guestCart = readGuestCart();
+        const item = guestCart.items.find((i) => i.cartItem_Id === cartItemId);
         if (item) {
           item.quantity = quantity;
           item.subtotal = item.price * quantity;
-          guestCart.totalItems = guestCart.items.reduce(
-            (sum, i) => sum + i.quantity,
-            0,
-          );
-          guestCart.total = guestCart.items.reduce(
-            (sum, i) => sum + i.subtotal,
-            0,
-          );
-          localStorage.setItem("guestCart", JSON.stringify(guestCart));
-          setCart(guestCart);
+          writeGuestCart(recalculate(guestCart));
         }
+      } catch (error) {
+        console.error("Error updating cart:", error);
       }
-    } catch (error) {
-      console.error("Error updating cart:", error);
-    }
-  };
+    },
+    [isAuthenticated],
+  );
 
-  const removeFromCart = async (cartItemId) => {
-    try {
-      if (isAuthenticated) {
-        await api.removeFromCart(cartItemId);
-        await fetchCart();
-      } else {
-        const guestCart = JSON.parse(
-          localStorage.getItem("guestCart") ||
-            '{"items":[], "total":0, "totalItems":0}',
-        );
+  const removeFromCart = useCallback(
+    async (cartItemId) => {
+      try {
+        if (isAuthenticated) {
+          await api.removeFromCart(cartItemId);
+          await loadCart(true, { force: true });
+          return;
+        }
+
+        const guestCart = readGuestCart();
         guestCart.items = guestCart.items.filter(
           (item) => item.cartItem_Id !== cartItemId,
         );
-        guestCart.totalItems = guestCart.items.reduce(
-          (sum, i) => sum + i.quantity,
-          0,
-        );
-        guestCart.total = guestCart.items.reduce(
-          (sum, i) => sum + i.subtotal,
-          0,
-        );
-        localStorage.setItem("guestCart", JSON.stringify(guestCart));
-        setCart(guestCart);
+        writeGuestCart(recalculate(guestCart));
+      } catch (error) {
+        console.error("Error removing from cart:", error);
       }
-    } catch (error) {
-      console.error("Error removing from cart:", error);
-    }
-  };
+    },
+    [isAuthenticated],
+  );
 
-  const clearCart = async () => {
+  const clearCart = useCallback(async () => {
     try {
       if (isAuthenticated) {
         await api.clearCart();
-        await fetchCart();
+        await loadCart(true, { force: true });
       } else {
-        const emptyCart = { items: [], total: 0, totalItems: 0 };
-        localStorage.setItem("guestCart", JSON.stringify(emptyCart));
-        setCart(emptyCart);
+        writeGuestCart({ items: [], total: 0, totalItems: 0 });
       }
     } catch (error) {
       console.error("Error clearing cart:", error);
     }
-  };
+  }, [isAuthenticated]);
+
+  // While the store still holds the other mode's cart (e.g. right after login),
+  // report nothing rather than the stale cart.
+  const isCurrentMode = snapshot.mode === mode;
 
   return {
-    cart,
-    loading,
+    cart: isCurrentMode ? snapshot.cart : null,
+    loading: isCurrentMode ? snapshot.loading : true,
     addToCart,
     updateQuantity,
     removeFromCart,
     clearCart,
-    refreshCart: fetchCart,
+    refreshCart,
   };
 };

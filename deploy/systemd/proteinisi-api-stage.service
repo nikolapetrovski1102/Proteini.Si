@@ -1,0 +1,36 @@
+[Unit]
+Description=Proteini.mk API (staging, stage-api.proteini.mk)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+User=proteinisi
+Group=proteinisi
+WorkingDirectory=/srv/proteinisi/stage/api
+ExecStart=/usr/bin/dotnet /srv/proteinisi/stage/api/ProteiniSi.Api.dll
+EnvironmentFile=/etc/proteinisi/stage.env
+# Workstation GC with a hard heap cap keeps staging small.
+Environment=DOTNET_gcServer=0
+Environment=DOTNET_GCHeapHardLimit=0xA000000
+Environment=DOTNET_NOLOGO=1
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=20
+
+# Staging only gets what production leaves over.
+CPUWeight=20
+IOWeight=20
+Nice=10
+MemoryHigh=256M
+MemoryMax=384M
+OOMScoreAdjust=600
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/proteinisi/stage/api
+
+[Install]
+WantedBy=multi-user.target

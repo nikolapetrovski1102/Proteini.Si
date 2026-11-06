@@ -14,14 +14,15 @@ BEGIN
     BEGIN TRANSACTION;
 
     DECLARE @Found BIT = 0, @PaymentStatus NVARCHAR(4000), @CurrentStatus NVARCHAR(4000),
-            @Subtotal DECIMAL(38, 10), @UserId INT;
+            @Subtotal DECIMAL(38, 10), @UserId INT, @PaymentMethod NVARCHAR(50);
 
     SELECT
         @Found = 1,
         @PaymentStatus = Payment_Status,
         @CurrentStatus = Order_Status,
         @Subtotal = Subtotal,
-        @UserId = User_Id
+        @UserId = User_Id,
+        @PaymentMethod = Payment_Method
     FROM dbo.Orders WITH (UPDLOCK, HOLDLOCK)
     WHERE Order_Id = @OrderId;
 
@@ -50,6 +51,19 @@ BEGIN
         Order_Status = @OrderStatus,
         Updated_At = GETDATE()
     WHERE Order_Id = @OrderId;
+
+    -- Card orders leave the cart intact at creation; remove the purchased items once payment is confirmed.
+    IF @UserId IS NOT NULL AND LOWER(@PaymentMethod) = 'credit_card'
+        DELETE ci
+        FROM dbo.CartItems ci
+        INNER JOIN dbo.ShoppingCart sc ON sc.Cart_Id = ci.Cart_Id
+        WHERE sc.User_Id = @UserId
+          AND EXISTS (
+              SELECT 1 FROM dbo.OrderItems oi
+              WHERE oi.Order_Id = @OrderId
+                AND oi.Product_Id = ci.Product_Id
+                AND ISNULL(oi.Variant_Id, -1) = ISNULL(ci.Variant_Id, -1)
+          );
 
     UPDATE dbo.GiftVoucherRedemptions
     SET Status = 'redeemed', CompletedAt = SYSUTCDATETIME()

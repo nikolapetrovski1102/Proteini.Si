@@ -208,7 +208,8 @@ namespace ProteiniSi.Services
                 PointsRedeemed = pointsRedeemed,
                 PointsDiscount = pointsDiscount,
                 PointsEarned = totalPointsEarned,
-                CartId = cartId,
+                // Card orders keep the cart until cPay confirms the payment, so a failed or cancelled payment can be retried.
+                CartId = paymentMethod == "credit_card" ? null : cartId,
                 Items = orderItems
             });
             var orderId = created.OrderId;
@@ -227,7 +228,8 @@ namespace ProteiniSi.Services
                 PromoDiscount = promotionDiscount,
                 GiftVoucherAmount = giftVoucherAmount,
                 FreeGift = selectedGift?.DisplayName,
-                PointsToEarn = totalPointsEarned
+                PointsToEarn = totalPointsEarned,
+                GuestAccessToken = userId > 0 ? null : CreateGuestAccessToken(orderId)
             };
 
             await TryRegisterOperationalDocumentAsync(orderId);
@@ -257,10 +259,12 @@ namespace ProteiniSi.Services
             {
                 result.Message = "Order created successfully. Redirecting to payment...";
                 result.PaymentUrl = $"{config["AppSettings:FrontendUrl"]}/mock-payment?orderId={orderId}&amount={totalAmount}&orderNumber={orderNumber}";
+                if (result.GuestAccessToken != null)
+                    result.PaymentUrl += $"&token={Uri.EscapeDataString(result.GuestAccessToken)}";
                 return result;
             }
 
-            result.PaymentFormHtml = cpayService.GeneratePaymentForm(orderId, (int)(totalAmount * 100), orderNumber, userFullName, userEmail!);
+            result.PaymentFormHtml = cpayService.GeneratePaymentForm(orderId, totalAmount, orderNumber, userFullName, userEmail!);
             return result;
         }
 
@@ -455,6 +459,22 @@ namespace ProteiniSi.Services
             return new PaymentCompletionResult(true, emailSent, emailSent ? "Payment completed and email sent" : "Payment completed but email failed");
         }
 
+        public async Task<PaymentCompletionResult> CompleteCPayPaymentAsync(int orderId, string? amountToPay, string? transactionId)
+        {
+            var order = await orderProvider.GetForAdminStatusAsync(orderId);
+            if (order == null)
+                return new PaymentCompletionResult(false, false, "Order not found");
+
+            var expectedAmount = cpayService.ToAmountToPay(order.Total_Amount ?? 0m);
+            if (!string.Equals(amountToPay, expectedAmount, StringComparison.Ordinal))
+            {
+                logger.LogWarning("cPay amount mismatch for order {OrderId}: expected {Expected}, received {Received}", orderId, expectedAmount, amountToPay);
+                return new PaymentCompletionResult(false, false, "Payment amount does not match the order total");
+            }
+
+            return await CompletePaidOrderAsync(orderId, transactionId);
+        }
+
         public async Task<PaymentCompletionResult?> ApplyPaymentStatusAsync(int orderId, string? paymentStatus, string? transactionId)
         {
             if (IsSuccessfulPaymentStatus(paymentStatus))
@@ -479,6 +499,38 @@ namespace ProteiniSi.Services
                 throw OrderNotFound();
 
             return (order, items);
+        }
+
+        public async Task<(dynamic Order, List<dynamic> Items)> GetGuestConfirmationAsync(int orderId, string? guestAccessToken)
+        {
+            if (!IsValidGuestAccessToken(orderId, guestAccessToken))
+                throw OrderNotFound();
+
+            var (order, items) = await orderProvider.GetConfirmationAsync(orderId, null);
+            if (order == null)
+                throw OrderNotFound();
+
+            return (order, items);
+        }
+
+        // Guests have no account, so access to their order is proven by an HMAC of the order id
+        // that only the server can produce. It is handed out on checkout and on the payment return.
+        public string CreateGuestAccessToken(int orderId)
+        {
+            var key = Encoding.UTF8.GetBytes(config["AppSettings:TokenKey"]
+                ?? throw new InvalidOperationException("AppSettings:TokenKey is not configured."));
+            var hash = HMACSHA256.HashData(key, Encoding.UTF8.GetBytes($"guest-order:{orderId}"));
+            return Convert.ToHexString(hash, 0, 16).ToLowerInvariant();
+        }
+
+        private bool IsValidGuestAccessToken(int orderId, string? token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+                return false;
+
+            var expected = Encoding.ASCII.GetBytes(CreateGuestAccessToken(orderId));
+            var received = Encoding.ASCII.GetBytes(token.Trim().ToLowerInvariant());
+            return CryptographicOperations.FixedTimeEquals(expected, received);
         }
 
         public async Task CancelAsync(int orderId, int userId)
@@ -632,17 +684,23 @@ namespace ProteiniSi.Services
                 trackingUrl,
                 releaseVoucher: requestedStatus is "rejected" or "cancelled");
 
-            var emailSent = requestedStatus == "confirmed" && statusUpdate.Send_Email
+            // Customers are told when an order is confirmed, shipped or rejected; repeating the
+            // same status (e.g. editing tracking details) does not send a second email.
+            var emailSent = statusUpdate.Send_Email
+                && CustomerNotifiedStatuses.Contains(requestedStatus)
+                && currentStatus != requestedStatus
                 && await orderEmailService.SendAdminStatusEmailAsync(
                     order,
                     finalOrderStatus,
                     finalPaymentStatus,
-                    string.IsNullOrWhiteSpace(statusUpdate.Transaction_Id)
-                        ? order.Transaction_Id
-                        : statusUpdate.Transaction_Id);
+                    trackingNumber,
+                    trackingUrl);
 
             return new OrderAdminStatusResult(true, "Order status updated", finalOrderStatus, finalPaymentStatus, trackingNumber, trackingUrl, emailSent);
         }
+
+        private static readonly HashSet<string> CustomerNotifiedStatuses =
+            new(StringComparer.OrdinalIgnoreCase) { "confirmed", "shipped", "rejected" };
 
         private static bool CanTransitionOrder(string current, string requested)
         {
@@ -734,7 +792,7 @@ namespace ProteiniSi.Services
         }
 
         public string GetSamplePaymentForm() =>
-            cpayService.GeneratePaymentForm(1118, 2200, "TEST-ORDER-001", "Test Customer", "test@example.com");
+            cpayService.GeneratePaymentForm(1118, 22m, "TEST-ORDER-001", "Test Customer", "test@example.com");
 
         public async Task<string?> GetLastOrderPaymentFormAsync()
         {
@@ -746,7 +804,7 @@ namespace ProteiniSi.Services
             string userEmail = user?.User_Email ?? "test@example.com";
             string userName = user?.User_FullName ?? "Test User";
 
-            return cpayService.GeneratePaymentForm(lastOrder.Order_Id, (int)(lastOrder.Total_Amount * 100), lastOrder.Order_Number, userName, userEmail);
+            return cpayService.GeneratePaymentForm(lastOrder.Order_Id, lastOrder.Total_Amount, lastOrder.Order_Number, userName, userEmail);
         }
 
         public async Task<int> GetLastOrderIdAsync() => (await orderProvider.GetLastAsync())?.Order_Id ?? 0;

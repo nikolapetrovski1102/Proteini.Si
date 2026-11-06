@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { TfiClose } from "react-icons/tfi";
 import { api } from "../../services/api";
+import ResetCacheButton from "./ResetCacheButton";
 import FilterDropdown from "./FilterDropdown";
 import VariantManager from "./VariantManager";
 import ProductDescriptionEditor from "./ProductDescriptionEditor";
@@ -1130,6 +1131,7 @@ export default function AdminPanel() {
               >
                 Homepage Banners
               </button>
+              <ResetCacheButton />
               <button
                 onClick={() => {
                   resetForm();

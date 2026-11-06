@@ -1,88 +1,356 @@
-import { useState, useEffect, useRef } from "react";
-import { api } from "../../services/api";
-import { useCart } from "../Hooks/useCart";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { api } from "../../services/api";
+import { clearGuestCart, useCart } from "../Hooks/useCart";
 import { useLanguage } from "../translation/LanguageContext";
 import Toast from "../Toast";
 import { getDeclaredDeliveryFees } from "../../utils/deliveryPricing";
 
 const SHIPPING_COUNTRY = "North Macedonia";
+const COUNTRIES = [SHIPPING_COUNTRY];
+const DEFAULT_LOYALTY_PERCENTAGE = 2.0;
+const IMAGE_BASE_URL =
+  import.meta.env.VITE_IMAGE_BASE_URL || "https://proteini.mk";
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const formatPrice = (value) => `MKD ${Number(value || 0).toFixed(2)}`;
+
+const loyaltyKeyFor = (item) =>
+  item.variant_Id ? `variant_${item.variant_Id}` : `product_${item.product_Id}`;
+
+const isDiscountedItem = (item) =>
+  Boolean(
+    item.variant_Compare_Price &&
+      item.variant_Original_Price &&
+      item.variant_Compare_Price < item.variant_Original_Price,
+  );
+
+const resolveImage = (src) => {
+  if (!src) return null;
+  if (src.startsWith("http")) return src;
+  return `${IMAGE_BASE_URL}${src.startsWith("/") ? "" : "/"}${src}`;
+};
+
+const EMPTY_BILLING = {
+  User_FullName: "",
+  User_Address: "",
+  User_PostCode: "",
+  User_City: "",
+  User_Country: SHIPPING_COUNTRY,
+  User_Phone: "",
+  Company_Name: "",
+  Company_Address: "",
+  Company_TaxNumber: "",
+  Company_PostCode: "",
+  Company_City: "",
+  Company_Country: SHIPPING_COUNTRY,
+  Company_Phone: "",
+};
+
+const EMPTY_DELIVERY = {
+  Delivery_FullName: "",
+  Delivery_Address: "",
+  Delivery_PostCode: "",
+  Delivery_City: "",
+  Delivery_Country: SHIPPING_COUNTRY,
+  Delivery_Phone: "",
+};
+
+/** Builds the delivery form from the billing details of the given account type. */
+const deliveryFromBilling = (billing, type) =>
+  type === "company"
+    ? {
+        Delivery_FullName: billing.Company_Name,
+        Delivery_Address: billing.Company_Address,
+        Delivery_PostCode: billing.Company_PostCode,
+        Delivery_City: billing.Company_City,
+        Delivery_Country: billing.Company_Country,
+        Delivery_Phone: billing.Company_Phone,
+      }
+    : {
+        Delivery_FullName: billing.User_FullName,
+        Delivery_Address: billing.User_Address,
+        Delivery_PostCode: billing.User_PostCode,
+        Delivery_City: billing.User_City,
+        Delivery_Country: billing.User_Country,
+        Delivery_Phone: billing.User_Phone,
+      };
+
+/**
+ * Loyalty percentage for one cart line: the variant's own value when it has one,
+ * otherwise the parent product's value, otherwise the default.
+ */
+const resolveLoyaltyPercentage = async (item, getProduct) => {
+  try {
+    if (item.variant_Id) {
+      try {
+        const variantData = await api.getVariantWithParent(item.variant_Id);
+        const lp =
+          variantData?.data?.loyaltyPercentage ??
+          variantData?.data?.LoyaltyPercentage;
+        if (lp !== null && lp !== undefined && parseFloat(lp) > 0) {
+          return parseFloat(lp);
+        }
+      } catch (variantError) {
+        console.error(`Error fetching variant ${item.variant_Id}:`, variantError);
+      }
+    }
+    const productData = await getProduct(item.product_Id);
+    return productData?.product?.loyaltyPercentage ?? DEFAULT_LOYALTY_PERCENTAGE;
+  } catch {
+    return DEFAULT_LOYALTY_PERCENTAGE;
+  }
+};
+
+const inputClass = (hasError) =>
+  `w-full rounded-md border bg-white px-3.5 py-2.5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:ring-2 ${
+    hasError
+      ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+      : "border-gray-300 focus:border-[#2096D8] focus:ring-[#2096D8]/15"
+  }`;
+
+function Field({ id, label, error, required, className = "", children }) {
+  return (
+    <div className={className}>
+      <label htmlFor={id} className="mb-1.5 block text-xs font-semibold text-gray-700">
+        {label}
+        {required && <span className="ml-0.5 text-red-500">*</span>}
+      </label>
+      {children}
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+function TextField({
+  name,
+  label,
+  value,
+  onChange,
+  error,
+  required,
+  className,
+  ...inputProps
+}) {
+  return (
+    <Field id={name} label={label} error={error} required={required} className={className}>
+      <input
+        id={name}
+        name={name}
+        value={value ?? ""}
+        onChange={onChange}
+        aria-invalid={Boolean(error)}
+        className={inputClass(error)}
+        {...inputProps}
+      />
+    </Field>
+  );
+}
+
+function CountryField({ name, label, value, onChange, translate }) {
+  return (
+    <Field id={name} label={label} required>
+      <select
+        id={name}
+        name={name}
+        value={value}
+        onChange={onChange}
+        className={inputClass(false)}
+      >
+        {COUNTRIES.map((country) => (
+          <option key={country} value={country}>
+            {country === SHIPPING_COUNTRY ? translate("northMacedonia") : country}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
+function Section({ title, children, aside }) {
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <h2 className="text-base font-bold text-gray-900">{title}</h2>
+        {aside}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function CodeInput({
+  label,
+  hint,
+  value,
+  onChange,
+  onApply,
+  placeholder,
+  applyLabel,
+  applied,
+  onRemove,
+  removeLabel,
+  error,
+}) {
+  return (
+    <div>
+      <p className="text-sm font-semibold text-gray-900">{label}</p>
+      {hint && <p className="mb-2 text-xs text-gray-500">{hint}</p>}
+      {applied ? (
+        <div className="mt-2 flex items-center justify-between rounded-md bg-green-50 px-3 py-2 text-xs text-green-700">
+          <span className="font-semibold">{applied}</span>
+          <button type="button" onClick={onRemove} className="font-bold underline">
+            {removeLabel}
+          </button>
+        </div>
+      ) : (
+        <div className="mt-2 flex gap-2">
+          <input
+            type="text"
+            value={value}
+            onChange={onChange}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                onApply();
+              }
+            }}
+            placeholder={placeholder}
+            autoComplete="off"
+            className={`${inputClass(Boolean(error))} min-w-0 flex-1 py-2 uppercase`}
+          />
+          <button
+            type="button"
+            onClick={onApply}
+            disabled={!value.trim()}
+            className="rounded-md bg-gray-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {applyLabel}
+          </button>
+        </div>
+      )}
+      {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+function PaymentOption({ id, value, checked, disabled, onChange, title, description }) {
+  return (
+    <label
+      htmlFor={id}
+      className={`flex items-start gap-3 rounded-lg border p-4 transition-colors ${
+        disabled
+          ? "cursor-not-allowed border-gray-200 bg-gray-50 opacity-60"
+          : checked
+            ? "cursor-pointer border-[#2096D8] bg-[#2096D8]/5"
+            : "cursor-pointer border-gray-200 hover:border-gray-300"
+      }`}
+    >
+      <input
+        type="radio"
+        id={id}
+        name="payment_method"
+        value={value}
+        checked={checked}
+        disabled={disabled}
+        onChange={onChange}
+        className="mt-0.5 h-4 w-4 accent-[#2096D8]"
+      />
+      <span>
+        <span className="block text-sm font-semibold text-gray-900">{title}</span>
+        {description && (
+          <span className="mt-0.5 block text-xs text-gray-500">{description}</span>
+        )}
+      </span>
+    </label>
+  );
+}
+
+function CheckoutSkeleton() {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="mx-auto max-w-[1240px] px-4 pt-[70px] pb-16 sm:px-6">
+        <div className="mb-8 h-7 w-64 animate-pulse rounded bg-gray-200" />
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
+          <div className="space-y-6">
+            <div className="h-96 animate-pulse rounded-xl bg-gray-200/70" />
+            <div className="h-40 animate-pulse rounded-xl bg-gray-200/70" />
+          </div>
+          <div className="h-[480px] animate-pulse rounded-xl bg-gray-200/70" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Checkout() {
+  const navigate = useNavigate();
+  const { translate } = useLanguage();
+  const { cart, loading: cartLoading, refreshCart } = useCart();
+
   const [accountType, setAccountType] = useState("natural");
-  const [loading, setLoading] = useState(true);
-  const [userData, setUserData] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
   const [userEmail, setUserEmail] = useState("");
-  const [userName, setUserName] = useState("");
+  const [billingForm, setBillingForm] = useState(EMPTY_BILLING);
+  const [deliveryForm, setDeliveryForm] = useState(EMPTY_DELIVERY);
+  const [differentDelivery, setDifferentDelivery] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("credit_card");
+  const [orderNote, setOrderNote] = useState("");
+  const [createAccount, setCreateAccount] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [termsError, setTermsError] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [differentDelivery, setDifferentDelivery] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("credit_card");
-  const [submitButtonText, setSubmitButtonText] = useState("Continue Shopping");
-  const [orderNote, setOrderNote] = useState("");
+  const [toast, setToast] = useState(null);
+
   const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterStatus, setNewsletterStatus] = useState(null);
+
   const [promotionCode, setPromotionCode] = useState("");
   const [appliedPromotion, setAppliedPromotion] = useState(null);
   const [promotionError, setPromotionError] = useState("");
   const [giftVoucherCode, setGiftVoucherCode] = useState("");
   const [appliedGiftVoucher, setAppliedGiftVoucher] = useState(null);
   const [giftVoucherError, setGiftVoucherError] = useState("");
+
   const [shippingSettings, setShippingSettings] = useState(null);
   const [availableFreeGifts, setAvailableFreeGifts] = useState([]);
   const [selectedFreeGiftId, setSelectedFreeGiftId] = useState(null);
-  const [createAccount, setCreateAccount] = useState(false);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [termsError, setTermsError] = useState("");
-  const { translate } = useLanguage();
-  const [toast, setToast] = useState(null);
 
   const [availablePoints, setAvailablePoints] = useState(0);
-  const [pointsToRedeem, setPointsToRedeem] = useState(0);
-  const [pointsDiscount, setPointsDiscount] = useState(0);
-  const [loadingPoints, setLoadingPoints] = useState(false);
-
+  const [pointsInput, setPointsInput] = useState(0);
+  const [pointsMessage, setPointsMessage] = useState("");
   const [loyaltyMap, setLoyaltyMap] = useState({});
-  const [loadingLoyalty, setLoadingLoyalty] = useState(false);
 
-  const navigate = useNavigate();
-  const { cart, loading: cartLoading, refreshCart } = useCart();
-
-  const sidebarRef = useRef(null);
-  const stopRef = useRef(null);
+  const cartTotal = cart?.total || 0;
+  const cartItems = useMemo(() => cart?.items || [], [cart?.items]);
+  const isCartEmpty = cartItems.length === 0;
 
   const promoDiscount = Number(appliedPromotion?.discountAmount || 0);
   const giftVoucherDiscount = Number(appliedGiftVoucher?.applicableAmount || 0);
   const maxRedeemablePoints = Math.min(
     availablePoints,
-    Math.floor(Math.max((cart?.total || 0) - promoDiscount, 0) * 0.5),
+    Math.floor(Math.max(cartTotal - promoDiscount, 0) * 0.5),
   );
+  const pointsDiscount = Math.max(Math.min(pointsInput || 0, maxRedeemablePoints), 0);
 
-  useEffect(() => {
-    if (paymentMethod === "home_delivery") {
-      setSubmitButtonText("Continue Shopping");
-    } else {
-      setSubmitButtonText(saving ? "Processing..." : "Submit order");
-    }
-  }, [paymentMethod, saving]);
+  const closeToast = useCallback(() => setToast(null), []);
 
-  useEffect(() => {
-    const discount = Math.min(pointsToRedeem, maxRedeemablePoints);
-    setPointsDiscount(discount);
-  }, [pointsToRedeem, maxRedeemablePoints]);
+  // ---- One-time loads -------------------------------------------------------
 
   useEffect(() => {
     let cancelled = false;
     api
       .getShippingSettings()
       .then((settings) => {
-        if (!cancelled) {
-          setShippingSettings(settings);
-          if (settings.cardPaymentEnabled === false) setPaymentMethod("home_delivery");
-        }
+        if (cancelled) return;
+        setShippingSettings(settings);
+        if (settings.cardPaymentEnabled === false) setPaymentMethod("home_delivery");
       })
       .catch((settingsError) => {
         console.error("Error loading shipping settings:", settingsError);
@@ -92,245 +360,47 @@ export default function Checkout() {
     };
   }, []);
 
-  const fetchAvailablePoints = async () => {
-    if (!api.isAuthenticated()) return;
-    setLoadingPoints(true);
-    try {
-      const response = await api.getAvailableLoyaltyPoints();
-      if (response.status) {
-        setAvailablePoints(response.availablePoints || 0);
-      }
-    } catch (error) {
-      console.error("Error fetching loyalty points:", error);
-      setAvailablePoints(0);
-    } finally {
-      setLoadingPoints(false);
-    }
-  };
-
-  const fetchLoyalty = async () => {
-    if (!cart?.items || cart.items.length === 0) {
-      setLoyaltyMap({});
-      return;
-    }
-
-    setLoadingLoyalty(true);
-    try {
-      const map = {};
-
-      for (const item of cart.items) {
-        try {
-          let loyaltyPercentage = 2.0;
-
-          if (item.variant_Id) {
-            try {
-              const variantData = await api.getVariantWithParent(
-                item.variant_Id,
-              );
-
-              if (variantData && variantData.data) {
-                const lp =
-                  variantData.data.loyaltyPercentage ??
-                  variantData.data.LoyaltyPercentage;
-
-                if (lp !== null && lp !== undefined && parseFloat(lp) > 0) {
-                  loyaltyPercentage = parseFloat(lp);
-                } else {
-                  const productData = await api.getProductById(item.product_Id);
-                  if (productData && productData.product) {
-                    loyaltyPercentage =
-                      productData.product.loyaltyPercentage ?? 2.0;
-                  }
-                }
-              } else {
-                const productData = await api.getProductById(item.product_Id);
-                if (productData && productData.product) {
-                  loyaltyPercentage =
-                    productData.product.loyaltyPercentage ?? 2.0;
-                }
-              }
-            } catch (variantError) {
-              console.error(
-                `❌ ERROR fetching variant ${item.variant_Id}:`,
-                variantError,
-              );
-              const productData = await api.getProductById(item.product_Id);
-              if (productData && productData.product) {
-                loyaltyPercentage =
-                  productData.product.loyaltyPercentage ?? 2.0;
-              }
-            }
-          } else {
-            const productData = await api.getProductById(item.product_Id);
-            if (productData && productData.product) {
-              loyaltyPercentage = productData.product.loyaltyPercentage ?? 2.0;
-            }
-          }
-
-          const key = item.variant_Id
-            ? `variant_${item.variant_Id}`
-            : `product_${item.product_Id}`;
-          map[key] = loyaltyPercentage;
-        } catch (error) {
-          const key = item.variant_Id
-            ? `variant_${item.variant_Id}`
-            : `product_${item.product_Id}`;
-          map[key] = 2.0;
-        }
-      }
-
-      setLoyaltyMap(map);
-    } catch (error) {
-      console.error("Error fetching loyalty:", error);
-    } finally {
-      setLoadingLoyalty(false);
-    }
-  };
-
-  useEffect(() => {
-    if (cart?.items && cart.items.length > 0) {
-      fetchLoyalty();
-    }
-  }, [cart]);
-
   useEffect(() => {
     let cancelled = false;
-    const subtotal = cart?.total || 0;
 
-    const loadPromotions = async () => {
-      try {
-        const data = await api.getActivePromotions(subtotal);
-        if (cancelled) return;
-        setAvailableFreeGifts(data.freeGifts || []);
-        if (
-          selectedFreeGiftId &&
-          !(data.freeGifts || []).some(
-            (gift) => gift.freeGiftId === selectedFreeGiftId,
-          )
-        ) {
-          setSelectedFreeGiftId(null);
-        }
-
-      } catch (loadError) {
-        console.error("Error loading promotions:", loadError);
-      }
-    };
-
-    loadPromotions();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    cart?.total,
-    selectedFreeGiftId,
-  ]);
-
-  useEffect(() => {
-    if (!appliedPromotion?.code) return;
     api
-      .validatePromotionCode(
-        appliedPromotion.code,
-        cart?.total || 0,
-        userEmail || null,
-      )
-      .then((promotion) => {
-        setAppliedPromotion(promotion);
-        setPromotionError("");
-      })
-      .catch(() => {
-        setAppliedPromotion(null);
-        setPromotionError("The promotion code no longer applies to this order.");
-      });
-  }, [appliedPromotion?.code, cart?.total, userEmail]);
-
-  useEffect(() => {
-    if (!appliedGiftVoucher?.code) return;
-    const { totalDeliveryFee } = getDeclaredDeliveryFees(
-      cart?.total || 0,
-      paymentMethod,
-      shippingSettings || {},
-    );
-    const orderAmount = Math.max(
-      (cart?.total || 0) + totalDeliveryFee - promoDiscount - pointsDiscount,
-      0,
-    );
-    api
-      .validateGiftVoucher(appliedGiftVoucher.code, orderAmount)
-      .then(setAppliedGiftVoucher)
-      .catch(() => {
-        setAppliedGiftVoucher(null);
-        setGiftVoucherError("The gift voucher no longer applies to this order.");
-      });
-  }, [appliedGiftVoucher?.code, cart?.total, paymentMethod, pointsDiscount, promoDiscount, shippingSettings]);
-
-  const [billingForm, setBillingForm] = useState({
-    User_FullName: "",
-    User_Address: "",
-    User_PostCode: "",
-    User_City: "",
-    User_Country: SHIPPING_COUNTRY,
-    User_Phone: "",
-    Company_Name: "",
-    Company_Address: "",
-    Company_TaxNumber: "",
-    Company_PostCode: "",
-    Company_City: "",
-    Company_Country: SHIPPING_COUNTRY,
-    Company_Phone: "",
-  });
-
-  const [deliveryForm, setDeliveryForm] = useState({
-    Delivery_FullName: "",
-    Delivery_Address: "",
-    Delivery_PostCode: "",
-    Delivery_City: "",
-    Delivery_Country: SHIPPING_COUNTRY,
-    Delivery_Phone: "",
-  });
-
-  const countries = [SHIPPING_COUNTRY];
-
-  const fetchUserData = async () => {
-    setLoading(true);
-    try {
-      const user = await api.fetchCurrentUser();
-      if (user) {
-        setUserData(user);
+      .fetchCurrentUser()
+      .then((user) => {
+        if (cancelled || !user) return;
         setUserEmail(user.user_Email || "");
-        setUserName(user.user_FullName || "");
 
         if (user.user_IsCompany === true) {
+          const company = user.company || {};
           setAccountType("company");
-          const companyData = user.company || {};
-          setBillingForm({
-            ...billingForm,
-            Company_Name: companyData.company_Name || "",
-            Company_Address: companyData.company_Address || "",
-            Company_TaxNumber: companyData.company_TaxNumber || "",
-            Company_PostCode: companyData.company_PostCode || "",
-            Company_City: companyData.company_City || "",
+          setBillingForm((prev) => ({
+            ...prev,
+            Company_Name: company.company_Name || "",
+            Company_Address: company.company_Address || "",
+            Company_TaxNumber: company.company_TaxNumber || "",
+            Company_PostCode: company.company_PostCode || "",
+            Company_City: company.company_City || "",
             Company_Country: SHIPPING_COUNTRY,
-            Company_Phone: companyData.company_Phone || "",
-          });
+            Company_Phone: company.company_Phone || "",
+          }));
           setDeliveryForm({
-            Delivery_FullName: companyData.company_Name || "",
-            Delivery_Address: companyData.company_Address || "",
-            Delivery_PostCode: companyData.company_PostCode || "",
-            Delivery_City: companyData.company_City || "",
+            Delivery_FullName: company.company_Name || "",
+            Delivery_Address: company.company_Address || "",
+            Delivery_PostCode: company.company_PostCode || "",
+            Delivery_City: company.company_City || "",
             Delivery_Country: SHIPPING_COUNTRY,
-            Delivery_Phone: companyData.company_Phone || "",
+            Delivery_Phone: company.company_Phone || "",
           });
         } else {
           setAccountType("natural");
-          setBillingForm({
-            ...billingForm,
+          setBillingForm((prev) => ({
+            ...prev,
             User_FullName: user.user_FullName || "",
             User_Address: user.user_Address || "",
             User_PostCode: user.user_PostCode || "",
             User_City: user.user_City || "",
             User_Country: SHIPPING_COUNTRY,
             User_Phone: user.user_Phone || "",
-          });
+          }));
           setDeliveryForm({
             Delivery_FullName: user.user_FullName || "",
             Delivery_Address: user.user_Address || "",
@@ -340,154 +410,166 @@ export default function Checkout() {
             Delivery_Phone: user.user_Phone || "",
           });
         }
-      }
-    } catch (error) {
-      console.error("Error fetching user data:", error);
-      setError("Failed to load user data");
-    } finally {
-      setLoading(false);
+      })
+      .catch((fetchError) => {
+        console.error("Error fetching user data:", fetchError);
+        if (!cancelled) setError(translate("failedToLoadUserData"));
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingUser(false);
+      });
+
+    if (api.isAuthenticated()) {
+      api
+        .getAvailableLoyaltyPoints()
+        .then((response) => {
+          if (!cancelled && response.status) {
+            setAvailablePoints(response.availablePoints || 0);
+          }
+        })
+        .catch((pointsError) => {
+          console.error("Error fetching loyalty points:", pointsError);
+        });
     }
-  };
-
-  useEffect(() => {
-    fetchUserData();
-    fetchAvailablePoints();
-  }, []);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!sidebarRef.current) return;
-
-      const sidebar = sidebarRef.current;
-      const scrollY = window.scrollY;
-      const windowHeight = window.innerHeight;
-      const documentHeight = document.documentElement.scrollHeight;
-
-      const startSticky = 210;
-      const stopAt = documentHeight - windowHeight - 900;
-
-      if (scrollY > startSticky && scrollY < stopAt) {
-        sidebar.classList.add("fixed-sidebar");
-        sidebar.classList.remove("absolute-sidebar");
-        sidebar.style.top = "";
-      } else if (scrollY >= stopAt && stopAt > startSticky) {
-        sidebar.classList.add("absolute-sidebar");
-        sidebar.classList.remove("fixed-sidebar");
-        sidebar.style.top = `${stopAt - startSticky}px`;
-      } else {
-        sidebar.classList.remove("fixed-sidebar");
-        sidebar.classList.remove("absolute-sidebar");
-        sidebar.style.top = "";
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    window.addEventListener("resize", handleScroll);
-    handleScroll();
 
     return () => {
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", handleScroll);
+      cancelled = true;
     };
+    // Runs once on mount; translate only formats the error message.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleBillingChange = (e) => {
-    setBillingForm({ ...billingForm, [e.target.name]: e.target.value });
-  };
+  // ---- Loyalty percentages (only refetched when the set of products changes) -
 
-  const handleDeliveryChange = (e) => {
-    setDeliveryForm({ ...deliveryForm, [e.target.name]: e.target.value });
-  };
+  const loyaltySignature = useMemo(
+    () => [...new Set(cartItems.map(loyaltyKeyFor))].sort().join(","),
+    [cartItems],
+  );
 
-  const handleAccountTypeChange = (type) => {
-    setAccountType(type);
-    if (!differentDelivery) {
-      if (type === "company") {
-        setDeliveryForm({
-          Delivery_FullName: billingForm.Company_Name,
-          Delivery_Address: billingForm.Company_Address,
-          Delivery_PostCode: billingForm.Company_PostCode,
-          Delivery_City: billingForm.Company_City,
-          Delivery_Country: billingForm.Company_Country,
-          Delivery_Phone: billingForm.Company_Phone,
-        });
-      } else {
-        setDeliveryForm({
-          Delivery_FullName: billingForm.User_FullName,
-          Delivery_Address: billingForm.User_Address,
-          Delivery_PostCode: billingForm.User_PostCode,
-          Delivery_City: billingForm.User_City,
-          Delivery_Country: billingForm.User_Country,
-          Delivery_Phone: billingForm.User_Phone,
-        });
+  useEffect(() => {
+    if (!loyaltySignature) return;
+    let cancelled = false;
+
+    const productRequests = new Map();
+    const getProduct = (productId) => {
+      if (!productRequests.has(productId)) {
+        productRequests.set(productId, api.getProductById(productId));
+      }
+      return productRequests.get(productId);
+    };
+
+    const uniqueItems = [];
+    const seen = new Set();
+    for (const item of cartItems) {
+      const key = loyaltyKeyFor(item);
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueItems.push(item);
       }
     }
+
+    Promise.all(
+      uniqueItems.map(async (item) => [
+        loyaltyKeyFor(item),
+        await resolveLoyaltyPercentage(item, getProduct),
+      ]),
+    ).then((entries) => {
+      if (!cancelled) setLoyaltyMap(Object.fromEntries(entries));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // cartItems is read for the current lines; the signature decides when to refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loyaltySignature]);
+
+  // ---- Promotions, codes and vouchers ---------------------------------------
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getActivePromotions(cartTotal)
+      .then((data) => {
+        if (cancelled) return;
+        const gifts = data.freeGifts || [];
+        setAvailableFreeGifts(gifts);
+        setSelectedFreeGiftId((current) =>
+          current && !gifts.some((gift) => gift.freeGiftId === current)
+            ? null
+            : current,
+        );
+      })
+      .catch((loadError) => {
+        console.error("Error loading promotions:", loadError);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cartTotal]);
+
+  useEffect(() => {
+    if (!appliedPromotion?.code) return;
+    let cancelled = false;
+    api
+      .validatePromotionCode(appliedPromotion.code, cartTotal, userEmail || null)
+      .then((promotion) => {
+        if (cancelled) return;
+        setAppliedPromotion(promotion);
+        setPromotionError("");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAppliedPromotion(null);
+        setPromotionError(translate("promotionNoLongerApplies"));
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedPromotion?.code, cartTotal, userEmail]);
+
+  const voucherOrderAmount = () => {
+    const { totalDeliveryFee } = getDeclaredDeliveryFees(
+      cartTotal,
+      paymentMethod,
+      shippingSettings || {},
+    );
+    return Math.max(cartTotal + totalDeliveryFee - promoDiscount - pointsDiscount, 0);
   };
 
-  const handleDifferentDeliveryToggle = (e) => {
-    const isChecked = e.target.checked;
-    setDifferentDelivery(isChecked);
-    if (!isChecked) {
-      if (accountType === "company") {
-        setDeliveryForm({
-          Delivery_FullName: billingForm.Company_Name,
-          Delivery_Address: billingForm.Company_Address,
-          Delivery_PostCode: billingForm.Company_PostCode,
-          Delivery_City: billingForm.Company_City,
-          Delivery_Country: billingForm.Company_Country,
-          Delivery_Phone: billingForm.Company_Phone,
-        });
-      } else {
-        setDeliveryForm({
-          Delivery_FullName: billingForm.User_FullName,
-          Delivery_Address: billingForm.User_Address,
-          Delivery_PostCode: billingForm.User_PostCode,
-          Delivery_City: billingForm.User_City,
-          Delivery_Country: billingForm.User_Country,
-          Delivery_Phone: billingForm.User_Phone,
-        });
-      }
-    }
-  };
-
-  const handleApplyGiftVoucher = async () => {
-    if (!giftVoucherCode.trim()) return;
-    setGiftVoucherError("");
-    try {
-      const { totalDeliveryFee } = getDeclaredDeliveryFees(
-        cart?.total || 0,
-        paymentMethod,
-        shippingSettings || {},
-      );
-      const result = await api.validateGiftVoucher(
-        giftVoucherCode.trim(),
-        Math.max(
-          (cart?.total || 0) +
-            totalDeliveryFee -
-            promoDiscount -
-            pointsDiscount,
-          0,
-        ),
-      );
-      setAppliedGiftVoucher(result);
-      setGiftVoucherCode(result.code);
-    } catch (voucherApplyError) {
-      setAppliedGiftVoucher(null);
-      setGiftVoucherError(voucherApplyError.message);
-    }
-  };
+  useEffect(() => {
+    if (!appliedGiftVoucher?.code) return;
+    let cancelled = false;
+    api
+      .validateGiftVoucher(appliedGiftVoucher.code, voucherOrderAmount())
+      .then((voucher) => {
+        if (!cancelled) setAppliedGiftVoucher(voucher);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAppliedGiftVoucher(null);
+        setGiftVoucherError(translate("voucherNoLongerApplies"));
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    appliedGiftVoucher?.code,
+    cartTotal,
+    paymentMethod,
+    pointsDiscount,
+    promoDiscount,
+    shippingSettings,
+  ]);
 
   const handleApplyPromotion = async () => {
     const code = promotionCode.trim().toUpperCase();
     if (!code) return;
-
     setPromotionError("");
     try {
-      const promotion = await api.validatePromotionCode(
-        code,
-        cart?.total || 0,
-        userEmail || null,
-      );
+      const promotion = await api.validatePromotionCode(code, cartTotal, userEmail || null);
       setAppliedPromotion(promotion);
       setPromotionCode(promotion.code || code);
     } catch (promotionApplyError) {
@@ -496,227 +578,181 @@ export default function Checkout() {
     }
   };
 
-  const handleNewsletterSubscribe = async () => {
-    if (!newsletterEmail.trim()) return;
+  const handleApplyGiftVoucher = async () => {
+    const code = giftVoucherCode.trim();
+    if (!code) return;
+    setGiftVoucherError("");
     try {
-      await api.subscribeNewsletter(newsletterEmail.trim(), "checkout");
-      alert("Successfully subscribed to newsletter!");
-      setNewsletterEmail("");
-    } catch (error) {
-      alert(error.message || "Failed to subscribe. Please try again.");
+      const result = await api.validateGiftVoucher(code, voucherOrderAmount());
+      setAppliedGiftVoucher(result);
+      setGiftVoucherCode(result.code);
+    } catch (voucherApplyError) {
+      setAppliedGiftVoucher(null);
+      setGiftVoucherError(voucherApplyError.message);
     }
   };
 
   const handleApplyPoints = () => {
-    if (pointsToRedeem > maxRedeemablePoints) {
-      alert(`You can only redeem up to ${maxRedeemablePoints} points`);
-      setPointsToRedeem(maxRedeemablePoints);
-    } else if (pointsToRedeem < 0) {
-      setPointsToRedeem(0);
+    if (pointsInput > maxRedeemablePoints) {
+      setPointsInput(maxRedeemablePoints);
+      setPointsMessage(`${translate("maxRedeemablePoints")}: ${maxRedeemablePoints}`);
+    } else if (pointsInput < 0) {
+      setPointsInput(0);
+      setPointsMessage("");
     } else {
-      alert(
-        `${pointsToRedeem} points applied! Discount: MKD ${pointsToRedeem.toFixed(2)}`,
-      );
+      setPointsMessage(`${translate("discountApplied")}: ${formatPrice(pointsInput)}`);
     }
   };
 
-  const calculatePointsForProduct = (item) => {
-    let key;
-    if (item.variant_Id) {
-      key = `variant_${item.variant_Id}`;
-    } else {
-      key = `product_${item.product_Id}`;
+  const handleNewsletterSubscribe = async () => {
+    const email = newsletterEmail.trim();
+    if (!email) return;
+    if (!EMAIL_PATTERN.test(email)) {
+      setNewsletterStatus({ type: "error", text: translate("invalidEmail") });
+      return;
     }
-
-    const loyaltyPercentage = loyaltyMap[key] ?? 2.0;
-    const itemTotal = (item.price || 0) * (item.quantity || 1);
-
-    let hasDiscount = false;
-    if (
-      item.variant_Compare_Price &&
-      item.variant_Original_Price &&
-      item.variant_Compare_Price < item.variant_Original_Price
-    ) {
-      hasDiscount = true;
+    try {
+      await api.subscribeNewsletter(email, "checkout");
+      setNewsletterStatus({ type: "success", text: translate("subscribedToNewsletter") });
+      setNewsletterEmail("");
+    } catch (subscribeError) {
+      setNewsletterStatus({
+        type: "error",
+        text: subscribeError.message || translate("subscribeFailed"),
+      });
     }
-
-    if (hasDiscount) {
-      return 0;
-    }
-
-    return Math.floor(itemTotal * (loyaltyPercentage / 100));
   };
 
-  const calculateTotalEstimatedPoints = () => {
-    if (!cart?.items) return 0;
+  // ---- Form handlers ---------------------------------------------------------
 
-    let totalPoints = 0;
-    for (const item of cart.items) {
-      totalPoints += calculatePointsForProduct(item);
-    }
-    return totalPoints;
+  const clearFieldError = (name) => {
+    setFieldErrors((current) => {
+      if (!current[name]) return current;
+      const next = { ...current };
+      delete next[name];
+      return next;
+    });
   };
 
-  // ✅ COMPLETE UPDATED handleSubmitOrder with success popup
+  const handleBillingChange = (event) => {
+    const { name, value } = event.target;
+    setBillingForm((current) => ({ ...current, [name]: value }));
+    clearFieldError(name);
+  };
+
+  const handleDeliveryChange = (event) => {
+    const { name, value } = event.target;
+    setDeliveryForm((current) => ({ ...current, [name]: value }));
+    clearFieldError(name);
+  };
+
+  const handleAccountTypeChange = (type) => {
+    setAccountType(type);
+    setFieldErrors({});
+    if (!differentDelivery) setDeliveryForm(deliveryFromBilling(billingForm, type));
+  };
+
+  const handleDifferentDeliveryToggle = (event) => {
+    const isChecked = event.target.checked;
+    setDifferentDelivery(isChecked);
+    if (!isChecked) setDeliveryForm(deliveryFromBilling(billingForm, accountType));
+  };
+
+  const validate = () => {
+    const required = translate("fieldRequired");
+    const errors = {};
+    const requireField = (name, value) => {
+      if (!String(value ?? "").trim()) errors[name] = required;
+    };
+
+    const billingFields =
+      accountType === "company"
+        ? [
+            "Company_Name",
+            "Company_TaxNumber",
+            "Company_Address",
+            "Company_PostCode",
+            "Company_City",
+            "Company_Country",
+            "Company_Phone",
+          ]
+        : [
+            "User_FullName",
+            "User_Address",
+            "User_PostCode",
+            "User_City",
+            "User_Country",
+            "User_Phone",
+          ];
+    billingFields.forEach((name) => requireField(name, billingForm[name]));
+
+    if (!userEmail.trim()) errors.email = required;
+    else if (!EMAIL_PATTERN.test(userEmail.trim())) errors.email = translate("invalidEmail");
+
+    if (differentDelivery) {
+      [
+        "Delivery_FullName",
+        "Delivery_Address",
+        "Delivery_PostCode",
+        "Delivery_City",
+        "Delivery_Phone",
+      ].forEach((name) => requireField(name, deliveryForm[name]));
+    }
+
+    if (createAccount) {
+      if (!password) errors.password = required;
+      else if (password.length < 8) errors.password = translate("passwordMin8");
+      if (password && password !== confirmPassword) {
+        errors.confirmPassword = translate("passwordsDoNotMatch");
+      }
+    }
+
+    return errors;
+  };
+
+  // ---- Submit ------------------------------------------------------------------
+
   const handleSubmitOrder = async () => {
-    setSaving(true);
     setError("");
     setSuccess("");
     setTermsError("");
 
-    if (!termsAccepted) {
-      setTermsError(
-        "You must agree to the Terms of Service and Privacy Policy to place your order.",
-      );
-      setSaving(false);
+    const errors = validate();
+    setFieldErrors(errors);
+    const firstInvalid = Object.keys(errors)[0];
+    if (firstInvalid) {
+      setError(translate("pleaseFillRequiredFields"));
+      const element = document.getElementById(firstInvalid);
+      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+      element?.focus({ preventScroll: true });
       return;
     }
 
-    if (accountType === "company") {
-      if (!billingForm.Company_Name) {
-        setError("Company name is required");
-        setSaving(false);
-        return;
-      }
-      if (!billingForm.Company_Address) {
-        setError("Company address is required");
-        setSaving(false);
-        return;
-      }
-      if (!billingForm.Company_TaxNumber) {
-        setError("Tax number is required");
-        setSaving(false);
-        return;
-      }
-      if (!billingForm.Company_PostCode) {
-        setError("Post code is required");
-        setSaving(false);
-        return;
-      }
-      if (!billingForm.Company_City) {
-        setError("City is required");
-        setSaving(false);
-        return;
-      }
-      if (!billingForm.Company_Country) {
-        setError("Country is required");
-        setSaving(false);
-        return;
-      }
-      if (!billingForm.Company_Phone) {
-        setError("Phone number is required");
-        setSaving(false);
-        return;
-      }
-    } else {
-      if (!billingForm.User_FullName) {
-        setError("Full name is required");
-        setSaving(false);
-        return;
-      }
-      if (!billingForm.User_Address) {
-        setError("Address is required");
-        setSaving(false);
-        return;
-      }
-      if (!billingForm.User_PostCode) {
-        setError("Post code is required");
-        setSaving(false);
-        return;
-      }
-      if (!billingForm.User_City) {
-        setError("City is required");
-        setSaving(false);
-        return;
-      }
-      if (!billingForm.User_Country) {
-        setError("Country is required");
-        setSaving(false);
-        return;
-      }
-      if (!billingForm.User_Phone) {
-        setError("Phone number is required");
-        setSaving(false);
-        return;
-      }
+    if (!termsAccepted) {
+      setTermsError(translate("mustAcceptTerms"));
+      return;
     }
 
-    if (createAccount) {
-      if (!password) {
-        setError("Please enter a password to create your account");
-        setSaving(false);
-        return;
-      }
-      if (password.length < 8) {
-        setError("Password must be at least 8 characters");
-        setSaving(false);
-        return;
-      }
-      if (password !== confirmPassword) {
-        setError("Passwords do not match");
-        setSaving(false);
-        return;
-      }
-    }
-
+    setSaving(true);
     try {
-      const cartItemsForOrder =
-        cart?.items?.map((item) => ({
-          product_Id: item.product_Id,
-          quantity: item.quantity,
-          price: item.price,
-          variant_Id: item.variant_Id || null,
-          variant_Name: item.variant_Name || null,
-          variant_Packaging: item.variant_Packaging || null,
-          variant_Weight_Grams:
-            item.variant_Weight_Grams || item.weight_Grams || null,
-        })) || [];
-
+      const isCompany = accountType === "company";
       const orderData = {
         billing_Type: accountType,
-        billing_FullName:
-          accountType === "company"
-            ? billingForm.Company_Name
-            : billingForm.User_FullName,
-        billing_Address:
-          accountType === "company"
-            ? billingForm.Company_Address
-            : billingForm.User_Address,
-        billing_PostCode:
-          accountType === "company"
-            ? billingForm.Company_PostCode
-            : billingForm.User_PostCode,
-        billing_City:
-          accountType === "company"
-            ? billingForm.Company_City
-            : billingForm.User_City,
-        billing_Country:
-          accountType === "company"
-            ? billingForm.Company_Country
-            : billingForm.User_Country,
-        billing_Phone:
-          accountType === "company"
-            ? billingForm.Company_Phone
-            : billingForm.User_Phone,
-        billing_Email: userEmail,
-        billing_TaxNumber:
-          accountType === "company" ? billingForm.Company_TaxNumber : null,
-        billing_CompanyName:
-          accountType === "company" ? billingForm.Company_Name : null,
+        billing_FullName: isCompany ? billingForm.Company_Name : billingForm.User_FullName,
+        billing_Address: isCompany ? billingForm.Company_Address : billingForm.User_Address,
+        billing_PostCode: isCompany ? billingForm.Company_PostCode : billingForm.User_PostCode,
+        billing_City: isCompany ? billingForm.Company_City : billingForm.User_City,
+        billing_Country: isCompany ? billingForm.Company_Country : billingForm.User_Country,
+        billing_Phone: isCompany ? billingForm.Company_Phone : billingForm.User_Phone,
+        billing_Email: userEmail.trim(),
+        billing_TaxNumber: isCompany ? billingForm.Company_TaxNumber : null,
+        billing_CompanyName: isCompany ? billingForm.Company_Name : null,
         delivery_IsDifferent: differentDelivery,
-        delivery_FullName: differentDelivery
-          ? deliveryForm.Delivery_FullName
-          : null,
-        delivery_Address: differentDelivery
-          ? deliveryForm.Delivery_Address
-          : null,
-        delivery_PostCode: differentDelivery
-          ? deliveryForm.Delivery_PostCode
-          : null,
+        delivery_FullName: differentDelivery ? deliveryForm.Delivery_FullName : null,
+        delivery_Address: differentDelivery ? deliveryForm.Delivery_Address : null,
+        delivery_PostCode: differentDelivery ? deliveryForm.Delivery_PostCode : null,
         delivery_City: differentDelivery ? deliveryForm.Delivery_City : null,
-        delivery_Country: differentDelivery
-          ? deliveryForm.Delivery_Country
-          : null,
+        delivery_Country: differentDelivery ? deliveryForm.Delivery_Country : null,
         delivery_Phone: differentDelivery ? deliveryForm.Delivery_Phone : null,
         order_Note: orderNote,
         gift_Voucher_Code: appliedGiftVoucher?.code || null,
@@ -724,1063 +760,727 @@ export default function Checkout() {
         selected_Free_Gift_Id: selectedFreeGiftId,
         payment_Method: paymentMethod,
         pointsToRedeem: pointsDiscount,
-        createAccount: createAccount,
+        createAccount,
         password: createAccount ? password : null,
-        cartItems: cartItemsForOrder,
+        cartItems: cartItems.map((item) => ({
+          product_Id: item.product_Id,
+          quantity: item.quantity,
+          price: item.price,
+          variant_Id: item.variant_Id || null,
+          variant_Name: item.variant_Name || null,
+          variant_Packaging: item.variant_Packaging || null,
+          variant_Weight_Grams: item.variant_Weight_Grams || item.weight_Grams || null,
+        })),
       };
 
       const response = await api.createOrder(orderData);
 
-      // Check if response is HTML (cPay form)
-      if (
-        typeof response === "string" &&
-        response.trim().startsWith("<!DOCTYPE")
-      ) {
+      // The payment provider can answer with a ready HTML form.
+      if (typeof response === "string" && response.trim().startsWith("<!DOCTYPE")) {
         document.write(response);
         document.close();
         return;
       }
 
-      // ✅ Helper function to clear guest cart
-      const clearGuestCart = () => {
-        if (!api.isAuthenticated()) {
-          localStorage.removeItem("guestCart");
-          if (refreshCart) {
-            refreshCart();
-          } else {
-            window.location.reload();
-          }
-        }
+      const clearCartAfterOrder = () => {
+        if (api.isAuthenticated()) refreshCart();
+        else clearGuestCart();
       };
 
-      // ✅ Helper function to show success popup
-      const showSuccessPopup = (message, orderNumber) => {
-        const successMessage = orderNumber
-          ? `${message}\nOrder #: ${orderNumber}`
-          : message;
-
-        // Show toast notification
-        setToast({
-          message: successMessage,
-          type: "success",
-        });
-
-        // Also set success state for the green message
-        setSuccess(successMessage);
+      const showSuccess = (message, orderNumber) => {
+        const text = orderNumber ? `${message} #${orderNumber}` : message;
+        setToast({ message: text, type: "success" });
+        setSuccess(text);
       };
 
-      // Handle home_delivery response (pay after delivery)
       if (paymentMethod === "home_delivery") {
         if (response && (response.status === true || response.message)) {
-          // ✅ Clear guest cart
-          clearGuestCart();
-
-          // ✅ Show success popup
-          const popupMessage =
-            response.message ||
-            "✅ Order created successfully! Thank you for your purchase.";
-          showSuccessPopup(popupMessage, response.orderNumber);
-
-          // ✅ Wait 3 seconds before navigating
-          setTimeout(() => {
-            navigate("/all-products");
-          }, 3000);
+          clearCartAfterOrder();
+          showSuccess(response.message || translate("orderCreatedSuccessfully"), response.orderNumber);
+          setTimeout(() => navigate("/all-products"), 3000);
         } else {
-          setError(response?.message || "Failed to create order");
+          setError(response?.message || translate("failedToCreateOrder"));
         }
-        setSaving(false);
         return;
       }
 
-      // Handle credit_card response
       if (response && response.status === true) {
-        // ✅ Clear guest cart
-        clearGuestCart();
-
         if (response.paymentUrl) {
-          // For credit card, show redirecting message
-          setToast({
-            message: "Redirecting to payment...",
-            type: "info",
-          });
+          // The cart is kept until the payment succeeds (PaymentSuccess clears it),
+          // so a failed or cancelled payment can be retried.
+          setToast({ message: translate("redirectingToPayment"), type: "info" });
           setTimeout(() => {
             window.location.href = response.paymentUrl;
           }, 1000);
         } else {
-          // ✅ Show success popup
-          const popupMessage =
-            "✅ Order created successfully! Redirecting to confirmation...";
-          showSuccessPopup(popupMessage, response.orderNumber);
-
+          // Fully covered by a voucher: the order is already paid.
+          clearCartAfterOrder();
+          showSuccess(translate("orderCreatedRedirecting"), response.orderNumber);
           setTimeout(() => {
-            navigate(`/order-confirmation/${response.orderId}`);
+            navigate(
+              `/order-confirmation/${response.orderId}${response.guestAccessToken ? `?token=${encodeURIComponent(response.guestAccessToken)}` : ""}`,
+            );
           }, 3000);
         }
       } else {
-        setError(response?.message || "Failed to create order");
+        setError(response?.message || translate("failedToCreateOrder"));
       }
-    } catch (error) {
-      console.error("Order creation error:", error);
+    } catch (submitError) {
+      console.error("Order creation error:", submitError);
       if (
-        error.response &&
-        typeof error.response.data === "string" &&
-        error.response.data.trim().startsWith("<!DOCTYPE")
+        submitError.response &&
+        typeof submitError.response.data === "string" &&
+        submitError.response.data.trim().startsWith("<!DOCTYPE")
       ) {
-        document.write(error.response.data);
+        document.write(submitError.response.data);
         document.close();
         return;
       }
       setError(
-        error.response?.data?.message ||
-          error.message ||
-          "Failed to submit order",
+        submitError.response?.data?.message ||
+          submitError.message ||
+          translate("failedToCreateOrder"),
       );
     } finally {
       setSaving(false);
     }
   };
 
+  // ---- Derived totals ----------------------------------------------------------
+
   const { deliveryFee, cashOnDeliveryFee } = getDeclaredDeliveryFees(
-    cart?.total || 0,
+    cartTotal,
     paymentMethod,
     shippingSettings || {},
   );
-  const finalAmount =
-    Math.max(
-      (cart?.total || 0) +
-        deliveryFee +
-        cashOnDeliveryFee -
-        promoDiscount -
-        giftVoucherDiscount -
-        pointsDiscount,
-      0,
-    );
+  const finalAmount = Math.max(
+    cartTotal + deliveryFee + cashOnDeliveryFee - promoDiscount - giftVoucherDiscount - pointsDiscount,
+    0,
+  );
 
-  const estimatedPoints = calculateTotalEstimatedPoints();
+  const pointsForItem = (item) => {
+    if (isDiscountedItem(item)) return 0;
+    const percentage =
+      loyaltyMap[loyaltyKeyFor(item)] ?? item.loyaltyPercentage ?? DEFAULT_LOYALTY_PERCENTAGE;
+    return Math.floor((item.price || 0) * (item.quantity || 1) * (percentage / 100));
+  };
+  const estimatedPoints = cartItems.reduce((sum, item) => sum + pointsForItem(item), 0);
+  const hasDiscountedItems = cartItems.some(isDiscountedItem);
 
-  const hasDiscountedItems =
-    cart?.items?.some((item) => {
-      if (
-        item.variant_Compare_Price &&
-        item.variant_Original_Price &&
-        item.variant_Compare_Price < item.variant_Original_Price
-      ) {
-        return true;
-      }
-      return false;
-    }) || false;
+  // Only the first load shows a skeleton; later cart refreshes keep the page.
+  if (loadingUser || (cartLoading && !cart)) return <CheckoutSkeleton />;
 
-  if (loading || cartLoading || loadingLoyalty) {
-    return (
-      <div className="w-full flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
+  const billingField = (name, labelKey, props = {}) => (
+    <TextField
+      name={name}
+      label={translate(labelKey)}
+      value={billingForm[name]}
+      onChange={handleBillingChange}
+      error={fieldErrors[name]}
+      required
+      {...props}
+    />
+  );
 
-  const isCartEmpty = !cart || !cart.items || cart.items.length === 0;
+  const deliveryField = (name, labelKey, props = {}) => (
+    <TextField
+      name={name}
+      label={translate(labelKey)}
+      value={deliveryForm[name]}
+      onChange={handleDeliveryChange}
+      error={fieldErrors[name]}
+      required
+      {...props}
+    />
+  );
 
-  const style = document.createElement("style");
-  style.textContent = `
-    .fixed-sidebar {
-      position: fixed !important;
-      top: 70px !important;
-      width: 350px !important;
-      z-index: 100 !important;
-    }
-    .absolute-sidebar {
-      position: absolute !important;
-      width: 350px !important;
-      z-index: 100 !important;
-    }
-    @media (max-width: 1024px) {
-      .fixed-sidebar, .absolute-sidebar {
-        position: relative !important;
-        top: auto !important;
-        width: 100% !important;
-      }
-    }
-  `;
-  if (!document.querySelector("#checkout-styles")) {
-    style.id = "checkout-styles";
-    document.head.appendChild(style);
-  }
+  const emailField = (
+    <TextField
+      name="email"
+      type="email"
+      autoComplete="email"
+      label={translate("email")}
+      value={userEmail}
+      onChange={(event) => {
+        setUserEmail(event.target.value);
+        clearFieldError("email");
+      }}
+      placeholder={translate("enterYourEmailAddress")}
+      error={fieldErrors.email}
+      required
+    />
+  );
+
+  const accountTabClass = (type) =>
+    `flex-1 rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
+      accountType === type ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900"
+    }`;
 
   return (
-    <div className="min-h-screen bg-gray-50 relative">
+    <div className="min-h-screen bg-gray-50">
       {toast && (
-        <Toast
-          message={"Order Successful! Redirecting..."}
-          type={toast.type}
-          onClose={() => setToast(null)}
-          duration={4000}
-        />
+        <Toast message={toast.message} type={toast.type} onClose={closeToast} duration={4000} />
       )}
-      <div className="max-w-[1240px] mx-auto px-4 py-[70px]">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column */}
-          <div className="lg:col-span-8">
-            <p className="text-2xl font-bold mb-8">
-              {translate("quicklyCompleteYourPurchase")}
-            </p>
 
-            {error && (
-              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
-                {error}
-              </div>
-            )}
-            {success && (
-              <div className="mb-4 p-3 bg-green-100 text-green-700 rounded">
-                {success}
-              </div>
-            )}
-            {termsError && (
-              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
-                {termsError}
+      <div className="mx-auto max-w-[1240px] px-4 pt-[70px] pb-16 sm:px-6">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">
+            {translate("quicklyCompleteYourPurchase")}
+          </h1>
+          <Link to="/cart" className="text-sm font-semibold text-[#2096D8] hover:underline">
+            ← {translate("shoppingCart")}
+          </Link>
+        </div>
+
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-8">
+          {/* Left column */}
+          <div className="min-w-0 space-y-6">
+            {(error || success) && (
+              <div
+                role="alert"
+                className={`rounded-lg px-4 py-3 text-sm ${
+                  success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                }`}
+              >
+                {success || error}
               </div>
             )}
 
-            {/* Billing Information */}
-            <div className="w-full">
-              <p className="text-lg font-bold mb-5">
-                {translate("billingInformation")}
-              </p>
-              <div className="max-w-[643px] w-full">
-                <div className="flex flex-col mb-6">
-                  <div className="flex gap-6 mb-8">
-                    <button
-                      onClick={() => handleAccountTypeChange("natural")}
-                      className={`px-8 py-1.5 border transition-all ${accountType === "natural" ? "border-[#2096D8] bg-[#2096D8]/5" : "border-gray-300 hover:border-[#2096D8]"}`}
-                    >
-                      <span className="text-xs">
-                        {translate("naturalPerson")}
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => handleAccountTypeChange("company")}
-                      className={`px-8 py-1.5 border transition-all ${accountType === "company" ? "border-[#2096D8] bg-[#2096D8]/5" : "border-gray-300 hover:border-[#2096D8]"}`}
-                    >
-                      <span className="text-xs">{translate("company")}</span>
-                    </button>
+            <Section title={translate("billingInformation")}>
+              <div className="mb-5 flex max-w-sm rounded-lg bg-gray-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => handleAccountTypeChange("natural")}
+                  className={accountTabClass("natural")}
+                >
+                  {translate("naturalPerson")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAccountTypeChange("company")}
+                  className={accountTabClass("company")}
+                >
+                  {translate("company")}
+                </button>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {accountType === "natural" ? (
+                  <>
+                    {billingField("User_FullName", "nameAndSurname", {
+                      placeholder: translate("enterFullName"),
+                      autoComplete: "name",
+                      className: "sm:col-span-2",
+                    })}
+                    {billingField("User_Address", "address", {
+                      placeholder: translate("enterAddress"),
+                      autoComplete: "street-address",
+                      className: "sm:col-span-2",
+                    })}
+                    {billingField("User_City", "city", {
+                      placeholder: translate("enterCity"),
+                      autoComplete: "address-level2",
+                    })}
+                    {billingField("User_PostCode", "postCode", {
+                      placeholder: translate("enterPostCode"),
+                      autoComplete: "postal-code",
+                      inputMode: "numeric",
+                    })}
+                    <CountryField
+                      name="User_Country"
+                      label={translate("country")}
+                      value={billingForm.User_Country}
+                      onChange={handleBillingChange}
+                      translate={translate}
+                    />
+                    {billingField("User_Phone", "phone", {
+                      type: "tel",
+                      placeholder: translate("enterPhoneNumber"),
+                      autoComplete: "tel",
+                    })}
+                  </>
+                ) : (
+                  <>
+                    {billingField("Company_Name", "companyName", {
+                      autoComplete: "organization",
+                    })}
+                    {billingField("Company_TaxNumber", "taxNumber", {
+                      placeholder: "123456789",
+                    })}
+                    {billingField("Company_Address", "companyAddress", {
+                      placeholder: translate("enterAddress"),
+                      autoComplete: "street-address",
+                      className: "sm:col-span-2",
+                    })}
+                    {billingField("Company_City", "city", {
+                      placeholder: translate("enterCity"),
+                      autoComplete: "address-level2",
+                    })}
+                    {billingField("Company_PostCode", "postCode", {
+                      placeholder: translate("enterPostCode"),
+                      autoComplete: "postal-code",
+                      inputMode: "numeric",
+                    })}
+                    <CountryField
+                      name="Company_Country"
+                      label={translate("country")}
+                      value={billingForm.Company_Country}
+                      onChange={handleBillingChange}
+                      translate={translate}
+                    />
+                    {billingField("Company_Phone", "phone", {
+                      type: "tel",
+                      placeholder: translate("enterPhoneNumber"),
+                      autoComplete: "tel",
+                    })}
+                  </>
+                )}
+                <div className="sm:col-span-2">{emailField}</div>
+              </div>
+
+              <div className="mt-6 space-y-3 border-t border-gray-100 pt-5">
+                {!api.isAuthenticated() && (
+                  <label className="flex cursor-pointer items-start gap-3 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={createAccount}
+                      onChange={(event) => setCreateAccount(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 accent-[#2096D8]"
+                    />
+                    <span>
+                      {translate("createAUserDesc1")}{" "}
+                      <strong>{translate("createAUserDesc2")}</strong>
+                    </span>
+                  </label>
+                )}
+
+                {createAccount && (
+                  <div className="grid gap-4 rounded-lg bg-gray-50 p-4 sm:grid-cols-2">
+                    <p className="text-sm font-semibold sm:col-span-2">
+                      {translate("createYourAccountPassword")}
+                    </p>
+                    <TextField
+                      name="password"
+                      type="password"
+                      autoComplete="new-password"
+                      label={translate("password")}
+                      value={password}
+                      onChange={(event) => {
+                        setPassword(event.target.value);
+                        clearFieldError("password");
+                      }}
+                      placeholder={translate("passwordPlaceholder")}
+                      error={fieldErrors.password}
+                      required
+                    />
+                    <TextField
+                      name="confirmPassword"
+                      type="password"
+                      autoComplete="new-password"
+                      label={translate("confirmPassword")}
+                      value={confirmPassword}
+                      onChange={(event) => {
+                        setConfirmPassword(event.target.value);
+                        clearFieldError("confirmPassword");
+                      }}
+                      placeholder={translate("passwordPlaceholder2")}
+                      error={fieldErrors.confirmPassword}
+                      required
+                    />
                   </div>
+                )}
 
-                  {accountType === "natural" ? (
-                    // ... natural person form fields (keep existing) ...
-                    <>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("nameAndSurname")}
-                        </span>
-                        <input
-                          type="text"
-                          name="User_FullName"
-                          value={billingForm.User_FullName}
-                          onChange={handleBillingChange}
-                          placeholder={translate("enterFullName")}
-                          className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("address")}
-                        </span>
-                        <input
-                          type="text"
-                          name="User_Address"
-                          value={billingForm.User_Address}
-                          onChange={handleBillingChange}
-                          placeholder={translate("enterAddress")}
-                          className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("postCode")}
-                        </span>
-                        <input
-                          type="text"
-                          name="User_PostCode"
-                          value={billingForm.User_PostCode}
-                          onChange={handleBillingChange}
-                          placeholder={translate("enterPostCode")}
-                          className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("city")}
-                        </span>
-                        <input
-                          type="text"
-                          name="User_City"
-                          value={billingForm.User_City}
-                          onChange={handleBillingChange}
-                          placeholder={translate("enterCity")}
-                          className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("country")}
-                        </span>
-                        <select
-                          name="User_Country"
-                          value={billingForm.User_Country}
-                          onChange={handleBillingChange}
-                          className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8] bg-white"
-                        >
-                          {countries.map((c) => (
-                            <option key={c} value={c}>
-                              {c === SHIPPING_COUNTRY ? translate("northMacedonia") : c}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("phone")}
-                        </span>
-                        <input
-                          type="text"
-                          name="User_Phone"
-                          value={billingForm.User_Phone}
-                          onChange={handleBillingChange}
-                          placeholder={translate("enterPhoneNumber")}
-                          className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("email")}
-                        </span>
-                        <input
-                          type="text"
-                          value={userEmail || ""}
-                          onChange={(e) => setUserEmail(e.target.value)}
-                          className="w-full p-3 border border-gray-300 bg-gray-50"
-                          placeholder={translate("enterYourEmailAddress")}
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    // ... company form fields (keep existing) ...
-                    <>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("companyName")}
-                        </span>
-                        <input
-                          type="text"
-                          name="Company_Name"
-                          value={billingForm.Company_Name}
-                          onChange={handleBillingChange}
-                          className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("companyAddress")}
-                        </span>
-                        <input
-                          type="text"
-                          name="Company_Address"
-                          value={billingForm.Company_Address}
-                          onChange={handleBillingChange}
-                          placeholder={translate("enterAddress")}
-                          className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("taxNumber")}
-                        </span>
-                        <input
-                          type="text"
-                          name="Company_TaxNumber"
-                          value={billingForm.Company_TaxNumber}
-                          onChange={handleBillingChange}
-                          placeholder="123456789"
-                          className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("postCode")}
-                        </span>
-                        <input
-                          type="text"
-                          name="Company_PostCode"
-                          value={billingForm.Company_PostCode}
-                          onChange={handleBillingChange}
-                          placeholder="1000"
-                          className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("city")}
-                        </span>
-                        <input
-                          type="text"
-                          name="Company_City"
-                          value={billingForm.Company_City}
-                          onChange={handleBillingChange}
-                          placeholder="Skopje"
-                          className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("country")}
-                        </span>
-                        <select
-                          name="Company_Country"
-                          value={billingForm.Company_Country}
-                          onChange={handleBillingChange}
-                          className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8] bg-white"
-                        >
-                          {countries.map((c) => (
-                            <option key={c} value={c}>
-                              {c === SHIPPING_COUNTRY ? translate("northMacedonia") : c}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("phone")}
-                        </span>
-                        <input
-                          type="tel"
-                          name="Company_Phone"
-                          value={billingForm.Company_Phone}
-                          onChange={handleBillingChange}
-                          placeholder="+1234567890"
-                          className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-xs block mb-1">
-                          {translate("email")}
-                        </span>
-                        <input
-                          type="text"
-                          value={userEmail}
-                          className="w-full p-3 border border-gray-300 bg-gray-50"
-                          placeholder={translate("enterYourEmailAddress")}
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  <div className="py-6 px-5 bg-gray-100 flex flex-col gap-4">
-                    <div className="flex items-start gap-4">
-                      <input
-                        type="checkbox"
-                        id="create-account"
-                        checked={createAccount}
-                        onChange={(e) => setCreateAccount(e.target.checked)}
-                      />
-                      <label htmlFor="create-account" className="text-xs">
-                        {translate("createAUserDesc1")}{" "}
-                        <strong>{translate("createAUserDesc2")}</strong>
-                      </label>
-                    </div>
-                    {createAccount && (
-                      <div className="border-t border-gray-300 pt-4 mt-2">
-                        <p className="text-sm font-bold mb-3">
-                          {translate("createYourAccountPassword")}
-                        </p>
-                        <div className="mb-3">
-                          <span className="text-xs block mb-1">
-                            {translate("password")}
-                          </span>
-                          <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder={translate("passwordPlaceholder")}
-                            className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                          />
-                        </div>
-                        <div>
-                          <span className="text-xs block mb-1">
-                            {translate("confirmPassword")}
-                          </span>
-                          <input
-                            type="password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder={translate("passwordPlaceholder2")}
-                            className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <label className="flex cursor-pointer items-start gap-3 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={differentDelivery}
+                    onChange={handleDifferentDeliveryToggle}
+                    className="mt-0.5 h-4 w-4 accent-[#2096D8]"
+                  />
+                  <span>{translate("deliveryAddressIsDifferentFromInvoiceAddress")}</span>
+                </label>
               </div>
-            </div>
+            </Section>
 
-            {/* Different Delivery */}
-            <div className="py-6 px-5 flex items-center gap-4">
-              <input
-                type="checkbox"
-                id="delivery-address"
-                checked={differentDelivery}
-                onChange={handleDifferentDeliveryToggle}
-              />
-              <label htmlFor="delivery-address" className="text-xs">
-                {translate("deliveryAddressIsDifferentFromInvoiceAddress")}
-              </label>
-            </div>
-
-            {/* Delivery Address */}
             {differentDelivery && (
-              <div className="w-full mt-4">
-                <p className="text-lg font-bold mb-5">
-                  {translate("deliveryAddress")}
-                </p>
-                <div className="max-w-[643px] w-full">
-                  <div className="mb-3">
-                    <span className="text-xs block mb-1">
-                      {translate("fullName")}
-                    </span>
-                    <input
-                      type="text"
-                      name="Delivery_FullName"
-                      value={deliveryForm.Delivery_FullName}
-                      onChange={handleDeliveryChange}
-                      placeholder={translate("enterFullName")}
-                      className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <span className="text-xs block mb-1">
-                      {translate("address")}
-                    </span>
-                    <input
-                      type="text"
-                      name="Delivery_Address"
-                      value={deliveryForm.Delivery_Address}
-                      onChange={handleDeliveryChange}
-                      placeholder={translate("enterAddress")}
-                      className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <span className="text-xs block mb-1">
-                      {translate("postCode")}
-                    </span>
-                    <input
-                      type="text"
-                      name="Delivery_PostCode"
-                      value={deliveryForm.Delivery_PostCode}
-                      onChange={handleDeliveryChange}
-                      placeholder={translate("enterPostCode")}
-                      className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <span className="text-xs block mb-1">
-                      {translate("city")}
-                    </span>
-                    <input
-                      type="text"
-                      name="Delivery_City"
-                      value={deliveryForm.Delivery_City}
-                      onChange={handleDeliveryChange}
-                      placeholder={translate("enterCity")}
-                      className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <span className="text-xs block mb-1">
-                      {translate("country")}
-                    </span>
-                    <select
-                      name="Delivery_Country"
-                      value={deliveryForm.Delivery_Country}
-                      onChange={handleDeliveryChange}
-                      className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8] bg-white"
-                    >
-                      {countries.map((c) => (
-                        <option key={c} value={c}>
-                            {c === SHIPPING_COUNTRY ? translate("northMacedonia") : c}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="mb-3">
-                    <span className="text-xs block mb-1">
-                      {translate("phone")}
-                    </span>
-                    <input
-                      type="text"
-                      name="Delivery_Phone"
-                      value={deliveryForm.Delivery_Phone}
-                      onChange={handleDeliveryChange}
-                      placeholder={translate("enterPhoneNumber")}
-                      className="w-full p-3 border border-gray-300 outline-none focus:border-[#2096D8]"
-                    />
-                  </div>
+              <Section title={translate("deliveryAddress")}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {deliveryField("Delivery_FullName", "fullName", {
+                    placeholder: translate("enterFullName"),
+                    autoComplete: "shipping name",
+                    className: "sm:col-span-2",
+                  })}
+                  {deliveryField("Delivery_Address", "address", {
+                    placeholder: translate("enterAddress"),
+                    autoComplete: "shipping street-address",
+                    className: "sm:col-span-2",
+                  })}
+                  {deliveryField("Delivery_City", "city", {
+                    placeholder: translate("enterCity"),
+                    autoComplete: "shipping address-level2",
+                  })}
+                  {deliveryField("Delivery_PostCode", "postCode", {
+                    placeholder: translate("enterPostCode"),
+                    autoComplete: "shipping postal-code",
+                    inputMode: "numeric",
+                  })}
+                  <CountryField
+                    name="Delivery_Country"
+                    label={translate("country")}
+                    value={deliveryForm.Delivery_Country}
+                    onChange={handleDeliveryChange}
+                    translate={translate}
+                  />
+                  {deliveryField("Delivery_Phone", "phone", {
+                    type: "tel",
+                    placeholder: translate("enterPhoneNumber"),
+                    autoComplete: "shipping tel",
+                  })}
                 </div>
-              </div>
+              </Section>
             )}
 
-            {/* Payment Method */}
-            <div className="pr-15 max-sm:pr-0">
-              <p className="font-bold text-lg mb-5 pb-3 border-b border-gray-200">
-                {translate("paymentMethod")}
-              </p>
-              <div className="flex items-center gap-4 py-5  pl-5">
-                <input
-                  type="radio"
+            <Section title={translate("paymentMethod")}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <PaymentOption
                   id="credit-card"
-                  name="payment_method"
                   value="credit_card"
                   checked={paymentMethod === "credit_card"}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
                   disabled={shippingSettings?.cardPaymentEnabled === false}
+                  onChange={(event) => setPaymentMethod(event.target.value)}
+                  title={translate("creditCard")}
+                  description={translate("mastercardVisa")}
                 />
-                <label htmlFor="credit-card" className="text-sm font-bold">
-                  {translate("creditCard")}
-                </label>
-              </div>
-            </div>
-            <div className="pb-10 pl-5">
-              <div className="flex items-center gap-4">
-                <input
-                  type="radio"
+                <PaymentOption
                   id="home-delivery"
-                  name="payment_method"
                   value="home_delivery"
                   checked={paymentMethod === "home_delivery"}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
                   disabled={shippingSettings?.homeDeliveryEnabled === false}
+                  onChange={(event) => setPaymentMethod(event.target.value)}
+                  title={translate("homeDelivery")}
+                  description={translate("deliveryCourierNotice")}
                 />
-                <label htmlFor="home-delivery" className="text-sm font-bold">
-                  {translate("homeDelivery")}
-                </label>
               </div>
-              <p className="mt-2 pl-8 text-xs text-gray-500">
-                {translate("deliveryCourierNotice")}
-              </p>
-            </div>
+            </Section>
 
-            {/* Order Note */}
-            <div className="pr-15 max-sm:pr-0">
-              <div className="flex justify-between w-full pt-7 pb-6">
-                <p className="text-base font-bold">{translate("orderNote")}</p>
-                <img src="/logos/arrow-up.svg" width={22} alt="arrow" />
-              </div>
-              <div className="flex flex-col gap-1 items-start">
-                <p className="text-xs">{translate("orderNote")}</p>
-                <textarea
-                  value={orderNote}
-                  onChange={(e) => setOrderNote(e.target.value)}
-                  className="w-full outline-none border border-gray-300 p-3 h-24 resize-none"
-                  placeholder={translate("orderNoteDesc")}
-                />
-              </div>
-              <div className="py-5 px-3">
-                <p className="text-sm my-2 mx-1">
-                  {translate("subscribeNote")}
-                </p>
-                <div className="flex gap-4 my-2 mx-1">
+            <Section title={translate("orderNote")}>
+              <textarea
+                id="order-note"
+                value={orderNote}
+                onChange={(event) => setOrderNote(event.target.value)}
+                rows={3}
+                className={`${inputClass(false)} resize-none`}
+                placeholder={translate("orderNoteDesc")}
+              />
+
+              <div className="mt-6 border-t border-gray-100 pt-5">
+                <p className="mb-2 text-sm text-gray-700">{translate("subscribeNote")}</p>
+                <div className="flex gap-2">
                   <input
-                    type="text"
+                    type="email"
                     value={newsletterEmail}
-                    onChange={(e) => setNewsletterEmail(e.target.value)}
-                    className="w-full outline-none border border-gray-300 py-2 px-4"
+                    onChange={(event) => {
+                      setNewsletterEmail(event.target.value);
+                      setNewsletterStatus(null);
+                    }}
+                    className={`${inputClass(newsletterStatus?.type === "error")} min-w-0 flex-1 py-2`}
                     placeholder={translate("enterYourEmailAddress")}
                   />
                   <button
+                    type="button"
                     onClick={handleNewsletterSubscribe}
-                    className="bg-[#8DC658] px-2.5 text-white font-bold text-nowrap"
+                    disabled={!newsletterEmail.trim()}
+                    className="whitespace-nowrap rounded-md bg-[#8DC658] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#7fb64c] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {translate("subscribe")}
                   </button>
                 </div>
-                <p className="text-xs my-2 mx-1">
-                  {translate("byCompletingThisForm")}{" "}
-                  <a
-                    href="terms-of-services"
-                    className="text-blue-600 underline"
+                {newsletterStatus && (
+                  <p
+                    className={`mt-1.5 text-xs ${
+                      newsletterStatus.type === "success" ? "text-green-600" : "text-red-600"
+                    }`}
                   >
+                    {newsletterStatus.text}
+                  </p>
+                )}
+                <p className="mt-2 text-xs text-gray-500">
+                  {translate("byCompletingThisForm")}{" "}
+                  <Link to="/terms-of-services" className="underline hover:text-gray-900">
                     {translate("termsOfService")}
-                  </a>
+                  </Link>
                 </p>
               </div>
-            </div>
+            </Section>
           </div>
 
-          {/* Right Column - SIDEBAR (STICKY) */}
-          <div className="lg:col-span-4 relative">
-            <div
-              ref={sidebarRef}
-              className="bg-white shadow-lg p-6 w-full lg:min-w-[500px]"
-            >
-              <div className="flex justify-between mb-8">
-                <p className="text-base text-[#2096D8] font-bold">
+          {/* Order summary */}
+          <aside className="lg:sticky lg:top-32 lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto">
+            <div className="space-y-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-gray-900">
                   {translate("productsInCart")} ({cart?.totalItems || 0})
-                </p>
-                <Link
-                  to="/cart"
-                  className="text-gray-500 text-xs font-bold hover:underline"
-                >
+                </h2>
+                <Link to="/cart" className="text-xs font-semibold text-gray-500 hover:text-gray-900 hover:underline">
                   {translate("showAll")}
                 </Link>
               </div>
 
-              {!isCartEmpty && (
-                <div className="max-h-[300px] overflow-y-auto mb-4">
-                  {cart.items.slice(0, 3).map((item) => {
-                    const itemPoints = calculatePointsForProduct(item);
+              {isCartEmpty ? (
+                <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+                  {translate("cartEmptyCheckout")}
+                </p>
+              ) : (
+                <ul className="max-h-64 divide-y divide-gray-100 overflow-y-auto pr-1">
+                  {cartItems.map((item) => {
+                    const itemPoints = pointsForItem(item);
                     return (
-                      <div
-                        key={item.cartItem_Id}
-                        className="flex justify-between py-2 border-b"
-                      >
-                        <div>
-                          <p className="text-sm font-medium">
+                      <li key={item.cartItem_Id} className="flex items-center gap-3 py-3">
+                        <div className="relative h-14 w-14 flex-shrink-0 rounded-md border border-gray-100 bg-white">
+                          {item.product_Img && (
+                            <img
+                              src={item.product_Img}
+                              alt={item.product_Name}
+                              loading="lazy"
+                              className="h-full w-full object-contain p-1"
+                            />
+                          )}
+                          <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-gray-800 px-1 text-[11px] font-semibold text-white">
+                            {item.quantity}
+                          </span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="line-clamp-2 text-sm font-medium text-gray-900">
                             {item.product_Name}
                           </p>
-                          <p className="text-xs text-gray-500">
-                            Кол.: {item.quantity}
-                            {itemPoints > 0 && (
-                              <span className="ml-2 text-green-600">
-                                +{itemPoints} поени
+                          <p className="text-xs">
+                            {itemPoints > 0 ? (
+                              <span className="text-green-600">
+                                +{itemPoints} {translate("points")}
                               </span>
-                            )}
-                            {itemPoints === 0 && (
-                              <span className="ml-2 text-gray-400">
-                                (0 поени - со попуст)
+                            ) : (
+                              <span className="text-gray-400">
+                                {translate("discountedNoPoints")}
                               </span>
                             )}
                           </p>
                         </div>
-                        <p className="text-sm font-bold">
-                          MKD {(item.price * item.quantity).toFixed(2)}
+                        <p className="whitespace-nowrap text-sm font-semibold">
+                          {formatPrice(item.price * item.quantity)}
                         </p>
-                      </div>
+                      </li>
                     );
                   })}
-                  {cart.items.length > 3 && (
-                    <p className="text-xs text-gray-500 text-center pt-2">
-                      + {cart.items.length - 3} more items
-                    </p>
-                  )}
-                </div>
+                </ul>
               )}
 
-              <div className="mb-6 border border-gray-200 p-4">
-                <p className="mb-1 text-sm font-bold">
-                  {translate("promotionCode")}
-                </p>
-                <p className="mb-3 text-xs text-gray-500">
-                  {translate("enterPromotionCode")}
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={promotionCode}
-                    onChange={(event) => {
-                      const nextCode = event.target.value.toUpperCase();
-                      setPromotionCode(nextCode);
-                      setPromotionError("");
-                      if (
-                        appliedPromotion?.code &&
-                        nextCode !== appliedPromotion.code.toUpperCase()
-                      ) {
-                        setAppliedPromotion(null);
-                      }
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        handleApplyPromotion();
-                      }
-                    }}
-                    placeholder={translate("enterPromotionCode")}
-                    autoComplete="off"
-                    className="min-w-0 flex-1 border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#2096D8]"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleApplyPromotion}
-                    className="bg-[#2096D8] px-4 py-2 text-sm font-bold text-white"
-                  >
-                    {translate("apply")}
-                  </button>
-                </div>
-                {appliedPromotion && (
-                  <div className="mt-3 flex items-center justify-between bg-green-50 px-3 py-2 text-xs text-green-700">
-                    <span>
-                      {appliedPromotion.code}: - MKD {promoDiscount.toFixed(2)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAppliedPromotion(null);
-                        setPromotionCode("");
-                        setPromotionError("");
-                      }}
-                      className="font-bold underline"
-                    >
-                      {translate("remove")}
-                    </button>
-                  </div>
-                )}
-                {promotionError && (
-                  <p className="mt-2 text-xs text-red-600">{promotionError}</p>
-                )}
-              </div>
+              <div className="space-y-4 border-t border-gray-100 pt-5">
+                <CodeInput
+                  label={translate("promotionCode")}
+                  value={promotionCode}
+                  onChange={(event) => {
+                    setPromotionCode(event.target.value.toUpperCase());
+                    setPromotionError("");
+                  }}
+                  onApply={handleApplyPromotion}
+                  placeholder={translate("enterPromotionCode")}
+                  applyLabel={translate("apply")}
+                  applied={
+                    appliedPromotion &&
+                    `${appliedPromotion.code}: − ${formatPrice(promoDiscount)}`
+                  }
+                  onRemove={() => {
+                    setAppliedPromotion(null);
+                    setPromotionCode("");
+                    setPromotionError("");
+                  }}
+                  removeLabel={translate("remove")}
+                  error={promotionError}
+                />
 
-              <div className="mb-6 border border-gray-200 p-4">
-                <p className="mb-1 text-sm font-bold">Gift voucher</p>
-                <p className="mb-3 text-xs text-gray-500">
-                  Enter a purchased Proteini.mk gift voucher.
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={giftVoucherCode}
-                    onChange={(event) => {
-                      setGiftVoucherCode(event.target.value.toUpperCase());
-                      if (
-                        appliedGiftVoucher?.code &&
-                        event.target.value.toUpperCase() !==
-                          appliedGiftVoucher.code.toUpperCase()
-                      ) {
-                        setAppliedGiftVoucher(null);
-                      }
-                    }}
-                    placeholder="Enter gift voucher code"
-                    className="min-w-0 flex-1 border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#2096D8]"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleApplyGiftVoucher}
-                    className="bg-[#2096D8] px-4 py-2 text-sm font-bold text-white"
-                  >
-                    {translate("apply")}
-                  </button>
-                </div>
-                {appliedGiftVoucher && (
-                  <div className="mt-3 flex items-center justify-between bg-green-50 px-3 py-2 text-xs text-green-700">
-                    <span>
-                      {appliedGiftVoucher.code}: - MKD{" "}
-                      {giftVoucherDiscount.toFixed(2)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAppliedGiftVoucher(null);
-                        setGiftVoucherCode("");
-                      }}
-                      className="font-bold underline"
-                    >
-                      {translate("remove")}
-                    </button>
-                  </div>
-                )}
-                {giftVoucherError && (
-                  <p className="mt-2 text-xs text-red-600">{giftVoucherError}</p>
-                )}
+                <CodeInput
+                  label={translate("giftVoucher")}
+                  value={giftVoucherCode}
+                  onChange={(event) => {
+                    setGiftVoucherCode(event.target.value.toUpperCase());
+                    setGiftVoucherError("");
+                  }}
+                  onApply={handleApplyGiftVoucher}
+                  placeholder={translate("enterGiftVoucherCode")}
+                  applyLabel={translate("apply")}
+                  applied={
+                    appliedGiftVoucher &&
+                    `${appliedGiftVoucher.code}: − ${formatPrice(giftVoucherDiscount)}`
+                  }
+                  onRemove={() => {
+                    setAppliedGiftVoucher(null);
+                    setGiftVoucherCode("");
+                  }}
+                  removeLabel={translate("remove")}
+                  error={giftVoucherError}
+                />
               </div>
 
               {availableFreeGifts.length > 0 && (
-                <div className="mb-6 border border-gray-200 p-4">
-                  <p className="mb-3 text-sm font-bold">
-                    {translate("chooseFreeGift")}
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {availableFreeGifts.map((gift) => (
-                      <label
-                        key={gift.freeGiftId}
-                        className={`flex cursor-pointer items-center gap-3 border p-2 ${selectedFreeGiftId === gift.freeGiftId ? "border-[#FDC700] bg-yellow-50" : "border-gray-200"}`}
-                      >
-                        <input
-                          type="radio"
-                          name="free-gift"
-                          checked={selectedFreeGiftId === gift.freeGiftId}
-                          onChange={() =>
-                            setSelectedFreeGiftId(gift.freeGiftId)
-                          }
-                        />
-                        {gift.image && (
-                          <img
-                            src={gift.image.startsWith("http") ? gift.image : `https://proteini.mk${gift.image.startsWith("/") ? "" : "/"}${gift.image}`}
-                            alt={gift.displayName || gift.productName || "Free gift"}
-                            className="h-12 w-12 object-contain"
+                <div className="border-t border-gray-100 pt-5">
+                  <p className="mb-3 text-sm font-semibold">{translate("chooseFreeGift")}</p>
+                  <div className="grid gap-2">
+                    {availableFreeGifts.map((gift) => {
+                      const selected = selectedFreeGiftId === gift.freeGiftId;
+                      const name =
+                        gift.displayName || gift.productName || gift.variantName || "Free gift";
+                      return (
+                        <label
+                          key={gift.freeGiftId}
+                          className={`flex cursor-pointer items-center gap-3 rounded-lg border p-2.5 transition-colors ${
+                            selected ? "border-[#FDC700] bg-yellow-50" : "border-gray-200 hover:border-gray-300"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="free-gift"
+                            checked={selected}
+                            onChange={() => setSelectedFreeGiftId(gift.freeGiftId)}
+                            className="h-4 w-4 accent-[#FDC700]"
                           />
-                        )}
-                        <span className="text-xs font-semibold">
-                          {gift.displayName || gift.productName || gift.variantName || "Free gift"}
-                        </span>
-                      </label>
-                    ))}
+                          {gift.image && (
+                            <img
+                              src={resolveImage(gift.image)}
+                              alt={name}
+                              loading="lazy"
+                              className="h-10 w-10 object-contain"
+                            />
+                          )}
+                          <span className="text-xs font-semibold">{name}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {availablePoints > 0 && !loadingPoints && (
-                <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <div className="flex justify-between items-center mb-3">
-                    <p className="text-sm font-semibold text-yellow-800">
+              {availablePoints > 0 && (
+                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+                  <div className="mb-1 flex items-center justify-between">
+                    <p className="text-sm font-semibold text-yellow-900">
                       {translate("yourLoyaltyPoints")}
                     </p>
-                    <p className="text-lg font-bold text-yellow-600">
-                      {Math.floor(availablePoints)} поени
+                    <p className="text-base font-bold text-yellow-700">
+                      {Math.floor(availablePoints)} {translate("points")}
                     </p>
                   </div>
-                  <p className="text-xs text-gray-600 mb-3">
-                    {translate("onepointonemkd")}
-                  </p>
+                  <p className="mb-3 text-xs text-gray-600">{translate("onepointonemkd")}</p>
                   <div className="flex gap-2">
                     <input
                       type="number"
-                      value={pointsToRedeem}
-                      onChange={(e) =>
-                        setPointsToRedeem(
-                          Math.min(Number(e.target.value), maxRedeemablePoints),
-                        )
-                      }
-                      placeholder="Points to redeem"
-                      className="w-full p-2 border rounded text-sm"
                       min="0"
                       max={maxRedeemablePoints}
+                      value={pointsInput}
+                      onChange={(event) => {
+                        setPointsInput(Math.min(Number(event.target.value), maxRedeemablePoints));
+                        setPointsMessage("");
+                      }}
+                      className={`${inputClass(false)} min-w-0 flex-1 py-2`}
                     />
                     <button
+                      type="button"
                       onClick={handleApplyPoints}
-                      className="bg-[#2096D8] text-white px-4 py-2 rounded text-sm hover:bg-[#1a7ab3]"
+                      className="rounded-md bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-black"
                     >
                       {translate("apply")}
                     </button>
                   </div>
-                  {pointsDiscount > 0 && (
-                    <p className="text-xs text-green-600 mt-2">
-                      {translate("discountApplied")}: MKD{" "}
-                      {pointsDiscount.toFixed(2)}
-                    </p>
+                  {pointsMessage && (
+                    <p className="mt-2 text-xs text-green-700">{pointsMessage}</p>
                   )}
-                  <p className="text-xs text-gray-500 mt-2">
-                    {translate("youWillEarn1")} {estimatedPoints}{" "}
-                    {translate("youWillEarn2")} {translate("youWillEarn3")}
-                    {hasDiscountedItems && (
-                      <span className="block text-xs text-orange-600 mt-1">
-                        * Discounted items earn 0 points.
-                      </span>
-                    )}
-                  </p>
                 </div>
               )}
 
-              <div className="flex flex-col gap-1">
+              <dl className="space-y-2 border-t border-gray-100 pt-5 text-sm">
                 <div className="flex justify-between">
-                  <p className="text-sm">{translate("pointEarned")}</p>
-                  <p className="text-sm">{estimatedPoints}</p>
+                  <dt className="text-gray-600">{translate("subtotal")}</dt>
+                  <dd className="font-semibold">{formatPrice(cartTotal)}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <p className="text-sm">{translate("delivery")}</p>
-                  <p className="text-sm font-bold">
-                    MKD {deliveryFee.toFixed(2)}
-                  </p>
+                  <dt className="text-gray-600">{translate("delivery")}</dt>
+                  <dd className="font-semibold">{formatPrice(deliveryFee)}</dd>
                 </div>
                 {cashOnDeliveryFee > 0 && (
                   <div className="flex justify-between">
-                    <p className="text-sm">Cash on delivery fee</p>
-                    <p className="text-sm font-bold">
-                      MKD {cashOnDeliveryFee.toFixed(2)}
-                    </p>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <p className="text-sm">{translate("subtotal")}</p>
-                  <p className="text-sm font-bold">
-                    MKD {(cart?.total || 0).toFixed(2)}
-                  </p>
-                </div>
-                {pointsDiscount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <p className="text-sm">{translate("pointsDiscount")}</p>
-                    <p className="text-sm font-bold">
-                      - MKD {pointsDiscount.toFixed(2)}
-                    </p>
+                    <dt className="text-gray-600">{translate("cashOnDeliveryFee")}</dt>
+                    <dd className="font-semibold">{formatPrice(cashOnDeliveryFee)}</dd>
                   </div>
                 )}
                 {promoDiscount > 0 && (
                   <div className="flex justify-between text-green-600">
-                    <p className="text-sm">{translate("promotionDiscount")}</p>
-                    <p className="text-sm font-bold">
-                      - MKD {promoDiscount.toFixed(2)}
-                    </p>
+                    <dt>{translate("promotionDiscount")}</dt>
+                    <dd className="font-semibold">− {formatPrice(promoDiscount)}</dd>
                   </div>
                 )}
                 {giftVoucherDiscount > 0 && (
                   <div className="flex justify-between text-green-600">
-                    <p className="text-sm">Gift voucher</p>
-                    <p className="text-sm font-bold">
-                      - MKD {giftVoucherDiscount.toFixed(2)}
-                    </p>
+                    <dt>{translate("giftVoucher")}</dt>
+                    <dd className="font-semibold">− {formatPrice(giftVoucherDiscount)}</dd>
                   </div>
                 )}
+                {pointsDiscount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <dt>{translate("pointsDiscount")}</dt>
+                    <dd className="font-semibold">− {formatPrice(pointsDiscount)}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between text-gray-600">
+                  <dt>{translate("pointEarned")}</dt>
+                  <dd>+{estimatedPoints}</dd>
+                </div>
+                {hasDiscountedItems && (
+                  <p className="text-xs text-orange-600">{translate("discountedItemsEarnNoPoints")}</p>
+                )}
+              </dl>
+
+              <div className="flex items-baseline justify-between border-t border-gray-200 pt-4">
+                <p className="text-base font-bold">{translate("amountForPayment")}</p>
+                <p className="text-xl font-bold text-gray-900">{formatPrice(finalAmount)}</p>
               </div>
 
-              <div className="flex justify-between text-lg font-bold my-8 py-5 border-t border-b border-gray-200">
-                <p>{translate("amountForPayment")}</p>
-                <p>MKD {finalAmount.toFixed(2)}</p>
-              </div>
-
-              <div className="mb-9 flex gap-2 items-start">
-                <input
-                  type="checkbox"
-                  id="order-terms-conditions"
-                  checked={termsAccepted}
-                  onChange={(e) => {
-                    setTermsAccepted(e.target.checked);
-                    if (termsError) setTermsError("");
-                  }}
-                />
-                <label htmlFor="order-terms-conditions" className="text-xs">
-                  {translate("agreeToTheTerms")}{" "}
-                  <a
-                    href="/terms-of-services"
-                    className="text-xs text-black font-bold underline"
-                  >
-                    {translate("termsOfService")}
-                  </a>{" "}
-                  {translate("and")}{" "}
-                  <a
-                    href="/privacy-policy"
-                    className="text-xs text-black font-bold underline"
-                  >
-                    {translate("privacyPolicy")}
-                  </a>
+              <div>
+                <label className="flex cursor-pointer items-start gap-3 text-xs text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(event) => {
+                      setTermsAccepted(event.target.checked);
+                      if (termsError) setTermsError("");
+                    }}
+                    className="mt-0.5 h-4 w-4 accent-[#2096D8]"
+                  />
+                  <span>
+                    {translate("agreeToTheTerms")}{" "}
+                    <Link to="/terms-of-services" className="font-bold text-black underline">
+                      {translate("termsOfService")}
+                    </Link>{" "}
+                    {translate("and")}{" "}
+                    <Link to="/privacy-policy" className="font-bold text-black underline">
+                      {translate("privacyPolicy")}
+                    </Link>
+                  </span>
                 </label>
+                {termsError && <p className="mt-1.5 text-xs text-red-600">{termsError}</p>}
               </div>
-
-              {termsError && (
-                <p className="text-red-500 text-xs mb-2">{termsError}</p>
-              )}
 
               <button
+                type="button"
                 onClick={handleSubmitOrder}
                 disabled={saving || isCartEmpty}
-                className="bg-[#8DC658] text-white text-base font-bold p-3.5 w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex w-full items-center justify-center gap-2 rounded-md bg-[#8DC658] py-3.5 text-base font-bold text-white transition-colors hover:bg-[#7fb64c] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {saving
-                  ? `${translate("processing")}`
-                  : `${translate("placeOrder")}`}
+                {saving && (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                )}
+                {saving ? translate("processing") : translate("placeOrder")}
               </button>
-              {isCartEmpty && (
-                <p className="text-center text-red-500 text-sm mt-2">
-                  Your cart is empty. Please add products before checking out.
-                </p>
-              )}
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </div>

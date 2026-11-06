@@ -1,0 +1,34 @@
+[Unit]
+Description=Proteini.mk API (production, api.proteini.mk)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+User=proteinisi
+Group=proteinisi
+WorkingDirectory=/srv/proteinisi/prod/api
+ExecStart=/usr/bin/dotnet /srv/proteinisi/prod/api/ProteiniSi.Api.dll
+EnvironmentFile=/etc/proteinisi/prod.env
+Environment=DOTNET_gcServer=1
+Environment=DOTNET_TieredPGO=1
+Environment=DOTNET_NOLOGO=1
+Restart=always
+RestartSec=3
+KillSignal=SIGINT
+TimeoutStopSec=20
+
+# Production wins every contention with staging: 50x the CPU and IO weight,
+# protected memory and the lowest chance of being picked by the OOM killer.
+CPUWeight=1000
+IOWeight=1000
+MemoryLow=400M
+OOMScoreAdjust=-600
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/proteinisi/prod/api
+
+[Install]
+WantedBy=multi-user.target

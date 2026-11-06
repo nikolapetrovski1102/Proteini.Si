@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { api } from "../../services/api";
+import { clearGuestCart } from "../Hooks/useCart";
 
 export default function MockPayment() {
   const [searchParams] = useSearchParams();
@@ -9,22 +11,25 @@ export default function MockPayment() {
 
   const orderId = searchParams.get("orderId");
   const amount = searchParams.get("amount");
+  const guestToken = searchParams.get("token");
 
   const handlePayment = async (status) => {
     setProcessing(true);
     setError("");
     try {
+      const authToken = api.getToken();
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/Order/UpdatePaymentStatus`,
+        `${import.meta.env.VITE_API_BASE_URL}/Order/MockPayment`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
           },
           body: JSON.stringify({
             order_Id: parseInt(orderId),
             payment_Status: status,
-            transaction_Id: `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            token: guestToken,
           }),
         },
       );
@@ -33,7 +38,11 @@ export default function MockPayment() {
 
       if (data.status) {
         if (status === "completed") {
-          navigate(`/order-confirmation/${orderId}`);
+          // Logged-in carts are cleared server-side when the payment completes.
+          clearGuestCart();
+          navigate(
+            `/order-confirmation/${orderId}${guestToken ? `?token=${encodeURIComponent(guestToken)}` : ""}`,
+          );
         } else {
           setError("Payment failed. Please try again.");
           setProcessing(false);

@@ -410,6 +410,9 @@ export default function ProductsPage() {
       } else if (preSelectedFilter === "upcomingPromotions") {
         setSelectedFilters({ upcomingPromotions: filterValue });
         fetchProducts({ upcomingPromotions: filterValue }, 1, false);
+      } else if (preSelectedFilter === "justForMe") {
+        setSelectedFilters({ justForMe: filterValue });
+        fetchProducts({ justForMe: filterValue }, 1, false);
       } else if (
         preSelectedFilter === "goalIds" &&
         filterOptions.goals.length > 0
@@ -833,13 +836,9 @@ export default function ProductsPage() {
     });
   }, [categoryName, location.pathname, location.search]);
 
-  if (loading && products.length === 0) {
-    return <LargeLoader />;
-  }
-
   if (error) {
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="flex justify-center items-center min-h-[60vh]">
         <div className="text-red-500 text-center">
           <p>{error}</p>
           <button
@@ -1352,7 +1351,20 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 my-[18px] gap-1">
+          {loading && products.length === 0 ? (
+            <ProductGridSkeleton />
+          ) : (
+          <div
+            className={`relative grid grid-cols-2 lg:grid-cols-4 my-[18px] gap-1 transition-opacity duration-200 ${
+              loading ? "opacity-50 pointer-events-none" : ""
+            }`}
+            aria-busy={loading}
+          >
+            {loading && (
+              <div className="pointer-events-none absolute inset-x-0 top-24 z-20 flex justify-center">
+                <LargeLoader />
+              </div>
+            )}
             {products.map((product) => (
               <ProductCard
                 key={`${product.product_Id}-${product.variant_Id || "base"}`}
@@ -1372,8 +1384,9 @@ export default function ProductsPage() {
               />
             ))}
           </div>
+          )}
 
-          {products.length === 0 && (
+          {!loading && products.length === 0 && (
             <div className="text-center py-12">
               <p className="text-gray-500">
                 No products found in this category.
@@ -1442,6 +1455,30 @@ export default function ProductsPage() {
 }
 
 // ProductCard component
+function ProductGridSkeleton({ count = 8 }) {
+  return (
+    <div
+      className="grid grid-cols-2 lg:grid-cols-4 my-[18px] gap-1"
+      aria-busy="true"
+      aria-label="Loading products"
+    >
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="flex flex-col p-[10px] pb-[18px] max-md:p-0 bg-white animate-pulse"
+        >
+          <div className="h-[180px] w-full bg-gray-200 sm:h-[300px]" />
+          <div className="mt-[10px] h-2.5 w-1/3 bg-gray-200" />
+          <div className="mt-2 h-4 w-5/6 bg-gray-200" />
+          <div className="mt-2 h-4 w-2/3 bg-gray-200" />
+          <div className="mt-3 h-3 w-1/4 bg-gray-200" />
+          <div className="mt-3 h-5 w-1/3 bg-gray-200" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ProductCard({
   product,
   onQuickPurchase,

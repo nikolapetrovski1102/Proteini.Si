@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -17,7 +18,7 @@ public class CPayService(IConfiguration config, ILogger<CPayService> logger) : I
         "Telephone", "Email", "OriginalAmount", "OriginalCurrency"
     ];
 
-    public string GeneratePaymentForm(int orderId, int amount, string orderNumber, string customerName, string customerEmail)
+    public string GeneratePaymentForm(int orderId, decimal totalAmount, string orderNumber, string customerName, string customerEmail)
     {
         var cpayConfig = config.GetSection("CPayConfiguration");
 
@@ -37,29 +38,27 @@ public class CPayService(IConfiguration config, ILogger<CPayService> logger) : I
         var parameters = new Dictionary<string, string>
         {
             { "isSimple", "true" },
-            { "AmountToPay", amount.ToString() },
+            { "AmountToPay", ToAmountToPay(totalAmount) },
             { "PayToMerchant", payToMerchant },
             { "MerchantName", merchantName },
             { "AmountCurrency", cpayConfig["Currency"] ?? "MKD" },
-            { "Details1", $"Order #{orderNumber}" },
-            { "Details2", orderId.ToString() },
+            // cPay blocks the client IP on characters outside its whitelist (e.g. '#', quotes), so free text is sanitized.
+            { "Details1", SanitizeText($"Order {orderNumber}", 32) },
+            { "Details2", orderId.ToString(CultureInfo.InvariantCulture) },
             { "PaymentOKURL", successUrl },
             { "PaymentFailURL", failureUrl }
         };
 
-        if (!string.IsNullOrEmpty(customerName))
-        {
-            var nameParts = customerName.Split(' ', 2);
-            parameters.Add("FirstName", nameParts[0]);
+        var nameParts = SanitizeText(customerName, 129).Split(' ', 2);
+        if (nameParts[0].Length > 0)
+            parameters.Add("FirstName", Truncate(nameParts[0], 64));
+        if (nameParts.Length > 1)
+            parameters.Add("LastName", Truncate(nameParts[1], 64));
 
-            if (nameParts.Length > 1)
-                parameters.Add("LastName", nameParts[1]);
-        }
+        if (IsSafeEmail(customerEmail))
+            parameters.Add("Email", customerEmail.Trim());
 
-        if (!string.IsNullOrEmpty(customerEmail))
-            parameters.Add("Email", customerEmail);
-
-        var checksumHeader = GenerateChecksumHeader(parameters);
+        var checksumHeader = BuildChecksumHeader(parameters);
         var checksum = ComputeChecksum(parameters, checksumHeader, GetSecretKey()
             ?? throw new InvalidOperationException("CPay secret key is not configured."));
 
@@ -87,7 +86,10 @@ public class CPayService(IConfiguration config, ILogger<CPayService> logger) : I
                 return false;
             }
 
-            if (ComputeChecksum(callbackParams, header, secretKey) != receivedChecksum)
+            var expected = Encoding.ASCII.GetBytes(ComputeChecksum(callbackParams, header, secretKey));
+            var received = Encoding.ASCII.GetBytes(receivedChecksum.Trim().ToLowerInvariant());
+
+            if (!CryptographicOperations.FixedTimeEquals(expected, received))
             {
                 logger.LogWarning("CPay callback rejected: invalid checksum");
                 return false;
@@ -101,6 +103,10 @@ public class CPayService(IConfiguration config, ILogger<CPayService> logger) : I
             return false;
         }
     }
+
+    // cPay requires the amount in denars x 100 with the last two digits always 00, so totals are rounded to whole denars.
+    public string ToAmountToPay(decimal totalAmount) =>
+        ((long)Math.Round(totalAmount, MidpointRounding.AwayFromZero) * 100).ToString(CultureInfo.InvariantCulture);
 
     private string? GetSecretKey()
     {
@@ -141,7 +147,7 @@ public class CPayService(IConfiguration config, ILogger<CPayService> logger) : I
         return html.ToString();
     }
 
-    private static string GenerateChecksumHeader(Dictionary<string, string> parameters)
+    public static string BuildChecksumHeader(IReadOnlyDictionary<string, string> parameters)
     {
         var presentParams = new List<string>();
         var lengths = new List<string>();
@@ -151,7 +157,8 @@ public class CPayService(IConfiguration config, ILogger<CPayService> logger) : I
             if (parameters.TryGetValue(key, out var value) && !string.IsNullOrEmpty(value))
             {
                 presentParams.Add(key);
-                lengths.Add(Encoding.UTF8.GetByteCount(value).ToString("D3"));
+                // The spec counts every character as 1 regardless of its UTF-8 byte length.
+                lengths.Add(value.Length.ToString("D3"));
             }
         }
 
@@ -167,7 +174,7 @@ public class CPayService(IConfiguration config, ILogger<CPayService> logger) : I
         return header.ToString();
     }
 
-    private static string ComputeChecksum(IReadOnlyDictionary<string, string> parameters, string header, string secretKey)
+    public static string ComputeChecksum(IReadOnlyDictionary<string, string> parameters, string header, string secretKey)
     {
         var input = new StringBuilder();
         input.Append(header);
@@ -200,6 +207,38 @@ public class CPayService(IConfiguration config, ILogger<CPayService> logger) : I
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secretKey));
         var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(input.ToString()));
         return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    // Keeps letters, digits, single spaces and the separators cPay accepts in text fields.
+    private static string SanitizeText(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var sanitized = new StringBuilder(value.Length);
+        foreach (var c in value)
+        {
+            if (char.IsLetterOrDigit(c) || c is '-' or '/')
+                sanitized.Append(c);
+            else if (char.IsWhiteSpace(c) && sanitized.Length > 0 && sanitized[^1] != ' ')
+                sanitized.Append(' ');
+        }
+
+        return Truncate(sanitized.ToString().Trim(), maxLength);
+    }
+
+    private static string Truncate(string value, int maxLength) =>
+        value.Length <= maxLength ? value : value[..maxLength].TrimEnd();
+
+    private static bool IsSafeEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        email = email.Trim();
+        return email.Length <= 256
+            && email.Count(c => c == '@') == 1
+            && email.All(c => char.IsAsciiLetterOrDigit(c) || c is '@' or '.' or '-' or '_' or '+');
     }
 
     private static string HtmlEncode(string value) =>

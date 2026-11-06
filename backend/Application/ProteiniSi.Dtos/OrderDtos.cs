@@ -150,4 +150,12 @@ public class OrderCheckoutResult
     public decimal PointsToEarn { get; set; }
     public string? PaymentUrl { get; set; }
     public string? PaymentFormHtml { get; set; }
+    public string? GuestAccessToken { get; set; }
+}
+
+public class MockPaymentDto
+{
+    public int Order_Id { get; set; }
+    public string? Payment_Status { get; set; }
+    public string? Token { get; set; }
 }

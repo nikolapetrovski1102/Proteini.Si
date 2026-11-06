@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../../services/api";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { GoDotFill } from "react-icons/go";
 import ProfileNav from "../ProfilePages/ProfileNav";
 
@@ -15,6 +15,10 @@ export default function OrderHistory() {
   const [loadingDetails, setLoadingDetails] = useState(false);
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const guestToken = searchParams.get("token");
+  // Guests can only see the one order their token unlocks; account actions are hidden.
+  const isGuest = !api.isAuthenticated();
 
   // Check if we're on order-confirmation route
   const isOrderConfirmation = window.location.pathname.includes(
@@ -32,7 +36,10 @@ export default function OrderHistory() {
   const fetchSingleOrder = async (orderId) => {
     setLoading(true);
     try {
-      const response = await api.getOrderConfirmation(orderId);
+      const response = await api.getOrderConfirmation(
+        orderId,
+        isGuest ? guestToken : null,
+      );
       if (response.status) {
         const singleOrder = [
           {
@@ -230,7 +237,7 @@ export default function OrderHistory() {
     return (
       <div className="w-full flex justify-center px-4 md:px-0">
         <div className="w-full flex flex-col md:flex-row gap-6 md:gap-24 md:pl-24 md:pr-48">
-          <ProfileNav />
+          {!isGuest && <ProfileNav />}
           <div className="w-full md:max-w-[740px] md:pr-[50px] pb-[70px]">
             <p className="text-[24px] font-bold mb-[20px] pt-[70px] md:pr-[50px]">
               {isOrderConfirmation ? "ORDER DETAILS" : "ORDER HISTORY"}
@@ -255,7 +262,7 @@ export default function OrderHistory() {
     return (
       <div className="w-full flex justify-center px-4 md:px-0">
         <div className="w-full flex flex-col md:flex-row gap-6 md:gap-24 md:pl-24 md:pr-48">
-          <ProfileNav />
+          {!isGuest && <ProfileNav />}
           <div className="w-full md:max-w-[740px] md:pr-[50px] pb-[70px]">
             <p className="text-[24px] font-bold mb-[20px] pt-[70px] md:pr-[50px]">
               {isOrderConfirmation ? "ORDER DETAILS" : "ORDER HISTORY"}
@@ -284,7 +291,7 @@ export default function OrderHistory() {
   return (
     <div className="w-full flex justify-center px-4 md:px-0">
       <div className="w-full flex flex-col md:flex-row gap-6 md:gap-24 md:pl-24 md:pr-48">
-        <ProfileNav />
+        {!isGuest && <ProfileNav />}
 
         <div className="w-full md:max-w-[740px] md:pr-[50px] pb-[70px]">
           <p className="text-[24px] font-bold mb-[20px] pt-[70px] md:pr-[50px]">
@@ -368,7 +375,7 @@ export default function OrderHistory() {
                             View Details
                           </button>
                         )}
-                        {canConfirmOrder(order) && (
+                        {!isGuest && canConfirmOrder(order) && (
                           <button
                             onClick={() => handleConfirmOrder(order.Order_Id)}
                             className="flex-1 sm:flex-none px-4 py-2 text-sm font-medium text-green-600 border border-green-600 hover:bg-green-600 hover:text-white transition-colors rounded"
@@ -376,7 +383,7 @@ export default function OrderHistory() {
                             Confirm Order
                           </button>
                         )}
-                        {canCancelOrder(order) && (
+                        {!isGuest && canCancelOrder(order) && (
                           <button
                             onClick={() => handleCancelOrder(order.Order_Id)}
                             disabled={cancellingOrder === order.Order_Id}

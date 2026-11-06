@@ -447,6 +447,7 @@ export const api = {
         outlet: filters.outlet || false,
         upcomingPromotions: filters.upcomingPromotions || false,
         giftVouchers: filters.giftVouchers || false,
+        justForMe: filters.justForMe || false,
         searchTerm:
           filters.searchTerm && filters.searchTerm !== "string"
             ? filters.searchTerm
@@ -849,15 +850,17 @@ export const api = {
     }
   },
 
-  async getOrderConfirmation(orderId) {
+  // guestToken proves access to a guest order (handed out at checkout / payment return).
+  async getOrderConfirmation(orderId, guestToken = null) {
     try {
       const token = this.getToken();
+      const query = guestToken ? `?token=${encodeURIComponent(guestToken)}` : "";
       const response = await fetch(
-        `${API_BASE_URL}/Order/Confirmation/${orderId}`,
+        `${API_BASE_URL}/Order/Confirmation/${orderId}${query}`,
         {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${token}`,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
             "Content-Type": "application/json",
           },
         },
@@ -2229,6 +2232,23 @@ export const api = {
   },
 
   // Upload a new home slider image
+  // Clears the API output cache and the Cloudflare edge cache (SuperAdmin only).
+  async purgeCache() {
+    const token = this.getToken();
+    const response = await fetch(`${API_BASE_URL}/admin/cache/purge`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || data.message || "Failed to reset cache");
+    }
+    return data;
+  },
+
   async uploadHomeSlider(
     imageFile,
     mobileImageFile = null,

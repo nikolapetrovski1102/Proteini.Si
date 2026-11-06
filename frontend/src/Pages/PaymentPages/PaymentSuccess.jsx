@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "../../services/api";
+import { clearGuestCart } from "../Hooks/useCart";
 
 export default function PaymentSuccess() {
   const [searchParams] = useSearchParams();
@@ -12,6 +13,7 @@ export default function PaymentSuccess() {
     searchParams.get("order_id") ||
     searchParams.get("orderId") ||
     searchParams.get("Details2");
+  const guestToken = searchParams.get("token");
   const transactionId =
     searchParams.get("transaction_id") || searchParams.get("cPayPaymentRef");
 
@@ -25,14 +27,23 @@ export default function PaymentSuccess() {
         }
 
         // Use your existing order confirmation endpoint
-        const response = await api.getOrderConfirmation(orderId);
+        const response = await api.getOrderConfirmation(
+          orderId,
+          api.isAuthenticated() ? null : guestToken,
+        );
 
         if (response.status && response.order) {
           setStatus("success");
-          // Clear cart after successful payment
-          await api.clearCart();
+          // The cart is only cleared once the payment has succeeded.
+          if (api.isAuthenticated()) {
+            await api.clearCart().catch((e) => console.error("Failed to clear cart:", e));
+          } else {
+            clearGuestCart();
+          }
           setTimeout(() => {
-            navigate(`/order-confirmation/${orderId}`);
+            navigate(
+              `/order-confirmation/${orderId}${guestToken ? `?token=${encodeURIComponent(guestToken)}` : ""}`,
+            );
           }, 3000);
         } else {
           setStatus("failed");
@@ -48,7 +59,7 @@ export default function PaymentSuccess() {
     } else {
       setStatus("failed");
     }
-  }, [orderId, navigate]);
+  }, [orderId, guestToken, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">

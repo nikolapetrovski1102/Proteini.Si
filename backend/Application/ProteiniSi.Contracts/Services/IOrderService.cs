@@ -6,10 +6,13 @@ public interface IOrderService
 {
     Task<OrderCheckoutResult> CreateAsync(CreateOrderDto orderDto, int userId);
     Task<PaymentCompletionResult> CompletePaidOrderAsync(int orderId, string? transactionId, bool sendEmail = true, string completedOrderStatus = "paid");
+    Task<PaymentCompletionResult> CompleteCPayPaymentAsync(int orderId, string? amountToPay, string? transactionId);
     Task<PaymentCompletionResult?> ApplyPaymentStatusAsync(int orderId, string? paymentStatus, string? transactionId);
     Task MarkPaymentFailedAsync(int orderId, string? transactionId);
 
     Task<(dynamic Order, List<dynamic> Items)> GetConfirmationAsync(int orderId, int userId);
+    Task<(dynamic Order, List<dynamic> Items)> GetGuestConfirmationAsync(int orderId, string? guestAccessToken);
+    string CreateGuestAccessToken(int orderId);
     Task CancelAsync(int orderId, int userId);
     Task<OrderCancellationStatus> GetCancellationStatusAsync(int orderId, int userId);
     Task<List<dynamic>> GetHistoryAsync(int userId);

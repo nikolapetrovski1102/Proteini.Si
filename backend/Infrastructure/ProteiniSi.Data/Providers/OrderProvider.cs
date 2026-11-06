@@ -125,7 +125,7 @@ public class OrderProvider(ISqlHelper sql) : IOrderProvider
     public Task<List<dynamic>> GetHistoryAsync(int userId) =>
         sql.QueryAsync<dynamic>(StoredProcedures.Orders.GetHistory, new { UserId = userId });
 
-    public Task<(dynamic? Order, List<dynamic> Items)> GetConfirmationAsync(int orderId, int userId) =>
+    public Task<(dynamic? Order, List<dynamic> Items)> GetConfirmationAsync(int orderId, int? userId) =>
         ReadOrderWithItemsAsync(StoredProcedures.Orders.GetConfirmation, new { OrderId = orderId, UserId = userId });
 
     public Task<(int TotalCount, List<dynamic> Orders)> GetAdminPageAsync(OrderAdminFilter filter) =>

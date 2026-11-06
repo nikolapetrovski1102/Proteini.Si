@@ -19,7 +19,7 @@ public interface IOrderProvider
     Task<OrderCancelInfo?> GetCancelInfoAsync(int orderId, int userId);
 
     Task<List<dynamic>> GetHistoryAsync(int userId);
-    Task<(dynamic? Order, List<dynamic> Items)> GetConfirmationAsync(int orderId, int userId);
+    Task<(dynamic? Order, List<dynamic> Items)> GetConfirmationAsync(int orderId, int? userId);
 
     Task<(int TotalCount, List<dynamic> Orders)> GetAdminPageAsync(OrderAdminFilter filter);
     Task<List<dynamic>> GetAdminExportAsync(string? orderStatus, string? paymentStatus, string? search, DateTime? fromDate, DateTime? toExclusive);

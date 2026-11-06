@@ -7,6 +7,8 @@ public static class ServiceRegistration
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
+        services.AddHttpClient(nameof(CloudflareCacheService), client => client.Timeout = TimeSpan.FromSeconds(10));
+        services.AddSingleton<ICdnCacheService, CloudflareCacheService>();
         services.AddSingleton<IImageStorageService, ImageStorageService>();
 
         services.AddScoped<IBranchLocationService, BranchLocationService>();

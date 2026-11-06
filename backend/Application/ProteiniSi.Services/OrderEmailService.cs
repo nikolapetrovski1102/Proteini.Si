@@ -465,7 +465,7 @@ namespace ProteiniSi.Services
             }
         }
 
-        public async Task<bool> SendAdminStatusEmailAsync(OrderStatusSnapshot order, string orderStatus, string paymentStatus, string? confirmationNumber = null)
+        public async Task<bool> SendAdminStatusEmailAsync(OrderStatusSnapshot order, string orderStatus, string paymentStatus, string? trackingNumber = null, string? trackingUrl = null)
         {
             var customerEmail = Convert.ToString(order.Billing_Email);
             if (string.IsNullOrWhiteSpace(customerEmail))
@@ -474,25 +474,37 @@ namespace ProteiniSi.Services
             var orderNumber = Convert.ToString(order.Order_Number) ?? order.Order_Id.ToString();
             var customerName = Convert.ToString(order.Billing_FullName) ?? "customer";
             decimal totalAmount = Convert.ToDecimal(order.Total_Amount ?? 0);
-            var statusTitle = orderStatus == "confirmed" ? "Нарачката е потврдена" : "Статус на нарачка";
+            var (statusTitle, emailSubject, badgeColor) = orderStatus switch
+            {
+                "confirmed" => ("Нарачката е потврдена", $"Нарачката #{orderNumber} е потврдена | Proteini.mk", "#2096D8"),
+                "shipped" => ("Нарачката е испратена", $"Нарачката #{orderNumber} е испратена | Proteini.mk", "#16a34a"),
+                "rejected" => ("Нарачката е одбиена", $"Нарачката #{orderNumber} е одбиена | Proteini.mk", "#dc2626"),
+                _ => ("Статус на нарачка", $"Статус на нарачка #{orderNumber} | Proteini.mk", "#2096D8")
+            };
             var statusMessage = orderStatus switch
             {
-                "confirmed" => "Вашата нарачка е потврдена.",
+                "confirmed" => "Вашата нарачка е потврдена и наскоро ќе биде подготвена за испорака.",
                 "processing" => "Вашата нарачка е во обработка.",
-                "shipped" => "Вашата нарачка е испратена.",
+                "shipped" => "Вашата нарачка е испратена и е на пат кон вас.",
                 "delivered" => "Вашата нарачка е доставена.",
-                "rejected" => "Вашата нарачка е одбиена.",
+                "rejected" => "За жал, вашата нарачка е одбиена. Доколку веќе сте платиле, износот ќе ви биде вратен.",
                 "cancelled" => "Вашата нарачка е откажана.",
                 "refunded" => "Повратот за вашата нарачка е означен како обработен.",
                 _ => "Статусот на вашата нарачка е ажуриран."
             };
-            var confirmationNumberHtml = string.IsNullOrWhiteSpace(confirmationNumber)
+            var safeTrackingUrl = !string.IsNullOrWhiteSpace(trackingUrl)
+                && Uri.TryCreate(trackingUrl, UriKind.Absolute, out var parsedTrackingUrl)
+                && parsedTrackingUrl.Scheme is "https" or "http"
+                    ? parsedTrackingUrl.AbsoluteUri
+                    : null;
+            var trackingHtml = string.IsNullOrWhiteSpace(trackingNumber) && safeTrackingUrl == null
                                 ? string.Empty
                                 : $@"
                                 <tr>
                                     <td colspan='2' style='padding:16px; border-top:1px solid #e3e9ef;'>
-                                        <div style='color:#667085; font-size:12px; line-height:16px; text-transform:uppercase;'>Tracking order number</div>
-                                        <div style='color:#111827; font-size:16px; line-height:22px; font-weight:800;'>{HtmlEncode(confirmationNumber)}</div>
+                                        <div style='color:#667085; font-size:12px; line-height:16px; text-transform:uppercase;'>Број за следење</div>
+                                        <div style='color:#111827; font-size:16px; line-height:22px; font-weight:800;'>{HtmlEncode(trackingNumber ?? "-")}</div>
+                                        {(safeTrackingUrl == null ? string.Empty : $"<a href='{HtmlEncode(safeTrackingUrl)}' style='display:inline-block; margin-top:12px; padding:10px 18px; background:#FDC700; color:#111827; font-size:14px; font-weight:800; text-decoration:none;'>Следи ја пратката</a>")}
                                     </td>
                                 </tr>";
 
@@ -515,7 +527,7 @@ namespace ProteiniSi.Services
                                 <tr>
                                     <td>{GetEmailLogoHtml()}</td>
                                     <td align='right'>
-                                        <span style='display:inline-block; padding:7px 12px; background:#2096D8; color:#ffffff; font-size:12px; line-height:14px; font-weight:700; text-transform:uppercase;'>{HtmlEncode(orderStatus)}</span>
+                                        <span style='display:inline-block; padding:7px 12px; background:{badgeColor}; color:#ffffff; font-size:12px; line-height:14px; font-weight:700; text-transform:uppercase;'>{HtmlEncode(orderStatus)}</span>
                                     </td>
                                 </tr>
                             </table>
@@ -550,7 +562,7 @@ namespace ProteiniSi.Services
                                         <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700;'>{HtmlEncode(paymentStatus)}</div>
                                     </td>
                                 </tr>
-                                {confirmationNumberHtml}
+                                {trackingHtml}
                             </table>
                         </td>
                     </tr>
@@ -575,7 +587,7 @@ namespace ProteiniSi.Services
             {
                 return await SendAsync(
                     new[] { customerEmail },
-                    $"Proteini.mk order confirmation - #{orderNumber}",
+                    emailSubject,
                     emailBody,
                     includeOrderCopyRecipients: false);
             }
@@ -731,13 +743,20 @@ namespace ProteiniSi.Services
                 .Where(recipient => !string.IsNullOrWhiteSpace(recipient))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            return ParseRecipientSetting(config["MailSettings:OrderCopyRecipients"])
+            var configured = ParseRecipientSetting(config["MailSettings:OrderCopyRecipients"])
                 .Concat(config
                     .GetSection("MailSettings:OrderCopyRecipients")
                     .GetChildren()
                     .Select(value => value.Value)
                     .SelectMany(ParseRecipientSetting))
-                .Concat(DefaultOrderCopyRecipients)
+                .ToList();
+
+            // Configured copy recipients replace the built-in shop addresses, so stage can point
+            // copies at a test inbox instead of the shop owners.
+            if (configured.Count == 0)
+                configured.AddRange(DefaultOrderCopyRecipients);
+
+            return configured
                 .Where(recipient => !string.IsNullOrWhiteSpace(recipient))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Where(recipient => !toRecipientSet.Contains(recipient))
