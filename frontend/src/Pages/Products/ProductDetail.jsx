@@ -1,44 +1,30 @@
 // ProductDetail.jsx - Complete version with ALL sections including nutrition details
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "../../services/api";
 import { IoIosStarOutline } from "react-icons/io";
-import { FiHeart } from "react-icons/fi";
+import {
+  FiArrowRight,
+  FiChevronDown,
+  FiChevronLeft,
+  FiChevronRight,
+  FiHeart,
+  FiShoppingBag,
+} from "react-icons/fi";
 import { FaHeart } from "react-icons/fa";
 import { useCart } from "../Hooks/useCart";
 import { useLanguage } from "../translation/LanguageContext";
 import { descriptionFromLegacy } from "./productDescription";
 import { formatSaleEndDate, isSaleActive } from "../../utils/salePricing";
 import { applySeoMetadata } from "../../utils/seo";
+import {
+  getCartWeightGrams,
+  getVariantWeightGrams,
+  parsePackagingWeightGrams,
+} from "../../utils/variantWeight";
+import { BrandLoader } from "../Components/Loaders/BrandLoader";
 
 const EMPTY_NUTRITION = { columns: [], rows: [] };
-
-const parsePackagingWeightGrams = (name) => {
-  if (!name) return Number.MAX_SAFE_INTEGER;
-  const match = String(name).match(/(\d+(?:[.,]\d+)?)\s*(kg|g)\b/i);
-  if (!match) return Number.MAX_SAFE_INTEGER;
-
-  const value = Number(match[1].replace(",", "."));
-  if (!Number.isFinite(value)) return Number.MAX_SAFE_INTEGER;
-
-  return match[2].toLowerCase() === "kg" ? value * 1000 : value;
-};
-
-const getVariantWeightGrams = (variant) => {
-  const configuredWeight = variant?.weight_Grams ?? variant?.weight_grams;
-  if (configuredWeight && Number(configuredWeight) > 0) {
-    return Number(configuredWeight);
-  }
-
-  return parsePackagingWeightGrams(variant?.packaging_Name);
-};
-
-const getCartWeightGrams = (variant) => {
-  const weight = getVariantWeightGrams(variant);
-  return Number.isFinite(weight) && weight > 0 && weight < Number.MAX_SAFE_INTEGER
-    ? weight
-    : null;
-};
 
 const sortPackagingsByWeight = (a, b) =>
   (a.weightGrams ?? parsePackagingWeightGrams(a.name)) -
@@ -54,14 +40,14 @@ function CollapsibleDescription({ html, showMoreLabel, showLessLabel }) {
       <div className={`relative ${canCollapse && !expanded ? "max-h-[430px] overflow-hidden" : ""}`}>
         <div className="product-description" dangerouslySetInnerHTML={{ __html: html }} />
         {canCollapse && !expanded && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[var(--card)] to-transparent" />
         )}
       </div>
       {canCollapse && (
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
-          className="mt-4 border border-[#2096D8] px-5 py-2 text-sm font-semibold text-[#2096D8] hover:bg-[#2096D8] hover:text-white"
+          className="mt-4 rounded-full border border-current px-5 py-2 text-sm font-semibold hover:bg-[#FDC700] hover:border-[#FDC700] hover:text-[#141409]"
         >
           {expanded ? showLessLabel : showMoreLabel}
         </button>
@@ -79,7 +65,6 @@ export default function ProductDetail() {
   const [mainImage, setMainImage] = useState("");
   const [imageDirection, setImageDirection] = useState("right");
   const [activeTab, setActiveTab] = useState("description");
-  const [isScrolling, setIsScrolling] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
   const [adding, setAdding] = useState(false);
@@ -88,7 +73,8 @@ export default function ProductDetail() {
   const [nutritionResult, setNutritionResult] = useState(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState(null);
+  const [showStickyBar, setShowStickyBar] = useState(false);
+  const ctaRef = useRef(null);
 
   // Variant states
   const [variants, setVariants] = useState([]);
@@ -134,12 +120,7 @@ export default function ProductDetail() {
   const [isVariantRedirect, setIsVariantRedirect] = useState(false);
 
   // Refs
-  const variantImagesScrollRef = useRef(null);
-  const descriptionRef = useRef(null);
-  const nutritionRef = useRef(null);
-  const instructionsRef = useRef(null);
   const tabsRef = useRef(null);
-  const scrollTimeoutRef = useRef(null);
 
   // NEW: Function to check if the ID is a variant and redirect to parent
   const checkAndRedirectVariant = async (productId) => {
@@ -306,38 +287,6 @@ export default function ProductDetail() {
   const allVariantImages = getAllVariantImages();
   const selectedVariantImages = getSelectedVariantImages();
 
-  const scrollImagesUp = () => {
-    if (variantImagesScrollRef.current) {
-      if (window.innerWidth >= 768) {
-        variantImagesScrollRef.current.scrollBy({
-          top: -400,
-          behavior: "smooth",
-        });
-      } else {
-        variantImagesScrollRef.current.scrollBy({
-          left: -120,
-          behavior: "smooth",
-        });
-      }
-    }
-  };
-
-  const scrollImagesDown = () => {
-    if (variantImagesScrollRef.current) {
-      if (window.innerWidth >= 768) {
-        variantImagesScrollRef.current.scrollBy({
-          top: 400,
-          behavior: "smooth",
-        });
-      } else {
-        variantImagesScrollRef.current.scrollBy({
-          left: 120,
-          behavior: "smooth",
-        });
-      }
-    }
-  };
-
   const syncNutritionToVariant = (variant) => {
     setSelectedFlavorForNutrition(variant?.flavor_Name ?? null);
   };
@@ -455,9 +404,6 @@ export default function ProductDetail() {
     setSelectedFlavorForNutrition(flavorName);
   };
 
-  const toggleDropdown = (dropdown) => {
-    setOpenDropdown(openDropdown === dropdown ? null : dropdown);
-  };
 
   const nutritionVariant = packageVariants.find(
     (variant) => variant.flavor_Name === selectedFlavorForNutrition,
@@ -465,12 +411,17 @@ export default function ProductDetail() {
   const nutritionVariantId = nutritionVariant?.variant_Id;
   const nutritionMatchesSelection =
     nutritionResult && nutritionResult.variantId === nutritionVariantId;
-  const variantNutritionData = nutritionMatchesSelection
-    ? nutritionResult.data
-    : EMPTY_NUTRITION;
-  const loadingNutrition = Boolean(
+  const nutritionPending = Boolean(
     nutritionVariantId && !nutritionMatchesSelection,
   );
+  // While the next variant's table loads, keep showing the previous one so the
+  // page height doesn't collapse and jump (the "scroll stutter").
+  const variantNutritionData = nutritionMatchesSelection
+    ? nutritionResult.data
+    : nutritionPending && nutritionResult
+      ? nutritionResult.data
+      : EMPTY_NUTRITION;
+  const loadingNutrition = nutritionPending && !nutritionResult;
 
   useEffect(() => {
     if (!nutritionVariantId) return;
@@ -504,6 +455,7 @@ export default function ProductDetail() {
   useEffect(() => {
     const fetchProduct = async () => {
       setLoading(true);
+      setNutritionResult(null);
       try {
         if (isVariantRedirect) return;
 
@@ -753,70 +705,22 @@ export default function ProductDetail() {
       weight_Grams: getCartWeightGrams(selectedVariant),
     };
 
-    const success = await addToCart(productIdToAdd, quantity, productForCart);
+    // Failures surface as a cart toast from useCart.
+    await addToCart(productIdToAdd, quantity, productForCart);
     setAdding(false);
-    if (success) {
-      alert(`${quantity} x ${productDisplayName} added to cart!`);
-    }
   };
 
-  const scrollToSection = useCallback((sectionRef, tabName) => {
-    if (!sectionRef.current) return;
-    if (window.innerWidth < 1024) {
-      sectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else {
-      setActiveTab(tabName);
-      setIsScrolling(true);
-      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-      const element = sectionRef.current;
-      const tabsHeight = tabsRef.current?.offsetHeight || 0;
-      const offsetPosition =
-        element.getBoundingClientRect().top +
-        window.pageYOffset -
-        tabsHeight -
-        20;
-      window.scrollTo({ top: offsetPosition, behavior: "smooth" });
-      scrollTimeoutRef.current = setTimeout(() => setIsScrolling(false), 800);
-    }
-  }, []);
-
+  // Show the sticky bottom bar whenever the main add-to-cart row is off screen.
   useEffect(() => {
-    if (window.innerWidth >= 1024) {
-      let ticking = false;
-      let rafId = null;
-      const handleScrollSpy = () => {
-        if (ticking || isScrolling) return;
-        ticking = true;
-        rafId = requestAnimationFrame(() => {
-          const sections = [
-            { ref: descriptionRef, name: "description" },
-            { ref: nutritionRef, name: "nutrition" },
-            { ref: instructionsRef, name: "instructions" },
-          ];
-          const scrollPosition = window.scrollY + 250;
-          let currentSection = "description";
-          for (let i = sections.length - 1; i >= 0; i--) {
-            const section = sections[i];
-            if (
-              section.ref.current &&
-              scrollPosition >= section.ref.current.offsetTop - 50
-            ) {
-              currentSection = section.name;
-              break;
-            }
-          }
-          if (currentSection !== activeTab) setActiveTab(currentSection);
-          ticking = false;
-        });
-      };
-      window.addEventListener("scroll", handleScrollSpy, { passive: true });
-      return () => {
-        window.removeEventListener("scroll", handleScrollSpy);
-        if (rafId) cancelAnimationFrame(rafId);
-        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-      };
-    }
-  }, [activeTab, isScrolling]);
+    const element = ctaRef.current;
+    if (!element || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowStickyBar(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [loading, productData?.product?.product_Id]);
 
   if (loading) {
     return <ProductDetailSkeleton />;
@@ -829,7 +733,7 @@ export default function ProductDetail() {
           <p className="text-red-500 text-xl">{error || "Product not found"}</p>
           <button
             onClick={() => navigate("/")}
-            className="mt-4 px-4 py-2 bg-[#2096D8] text-white rounded"
+            className="mt-4 rounded-full bg-[#141409] px-6 py-2.5 font-semibold text-white"
           >
             Go Back Home
           </button>
@@ -897,614 +801,591 @@ export default function ProductDetail() {
     hasDescription && {
       id: "description",
       label: `${translate("description")}`,
-      ref: descriptionRef,
     },
     hasNutrition && {
       id: "nutrition",
       label: `${translate("nutritionValues")}`,
-      ref: nutritionRef,
     },
     hasInstructions && {
       id: "instructions",
       label: `${translate("instructionsForUse")}`,
-      ref: instructionsRef,
     },
   ].filter(Boolean);
+  const currentTab = sections.some((section) => section.id === activeTab)
+    ? activeTab
+    : sections[0]?.id;
+
+  // Headline macros per serving, taken from the variant nutrition table.
+  const nutritionStats = (() => {
+    const { columns = [], rows = [] } = variantNutritionData;
+    if (!columns.length || !rows.length) return null;
+    let column = columns.findIndex((label) =>
+      /порциј|porcion|serving|скуп|doz/i.test(label || ""),
+    );
+    if (column < 0) column = 0;
+    const isSubRow = (label) =>
+      /од кои|заситени|шеќер|prej t|ngopur|sheqer|of which|saturat|sugar/i.test(label);
+    const stats = [
+      { key: "protein", match: /протеин|protein/i },
+      { key: "energy", match: /енергиј|energji|energy|kcal/i },
+      { key: "carbs", match: /јаглехидрат|karbohidrat|carbohydrat/i },
+      { key: "fat", match: /масти|yndyr|fat/i },
+    ]
+      .map(({ key, match }) => {
+        const row = rows.find(
+          (item) =>
+            match.test(item.rowLabel || "") && !isSubRow(item.rowLabel || ""),
+        );
+        let value = String(row?.cells?.[column] || "").trim();
+        if (!value) return null;
+        if (key === "energy") {
+          const kcal = value.match(/([\d.,]+)\s*kcal/i);
+          if (kcal) value = `${kcal[1]} kcal`;
+        }
+        return { key, label: row.rowLabel, value };
+      })
+      .filter(Boolean);
+    return stats.length ? { column: columns[column], stats } : null;
+  })();
+
+  const priceForVariant = (variant) => {
+    if (!variant) return 0;
+    if (
+      saleActive &&
+      variant.compare_Price > 0 &&
+      variant.compare_Price < variant.price
+    ) {
+      return variant.compare_Price;
+    }
+    return variant.price || 0;
+  };
+  const isVariantAvailable = (variant) =>
+    Boolean(variant && variant.quantity > 0 && variant.isActive);
+
+  const galleryImages = (() => {
+    const seen = new Set();
+    const list = [
+      ...selectedVariantImages,
+      ...allVariantImages.filter(
+        (img) => img.variant_Id !== selectedVariant?.variant_Id,
+      ),
+    ].filter((img) => {
+      if (!img.image_Path || seen.has(img.image_Path)) return false;
+      seen.add(img.image_Path);
+      return true;
+    });
+    return list.length
+      ? list
+      : [{ image_Path: product.img, variant_Id: selectedVariant?.variant_Id }];
+  })();
+  const activeImagePath = mainImage || product.img;
+  const activeImageIndex = Math.max(
+    0,
+    galleryImages.findIndex((img) => img.image_Path === activeImagePath),
+  );
+  const stepImage = (direction) => {
+    const next =
+      galleryImages[
+        (activeImageIndex + direction + galleryImages.length) %
+          galleryImages.length
+      ];
+    if (!next) return;
+    handleGalleryImageClick(next.image_Path, next.variant_Id);
+    // slide-left enters from the right, slide-right enters from the left
+    setImageDirection(direction > 0 ? "left" : "right");
+  };
+
+  const hasDiscount = originalPrice > 0 && originalPrice !== currentPrice;
+  const discountPercent = hasDiscount
+    ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
+    : 0;
+  const isOutOfStock = currentStock === 0;
+  const sortedPackagings = [...availablePackagings].sort(sortPackagingsByWeight);
+  const allFlavorNames = [
+    ...new Set(
+      variants
+        .map((variant) => String(variant.flavor_Name || "").trim())
+        .filter(Boolean),
+    ),
+  ];
+  const descriptionExcerpt = (() => {
+    if (!hasDescription) return "";
+    const body = new DOMParser().parseFromString(descriptionHtml, "text/html")
+      .body;
+    const blocks = [...body.querySelectorAll("p, li, h1, h2, h3, h4")]
+      .map((node) => node.textContent.replace(/\s+/g, " ").trim())
+      .filter(Boolean)
+      .map((text) => (/[.!?:;]$/.test(text) ? text : `${text}.`));
+    const text = blocks.length ? blocks.join(" ") : body.textContent || "";
+    return text.replace(/\s+/g, " ").trim();
+  })();
+  const selectionSummary = [
+    selectedVariant?.flavor_Name,
+    selectedVariant?.packaging_Name,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const addToCartLabel = adding
+    ? translate("adding")
+    : isOutOfStock
+      ? translate("outOfStock")
+      : translate("addToCart");
+  const formatPrice = (value) => `MKD ${Number(value || 0).toFixed(2)}`;
+
+  const quantityStepper = (
+    <div className="flex h-14 shrink-0 items-center rounded-full border border-gray-300 bg-white">
+      <button
+        type="button"
+        onClick={decreaseQuantity}
+        disabled={isOutOfStock || quantity <= 1}
+        aria-label="-"
+        className="h-full w-10 rounded-l-full sm:w-11 text-lg hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        −
+      </button>
+      <input
+        type="number"
+        value={quantity}
+        onChange={handleQuantityChange}
+        min="1"
+        max={currentStock > 0 ? currentStock : 1}
+        disabled={isOutOfStock}
+        aria-label={translate("quantity")}
+        className="pdp-qty w-10 bg-transparent text-center font-semibold outline-none disabled:cursor-not-allowed"
+      />
+      <button
+        type="button"
+        onClick={increaseQuantity}
+        disabled={isOutOfStock || quantity >= currentStock}
+        aria-label="+"
+        className="h-full w-10 rounded-r-full sm:w-11 text-lg hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        +
+      </button>
+    </div>
+  );
 
   return (
-    <div className="w-full flex justify-center bg-gray-50">
-      <div className="max-w-[1240px] py-12 px-4 w-full max-lg:flex max-lg:flex-col">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_390px] gap-8 items-start">
-          <div className="flex flex-col items-center w-full lg:border-r border-[#E5E5E5]">
-            {/* Breadcrumb */}
-            <div className="text-[12px] text-gray-500 mb-[20px] w-full">
-              <Link to="/" className="hover:text-[#2096D8]">
-                Home
-              </Link>{" "}
-              /<span className="ml-1 text-gray-700">{displayName}</span>
-            </div>
+    <div className="pdp w-full bg-[var(--paper)] pb-40 lg:pb-28">
+      <div className="mx-auto w-full max-w-[1240px] px-4 pt-5 lg:pt-8">
+        {/* Breadcrumb */}
+        <nav className="mb-5 text-[12px] text-gray-500" aria-label="Breadcrumb">
+          <Link to="/" className="hover:text-[var(--ink)] hover:underline">
+            {translate("home")}
+          </Link>
+          <span className="mx-1.5">/</span>
+          <span className="text-gray-700">{displayName}</span>
+        </nav>
 
-            {/* Product Image Gallery */}
-            <div className="w-full flex flex-col md:flex-row gap-4 mb-8">
-              {(allVariantImages.length > 0 ||
-                selectedVariantImages.length > 0) && (
-                <div className="relative flex flex-row md:flex-col items-center gap-2 w-full md:w-28 md:flex-shrink-0 order-2 md:order-1 mt-4 md:mt-0">
-                  {(allVariantImages.length > 4 ||
-                    selectedVariantImages.length > 4) && (
-                    <button
-                      onClick={scrollImagesUp}
-                      className="hidden md:flex items-center justify-center w-8 h-8 bg-white shadow-md absolute -top-3 left-1/2 -translate-x-1/2 z-10"
-                    >
-                      <img
-                        src="/logos/arrow-up.svg"
-                        className="w-6 h-6"
-                        alt="Up"
-                      />
-                    </button>
-                  )}
-                  <div
-                    ref={variantImagesScrollRef}
-                    className="flex flex-row md:flex-col gap-3 overflow-x-auto md:overflow-y-auto hide-scrollbar md:max-h-[500px]"
-                  >
-                    {selectedVariantImages.map((img, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() =>
-                          handleGalleryImageClick(
-                            img.image_Path,
-                            img.variant_Id,
-                          )
-                        }
-                        className={`cursor-pointer border p-1 flex-shrink-0 w-20 md:w-full ${
-                          mainImage === img.image_Path
-                            ? "border-[#2096D8]"
-                            : "border-transparent hover:border-[#2096D8]"
-                        }`}
-                      >
-                        <img
-                          src={getImageUrl(img.image_Path)}
-                          alt={img.flavor_Name || "Variant"}
-                          className="w-full h-20 md:h-24 object-cover"
-                        />
-                        <div className="text-center text-xs mt-1 hidden md:block">
-                          {img.flavor_Name?.substring(0, 50)}
-                        </div>
-                      </div>
-                    ))}
-                    {allVariantImages
-                      .filter(
-                        (img) => img.variant_Id !== selectedVariant?.variant_Id,
-                      )
-                      .map((img, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() =>
-                            handleGalleryImageClick(
-                              img.image_Path,
-                              img.variant_Id,
-                            )
-                          }
-                          className={`cursor-pointer border p-1 flex-shrink-0 w-20 md:w-full ${
-                            mainImage === img.image_Path
-                              ? "border-[#2096D8]"
-                              : "border-transparent hover:border-[#2096D8]"
-                          }`}
-                        >
-                          <img
-                            src={getImageUrl(img.image_Path)}
-                            alt={img.flavor_Name || "Variant"}
-                            className="w-full h-20 md:h-24 object-cover"
-                          />
-                          <div className="text-center text-xs mt-1 hidden md:block truncate">
-                            {img.flavor_Name?.substring(0, 15)}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                  {(allVariantImages.length > 4 ||
-                    selectedVariantImages.length > 4) && (
-                    <button
-                      onClick={scrollImagesDown}
-                      className="hidden md:flex items-center justify-center w-8 h-8 bg-white shadow-md absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
-                    >
-                      <img
-                        src="/logos/arrow-down.svg"
-                        className="w-4 h-4"
-                        alt="Down"
-                      />
-                    </button>
-                  )}
-                </div>
-              )}
-              <div className="flex-1 flex justify-center order-1 md:order-2 overflow-hidden">
-                <img
-                  key={mainImage}
-                  src={getImageUrl(mainImage || product.img)}
-                  alt={displayName}
-                  className="w-full object-cover max-w-[550px] max-h-[550px] shadow-lg transition-all duration-500 ease-in-out"
-                  style={{
-                    animation:
-                      imageDirection === "left"
-                        ? "slide-left 0.5s ease-out"
-                        : imageDirection === "right"
-                          ? "slide-right 0.5s ease-out"
-                          : "none",
-                  }}
-                  onAnimationEnd={() => setImageDirection("")}
-                />
-              </div>
-            </div>
+        {/* Hero: gallery + details side by side */}
+        <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2 lg:gap-12">
+          {/* Gallery */}
+          <div className="md:sticky md:top-[calc(var(--header-h)+20px)]">
+            <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-3xl border border-gray-200 bg-white">
+              <img
+                key={activeImagePath}
+                src={getImageUrl(activeImagePath)}
+                alt={displayName}
+                className={`h-full w-full object-contain p-6 sm:p-10 ${
+                  nutritionStats ? "pb-24 sm:pb-28" : ""
+                }`}
+                style={{
+                  animation:
+                    imageDirection === "left"
+                      ? "slide-left 0.35s ease-out"
+                      : imageDirection === "right"
+                        ? "slide-right 0.35s ease-out"
+                        : "none",
+                }}
+                onAnimationEnd={() => setImageDirection("")}
+              />
 
-            {/* Mobile/Tablet Layout */}
-            <div className="block lg:hidden mb-8 w-full max-w-[600px] mx-auto">
-              <div className="bg-white p-6 shadow-md rounded-xl">
-                <h1 className="text-[26px] font-bold mb-2">{displayName}</h1>
-                {product.shortExpiry && (
-                  <p className="mb-3 inline-block bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900">
-                    {translate("shortExpiry")}
-                    {product.expiryDate
-                      ? ` · ${translate("bestBefore")} ${new Date(product.expiryDate).toLocaleDateString()}`
-                      : ""}
-                  </p>
-                )}
-                <p className="text-gray-500 text-sm mb-4">
-                  {product.BrandName && `Brand: ${product.BrandName}`}
-                  {selectedVariant?.flavor_Name &&
-                    ` | ${variantOptionLabel}: ${selectedVariant.flavor_Name}`}
-                  {selectedVariant?.packaging_Name &&
-                    ` | ${translate("size")}: ${selectedVariant.packaging_Name}`}
-                </p>
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="flex text-yellow-400">
-                    <IoIosStarOutline />
-                    <IoIosStarOutline />
-                    <IoIosStarOutline />
-                    <IoIosStarOutline />
-                    <IoIosStarOutline />
-                  </span>
-                  <span className="text-xs text-gray-500">(0 reviews)</span>
-                </div>
-
-                {product.isGiftVoucher && (
-                  <label className="mb-4 block text-sm font-medium text-gray-700">
-                    {translate("voucherAmount")}
-                    <input
-                      type="number"
-                      min={product.voucherMinAmount || 500}
-                      max={product.voucherMaxAmount || undefined}
-                      step="100"
-                      value={voucherAmount}
-                      onChange={(event) => setVoucherAmount(event.target.value)}
-                      onBlur={() => {
-                        const minimum = Number(product.voucherMinAmount) || 500;
-                        const maximum = product.voucherMaxAmount
-                          ? Number(product.voucherMaxAmount)
-                          : Number.POSITIVE_INFINITY;
-                        setVoucherAmount(Math.min(maximum, Math.max(minimum, Number(voucherAmount) || minimum)));
-                      }}
-                      className="mt-2 w-full border border-gray-300 px-3 py-2 text-lg font-semibold"
-                    />
-                    <span className="mt-1 block text-xs text-gray-500">
-                      {translate("voucherMinimum")} {Number(product.voucherMinAmount || 500).toFixed(0)} MKD
-                    </span>
-                  </label>
-                )}
-
-                <div>
-                  {originalPrice > 0 && originalPrice !== currentPrice && (
-                    <p className="text-lg text-gray-400 line-through mb-1">
-                      MKD {originalPrice.toFixed(2)}
-                    </p>
-                  )}
-                  <p className="text-3xl font-bold text-[#2096D8] mb-4">
-                    MKD {currentPrice.toFixed(2)}
-                  </p>
-                  {originalPrice > 0 && originalPrice !== currentPrice && (
-                    <p className="text-sm text-green-600 mb-2">
-                      Save MKD {(originalPrice - currentPrice).toFixed(2)} (
-                      {Math.round(
-                        ((originalPrice - currentPrice) / originalPrice) * 100,
-                      )}
-                      % off)
-                    </p>
-                  )}
-                  {originalPrice > 0 && originalPrice !== currentPrice && (
-                    <div className="mb-4 flex flex-wrap items-center gap-2 text-sm font-semibold">
-                      <span className="bg-red-600 px-2 py-1 text-white">
-                        {Math.round(((originalPrice - currentPrice) / originalPrice) * 100)}% {translate("promotionBadge")}
-                      </span>
-                      {saleEndDate && (
-                        <span className="text-red-600">{translate("saleEnds")} {saleEndDate}</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {hasVariants && availableFlavors.length > 0 && (
-                  <FlavorImageSelector
-                    flavors={availableFlavors}
-                    variants={variants}
-                    packageVariants={packageVariants}
-                    selectedFlavorName={selectedFlavorName}
-                    onSelect={handleFlavorSelect}
-                    imageUrl={getImageUrl}
-                    label={variantOptionLabel}
-                  />
-                )}
-
-                {hasVariants && availablePackagings.length > 0 && (
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {translate("packaging")}
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {[...availablePackagings]
-                        .sort(sortPackagingsByWeight)
-                        .map((packaging) => {
-                          const hasStock = variants.some(
-                            (v) => v.packaging_Name === packaging.id &&
-                              v.quantity > 0 && v.isActive,
-                          );
-                          const isSelected = selectedPackagingName === packaging.id;
-                          return (
-                            <button
-                              key={packaging.id}
-                              onClick={() =>
-                                hasStock && handlePackagingSelect(packaging.id)
-                              }
-                              disabled={!hasStock}
-                              className={`px-4 py-2 text-sm font-medium transition-all ${
-                                isSelected
-                                  ? "bg-[#2096D8] text-white shadow-md"
-                                  : hasStock
-                                    ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                              }`}
-                            >
-                              {packaging.name}
-                            </button>
-                          );
-                        })}
-                    </div>
-                  </div>
-                )}
-
-                <div className="mb-2 flex justify-end text-xs font-semibold text-[#1b88c5]">
-                  {loyaltyPoints} {translate("loyaltyPoints")}
-                </div>
-                <div className="flex gap-4">
-                  <div className="flex border border-gray-300">
-                    <button
-                      onClick={decreaseQuantity}
-                      disabled={currentStock === 0 || quantity <= 1}
-                      className="w-[40px] py-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      -
-                    </button>
-                    <input
-                      type="number"
-                      value={quantity}
-                      onChange={handleQuantityChange}
-                      min="1"
-                      max={currentStock > 0 ? currentStock : 1}
-                      disabled={currentStock === 0}
-                      className="w-12 text-center border-x border-gray-300 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed appearance-none"
-                    />
-                    <button
-                      onClick={increaseQuantity}
-                      disabled={currentStock === 0 || quantity >= currentStock}
-                      className="w-[40px] py-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      +
-                    </button>
-                  </div>
-                  <button
-                    onClick={handleAddToCart}
-                    disabled={adding || currentStock === 0}
-                    className={`flex-1 py-2 font-semibold transition-colors max-sm:text-sm ${
-                      currentStock === 0
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-[#FDC700] hover:bg-[#e7b700] text-black"
-                    }`}
-                  >
-                    {adding
-                      ? "Adding..."
-                      : currentStock === 0
-                        ? "Out of Stock"
-                        : "Add to Cart"}
-                  </button>
-                  <button
-                    onClick={handleToggleFavorite}
-                    disabled={favoriteLoading}
-                    className={`p-2 hover:bg-gray-50 transition-colors ${
-                      favoriteLoading ? "opacity-50 cursor-not-allowed" : ""
-                    }`}
-                  >
-                    {isFavorite ? (
-                      <FaHeart size={22} color="#1b88c5" />
-                    ) : (
-                      <FiHeart size={22} color="#1b88c5" strokeWidth={2} />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Mobile/Tablet Dropdown Sections */}
-            <div className="w-full lg:hidden space-y-4 mb-8">
-              {sections.map((section) => (
+              {nutritionStats && (
                 <div
-                  key={section.id}
-                  className="border rounded-lg overflow-hidden"
+                  className={`pointer-events-none absolute inset-x-3 bottom-3 grid grid-cols-4 gap-1.5 transition-opacity duration-200 sm:inset-x-4 sm:bottom-4 sm:gap-2 ${
+                    nutritionPending ? "opacity-60" : "opacity-100"
+                  }`}
+                  aria-label={`${translate("nutritionValues")} · ${nutritionStats.column}`}
                 >
-                  <button
-                    onClick={() => toggleDropdown(section.id)}
-                    className="w-full flex justify-between items-center p-4 bg-white hover:bg-gray-50 transition-colors"
-                  >
-                    <span className="font-semibold text-gray-800">
-                      {section.label}
-                    </span>
-                    <span className="text-xl">
-                      {openDropdown === section.id ? "−" : "+"}
-                    </span>
-                  </button>
-                  <div
-                    className={`transition-all duration-300 overflow-hidden ${
-                      openDropdown === section.id ? "max-h-[2000px]" : "max-h-0"
-                    }`}
-                  >
-                    <div className="p-4 bg-gray-50 border-t">
-                      {section.id === "description" && (
-                        <CollapsibleDescription
-                          html={descriptionHtml}
-                          showMoreLabel={translate("showMore")}
-                          showLessLabel={translate("showLess")}
-                        />
-                      )}
-                      {section.id === "nutrition" && (
-                        <>
-                          {hasVariants && availableFlavors.length > 0 && (
-                            <div className="mb-6">
-                              <div className="flex flex-wrap gap-3 border-b pb-3">
-                                {availableFlavors.map((flavor) => {
-                                  const isSelected =
-                                    selectedFlavorForNutrition === flavor.id;
-                                  return (
-                                    <button
-                                      key={flavor.id}
-                                      onClick={() =>
-                                        handleFlavorForNutritionSelect(
-                                          flavor.id,
-                                        )
-                                      }
-                                      className={`pb-2 text-sm font-medium transition-all ${
-                                        isSelected
-                                          ? "text-[#2096D8] border-b-2 border-[#2096D8]"
-                                          : "text-gray-600 hover:text-[#2096D8]"
-                                      }`}
-                                    >
-                                      {flavor.name}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* NUTRITION VALUES INGREDIENTS - ADDED */}
-                          {localizedNutritionIngredients && (
-                            <div className="mb-6">
-                              <h4 className="font-semibold mb-3">
-                                {translate("nutritionValuesIngredients")}
-                              </h4>
-                              <p className="whitespace-pre-line">
-                                {localizedNutritionIngredients}
-                              </p>
-                            </div>
-                          )}
-
-                          {/* NUTRITION VALUES INGREDIENTS DESCRIPTION - ADDED */}
-                          {localizedNutritionDescription && (
-                            <div className="mb-6">
-                              <p className="whitespace-pre-line">
-                                {localizedNutritionDescription}
-                              </p>
-                            </div>
-                          )}
-
-                          {nutritionVariant?.ingredients && (
-                            <div className="mb-6">
-                              <h4 className="font-semibold mb-3">
-                                {translate("ingredients1")}
-                              </h4>
-                              <p className="whitespace-pre-line">
-                                {nutritionVariant.ingredients}
-                              </p>
-                            </div>
-                          )}
-
-                          {loadingNutrition ? (
-                            <div className="text-center py-8 text-gray-500">
-                              Loading nutrition data...
-                            </div>
-                          ) : variantNutritionData.columns &&
-                            variantNutritionData.columns.length > 0 ? (
-                            <div className="mt-6 overflow-x-auto">
-                              <table className="w-full border-collapse text-sm">
-                                <thead>
-                                  <tr className="bg-gray-100">
-                                    <th
-                                      className="border border-gray-300 px-4 py-2 text-left font-semibold"
-                                      aria-label={translate("nutritionValues")}
-                                    />
-                                    {variantNutritionData.columns.map(
-                                      (col, idx) => (
-                                        <th
-                                          key={idx}
-                                          className="border border-gray-300 px-4 py-2 text-left font-semibold"
-                                        >
-                                          {col}
-                                        </th>
-                                      ),
-                                    )}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {variantNutritionData.rows.map(
-                                    (row, rowIdx) => (
-                                      <tr
-                                        key={rowIdx}
-                                        className={
-                                          rowIdx % 2 === 0
-                                            ? "bg-white"
-                                            : "bg-gray-50"
-                                        }
-                                      >
-                                        <td className="border border-gray-300 px-4 py-2 font-medium">
-                                          <div
-                                            style={{
-                                              paddingLeft: `${
-                                                (row.indentLevel || 0) * 20
-                                              }px`,
-                                            }}
-                                          >
-                                            {row.rowLabel}
-                                          </div>
-                                        </td>
-                                        {row.cells.map((cell, cellIdx) => (
-                                          <td
-                                            key={cellIdx}
-                                            className="border border-gray-300 px-4 py-2"
-                                          >
-                                            {cell || "—"}
-                                          </td>
-                                        ))}
-                                      </tr>
-                                    ),
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <div className="text-center py-8 text-gray-500">
-                              No nutrition information available for this
-                              flavor.
-                            </div>
-                          )}
-
-                          {/* NUTRITION INFORMATION - ADDED */}
-                          {localizedNutritionInformation && (
-                            <div className="mt-6 pt-4 border-t">
-                              <h4 className="font-semibold mb-3">
-                                {translate("nutritionInformation")}
-                              </h4>
-                              <p className="whitespace-pre-line">
-                                {localizedNutritionInformation}
-                              </p>
-                            </div>
-                          )}
-
-                          {nutritionVariant?.nutrition_Info && (
-                            <div className="mt-6 pt-4 border-t">
-                              <h4 className="font-semibold mb-3">
-                                Additional Nutrition Information
-                              </h4>
-                              <p className="whitespace-pre-line">
-                                {nutritionVariant.nutrition_Info}
-                              </p>
-                            </div>
-                          )}
-                        </>
-                      )}
-                      {section.id === "instructions" && (
-                        <>
-                          {localizedInstructionsTitle && (
-                            <p className="text-gray-600 mb-6">
-                              {localizedInstructionsTitle}
-                            </p>
-                          )}
-                          {localizedInstructionsDescription && (
-                            <p className="text-gray-600">
-                              {localizedInstructionsDescription}
-                            </p>
-                          )}
-                          {/* DETAILED INSTRUCTIONS (instructionsOnHowToUseIt) - ADDED */}
-                          {localizedDetailedInstructions && (
-                            <div className="mt-6 pt-6 border-t">
-                              <h4 className="font-semibold mb-3">
-                                {translate("detailedInstructions")}
-                              </h4>
-                              <p className="whitespace-pre-line">
-                                {localizedDetailedInstructions}
-                              </p>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Desktop Tabs */}
-            <div className="hidden lg:block w-full">
-              <div
-                ref={tabsRef}
-                className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 w-full pt-6 border-t shadow-sm"
-              >
-                <div className="flex justify-center gap-8 border-b overflow-x-auto">
-                  {sections.map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => scrollToSection(tab.ref, tab.id)}
-                      className={`relative pb-3 font-semibold whitespace-nowrap ${
-                        activeTab === tab.id
-                          ? "text-[#2096D8]"
-                          : "text-gray-500 hover:text-gray-700"
+                  {nutritionStats.stats.map((stat) => (
+                    <div
+                      key={stat.key}
+                      className={`rounded-2xl px-1.5 py-2 text-center shadow-sm backdrop-blur-md sm:px-2 sm:py-2.5 ${
+                        stat.key === "protein"
+                          ? "bg-[#FDC700] text-[#141409]"
+                          : "border border-gray-200/80 bg-white/85 text-[var(--ink)]"
                       }`}
                     >
-                      {tab.label}
-                      <span
-                        className={`absolute bottom-0 left-0 w-full h-0.5 bg-[#2096D8] transition-transform ${
-                          activeTab === tab.id ? "scale-x-100" : "scale-x-0"
+                      <p className="text-[13px] font-bold leading-tight sm:text-base">
+                        {stat.value}
+                      </p>
+                      <p
+                        className={`mt-0.5 truncate text-[10px] font-semibold uppercase leading-tight tracking-wide sm:text-[11px] ${
+                          stat.key === "protein" ? "" : "text-gray-500"
                         }`}
-                      />
-                    </button>
+                      >
+                        {stat.label}
+                      </p>
+                    </div>
                   ))}
                 </div>
-              </div>
+              )}
 
-              <div className="w-full mt-8 space-y-12">
-                {/* Description Section */}
-                {hasDescription && (
-                  <div
-                    ref={descriptionRef}
-                    className="scroll-mt-24 animate-fadeIn"
-                  >
-                    <div className="bg-white rounded-xl p-8 shadow-sm">
-                      <h2 className="text-2xl font-bold mb-4">
-                        {translate("description")}
-                      </h2>
-                      <div className="h-1 w-12 bg-[#2096D8] rounded-full mb-6"></div>
-                      <CollapsibleDescription
-                        html={descriptionHtml}
-                        showMoreLabel={translate("showMore")}
-                        showLessLabel={translate("showLess")}
-                      />
-                    </div>
-                  </div>
+              {hasDiscount && (
+                <span className="absolute left-4 top-4 rounded-full bg-[#FDC700] px-3 py-1 text-xs font-bold text-[#141409]">
+                  −{discountPercent}% {translate("promotionBadge")}
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={handleToggleFavorite}
+                disabled={favoriteLoading}
+                aria-pressed={isFavorite}
+                aria-label="Favorite"
+                className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition hover:scale-105 disabled:opacity-50"
+              >
+                {isFavorite ? (
+                  <FaHeart size={18} className="text-[var(--ink)]" />
+                ) : (
+                  <FiHeart size={18} strokeWidth={2} className="text-[var(--ink)]" />
                 )}
+              </button>
 
-                {/* Nutrition Section */}
-                {hasNutrition && (
-                <div ref={nutritionRef} className="scroll-mt-24 animate-fadeIn">
-                  <div className="bg-white rounded-xl p-8 shadow-sm">
-                    <h2 className="text-2xl font-bold mb-4">
-                      {translate("nutritionValues")}
-                    </h2>
-                    <div className="h-1 w-12 bg-[#2096D8] rounded-full mb-6"></div>
+              {galleryImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => stepImage(-1)}
+                    aria-label="Previous image"
+                    className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition hover:scale-105"
+                  >
+                    <FiChevronLeft size={20} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => stepImage(1)}
+                    aria-label="Next image"
+                    className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition hover:scale-105"
+                  >
+                    <FiChevronRight size={20} />
+                  </button>
+                </>
+              )}
+            </div>
 
+            {galleryImages.length > 1 && (
+              <div className="hide-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
+                {galleryImages.map((img) => {
+                  const isActive = img.image_Path === activeImagePath;
+                  return (
+                    <button
+                      type="button"
+                      key={img.image_Path}
+                      onClick={() =>
+                        handleGalleryImageClick(img.image_Path, img.variant_Id)
+                      }
+                      aria-label={img.flavor_Name || displayName}
+                      aria-current={isActive}
+                      className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 bg-white p-1 transition sm:h-20 sm:w-20 ${
+                        isActive
+                          ? "border-[var(--ink)]"
+                          : "border-transparent opacity-70 hover:opacity-100"
+                      }`}
+                    >
+                      <img
+                        src={getImageUrl(img.image_Path)}
+                        alt=""
+                        className="h-full w-full object-contain"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Details */}
+          <div className="min-w-0">
+            {product.BrandName && (
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+                {product.BrandName}
+              </p>
+            )}
+            <h1 className="font-display text-3xl font-semibold uppercase leading-tight text-[var(--ink)] lg:text-[40px]">
+              {displayName}
+            </h1>
+
+            <div className="mt-3 flex items-center gap-2">
+              <span className="flex text-[#FDC700]">
+                <IoIosStarOutline />
+                <IoIosStarOutline />
+                <IoIosStarOutline />
+                <IoIosStarOutline />
+                <IoIosStarOutline />
+              </span>
+              <span className="text-xs text-gray-500">(0 reviews)</span>
+            </div>
+
+            {descriptionExcerpt && (
+              <p className="mt-4 line-clamp-3 text-sm leading-relaxed text-gray-600">
+                {descriptionExcerpt}
+              </p>
+            )}
+            {hasNutrition && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("nutrition");
+                  tabsRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
+                }}
+                className="group mt-3 inline-flex items-center gap-1.5 border-b border-[var(--ink)] pb-0.5 text-sm font-semibold text-[var(--ink)]"
+              >
+                {translate("pdpSeeInside")}
+                <FiArrowRight className="transition-transform group-hover:translate-x-1" />
+              </button>
+            )}
+
+            {/* At a glance: flavours, sizes, stock */}
+            <div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold">
+              {allFlavorNames.length > 0 && (
+                <span className="rounded-full border border-gray-300 bg-white px-3 py-1.5">
+                  {allFlavorNames.length}{" "}
+                  {variantOptionType === "color"
+                    ? translate("pdpColorsShort")
+                    : translate("pdpFlavorsShort")}
+                </span>
+              )}
+              {sortedPackagings.length > 0 && (
+                <span className="rounded-full border border-gray-300 bg-white px-3 py-1.5">
+                  {sortedPackagings.length} {translate("pdpSizesShort")}
+                </span>
+              )}
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 ${
+                  isOutOfStock
+                    ? "bg-red-50 text-red-700"
+                    : "bg-[#FDC700] text-[#141409]"
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    isOutOfStock ? "bg-red-600" : "bg-[#141409]"
+                  }`}
+                />
+                {isOutOfStock ? translate("outOfStock") : translate("pdpInStock")}
+              </span>
+              {product.shortExpiry && (
+                <span className="rounded-full bg-amber-100 px-3 py-1.5 text-amber-900">
+                  {translate("shortExpiry")}
+                  {product.expiryDate
+                    ? ` · ${translate("bestBefore")} ${new Date(product.expiryDate).toLocaleDateString()}`
+                    : ""}
+                </span>
+              )}
+            </div>
+
+            <div className="my-6 h-px bg-gray-200" />
+
+            {product.isGiftVoucher && (
+              <label className="mb-6 block text-sm font-semibold">
+                {translate("voucherAmount")}
+                <input
+                  type="number"
+                  min={product.voucherMinAmount || 500}
+                  max={product.voucherMaxAmount || undefined}
+                  step="100"
+                  value={voucherAmount}
+                  onChange={(event) => setVoucherAmount(event.target.value)}
+                  onBlur={() => {
+                    const minimum = Number(product.voucherMinAmount) || 500;
+                    const maximum = product.voucherMaxAmount
+                      ? Number(product.voucherMaxAmount)
+                      : Number.POSITIVE_INFINITY;
+                    setVoucherAmount(Math.min(maximum, Math.max(minimum, Number(voucherAmount) || minimum)));
+                  }}
+                  className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-lg font-semibold outline-none focus:border-[var(--ink)]"
+                />
+                <span className="mt-1 block text-xs font-normal text-gray-500">
+                  {translate("voucherMinimum")} {Number(product.voucherMinAmount || 500).toFixed(0)} MKD
+                </span>
+              </label>
+            )}
+
+            {hasVariants && availableFlavors.length > 0 && (
+              <FlavorImageSelector
+                flavors={availableFlavors}
+                variants={variants}
+                packageVariants={packageVariants}
+                selectedFlavorName={selectedFlavorName}
+                onSelect={handleFlavorSelect}
+                imageUrl={getImageUrl}
+                label={variantOptionLabel}
+                soldOutLabel={translate("outOfStock")}
+              />
+            )}
+
+            {hasVariants && sortedPackagings.length > 0 && (
+              <div className="mb-6">
+                <p className="mb-3 text-sm font-semibold">
+                  {translate("packaging")}:{" "}
+                  <span className="font-normal text-gray-600">
+                    {selectedPackagingName}
+                  </span>
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {sortedPackagings.map((packaging) => {
+                    const variant = findBestMatchingVariant(
+                      selectedFlavorName,
+                      packaging.id,
+                    );
+                    const hasStock = variants.some(
+                      (v) => v.packaging_Name === packaging.id && isVariantAvailable(v),
+                    );
+                    const isSelected = selectedPackagingName === packaging.id;
+                    return (
+                      <button
+                        type="button"
+                        key={packaging.id}
+                        onClick={() => hasStock && handlePackagingSelect(packaging.id)}
+                        disabled={!hasStock}
+                        aria-pressed={isSelected}
+                        className={`flex min-h-[76px] items-start gap-3 rounded-2xl border-2 p-4 text-left transition ${
+                          isSelected
+                            ? "border-[var(--ink)] bg-[var(--card)] shadow-sm"
+                            : hasStock
+                              ? "border-gray-200 bg-[var(--card)] shadow-sm hover:border-gray-400"
+                              : "cursor-not-allowed border-dashed border-gray-300 bg-[var(--card-muted)]"
+                        }`}
+                      >
+                        <span
+                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                            isSelected
+                              ? "border-[var(--ink)]"
+                              : hasStock
+                                ? "border-gray-300"
+                                : "border-dashed border-gray-300"
+                          }`}
+                        >
+                          {isSelected && (
+                            <span className="h-2.5 w-2.5 rounded-full bg-[var(--ink)]" />
+                          )}
+                        </span>
+                        <span className="min-w-0">
+                          <span
+                            className={`block text-base font-semibold leading-tight ${
+                              hasStock ? "" : "text-gray-400 line-through"
+                            }`}
+                          >
+                            {packaging.name}
+                          </span>
+                          <span
+                            className={`mt-1 block text-sm ${
+                              hasStock ? "text-gray-600" : "text-gray-400"
+                            }`}
+                          >
+                            {hasStock
+                              ? formatPrice(priceForVariant(variant))
+                              : translate("outOfStock")}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Price */}
+            <div className="mb-4 flex flex-wrap items-end gap-x-3 gap-y-1">
+              <p className="text-3xl font-bold text-[var(--ink)]">
+                {formatPrice(currentPrice)}
+              </p>
+              {hasDiscount && (
+                <p className="pb-1 text-base text-gray-400 line-through">
+                  {formatPrice(originalPrice)}
+                </p>
+              )}
+              {hasDiscount && saleEndDate && (
+                <p className="w-full text-xs font-semibold text-red-600">
+                  {translate("saleEnds")} {saleEndDate}
+                </p>
+              )}
+            </div>
+
+            {/* Quantity + Add to cart */}
+            <div ref={ctaRef} className="flex gap-3">
+              {quantityStepper}
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={adding || isOutOfStock}
+                className="pdp-cta flex h-14 min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 text-[15px] font-semibold sm:px-6 transition disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FiShoppingBag size={18} className="hidden shrink-0 sm:block" />
+                {addToCartLabel}
+              </button>
+            </div>
+            <p className="mt-3 text-center text-xs font-semibold text-gray-500">
+              +{loyaltyPoints} {translate("loyaltyPoints")}
+            </p>
+          </div>
+        </div>
+
+        {/* Product content: description, nutrition, instructions (tabs) */}
+        {sections.length > 0 && (
+          <div
+            ref={tabsRef}
+            className="mt-12 scroll-mt-[calc(var(--header-h)+16px)] lg:mt-16"
+          >
+            <div
+              role="tablist"
+              aria-label={displayName}
+              className="hide-scrollbar flex max-w-full gap-1 overflow-x-auto rounded-full border border-gray-200 bg-[var(--card)] p-1.5 sm:inline-flex"
+            >
+              {sections.map((tab) => {
+                const isActive = currentTab === tab.id;
+                return (
+                  <button
+                    type="button"
+                    role="tab"
+                    key={tab.id}
+                    id={`pdp-tab-${tab.id}`}
+                    aria-selected={isActive}
+                    aria-controls={`pdp-panel-${tab.id}`}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex-1 shrink-0 whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold transition sm:flex-none sm:px-7 ${
+                      isActive
+                        ? "bg-[var(--ink)] text-[var(--paper)]"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              key={currentTab}
+              role="tabpanel"
+              id={`pdp-panel-${currentTab}`}
+              aria-labelledby={`pdp-tab-${currentTab}`}
+              className="animate-fadeIn mt-4 rounded-3xl border border-gray-200 bg-[var(--card)] p-5 sm:p-8"
+            >
+              {currentTab === "description" && (
+                <CollapsibleDescription
+                  html={descriptionHtml}
+                  showMoreLabel={translate("showMore")}
+                  showLessLabel={translate("showLess")}
+                />
+              )}
+
+              {currentTab === "nutrition" && (
+                <>
                     {hasVariants && availableFlavors.length > 0 && (
                       <div className="mb-6">
                         <div className="flex flex-wrap gap-3 border-b pb-3">
@@ -1519,8 +1400,8 @@ export default function ProductDetail() {
                                 }
                                 className={`pb-2 text-sm font-medium transition-all ${
                                   isSelected
-                                    ? "text-[#2096D8] border-b-2 border-[#2096D8]"
-                                    : "text-gray-600 hover:text-[#2096D8]"
+                                    ? "text-[var(--ink)] border-b-2 border-[#FDC700]"
+                                    : "text-gray-600 hover:text-[var(--ink)]"
                                 }`}
                               >
                                 {flavor.name}
@@ -1647,21 +1528,11 @@ export default function ProductDetail() {
                         </p>
                       </div>
                     )}
-                  </div>
-                </div>
-                )}
+                </>
+              )}
 
-                {/* Instructions Section */}
-                {hasInstructions && (
-                  <div
-                  ref={instructionsRef}
-                  className="scroll-mt-24 animate-fadeIn"
-                >
-                  <div className="bg-white rounded-xl p-8 shadow-sm">
-                    <h2 className="text-2xl font-bold mb-4">
-                      {translate("instructionsForUse")}
-                    </h2>
-                    <div className="h-1 w-12 bg-[#2096D8] rounded-full mb-6"></div>
+              {currentTab === "instructions" && (
+                <>
                     {localizedInstructionsTitle && (
                       <p className="text-gray-600 mb-6">
                         {localizedInstructionsTitle}
@@ -1683,221 +1554,142 @@ export default function ProductDetail() {
                         </p>
                       </div>
                     )}
-                  </div>
-                </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </div>
-
-          {/* RIGHT COLUMN - Desktop only */}
-          <div className="hidden lg:block sticky top-32 max-h-[calc(100vh-9rem)] overflow-y-auto">
-            <div className="bg-white rounded-xl p-6 shadow-md">
-              <h1 className="text-[26px] font-bold mb-2">{displayName}</h1>
-              {product.shortExpiry && (
-                <p className="mb-3 inline-block bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900">
-                  {translate("shortExpiry")}
-                  {product.expiryDate
-                    ? ` · ${translate("bestBefore")} ${new Date(product.expiryDate).toLocaleDateString()}`
-                    : ""}
-                </p>
-              )}
-              <p className="text-gray-500 text-sm mb-4">
-                {product.BrandName && `Brand: ${product.BrandName}`}
-                {selectedVariant?.flavor_Name &&
-                  ` | ${variantOptionLabel}: ${selectedVariant.flavor_Name}`}
-                {selectedVariant?.packaging_Name &&
-                  ` | ${translate("size")}: ${selectedVariant.packaging_Name}`}
-              </p>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="flex text-yellow-400">
-                  <IoIosStarOutline />
-                  <IoIosStarOutline />
-                  <IoIosStarOutline />
-                  <IoIosStarOutline />
-                  <IoIosStarOutline />
-                </span>
-                <span className="text-xs text-gray-500">(0 reviews)</span>
-              </div>
-
-              {product.isGiftVoucher && (
-                <label className="mb-4 block text-sm font-medium text-gray-700">
-                  {translate("voucherAmount")}
-                  <input
-                    type="number"
-                    min={product.voucherMinAmount || 500}
-                    max={product.voucherMaxAmount || undefined}
-                    step="100"
-                    value={voucherAmount}
-                    onChange={(event) => setVoucherAmount(event.target.value)}
-                    onBlur={() => {
-                      const minimum = Number(product.voucherMinAmount) || 500;
-                      const maximum = product.voucherMaxAmount
-                        ? Number(product.voucherMaxAmount)
-                        : Number.POSITIVE_INFINITY;
-                      setVoucherAmount(Math.min(maximum, Math.max(minimum, Number(voucherAmount) || minimum)));
-                    }}
-                    className="mt-2 w-full border border-gray-300 px-3 py-2 text-lg font-semibold"
-                  />
-                  <span className="mt-1 block text-xs text-gray-500">
-                    {translate("voucherMinimum")} {Number(product.voucherMinAmount || 500).toFixed(0)} MKD
-                  </span>
-                </label>
-              )}
-
-              <div>
-                {originalPrice > 0 && originalPrice !== currentPrice && (
-                  <p className="text-lg text-gray-400 line-through mb-1">
-                    MKD {originalPrice.toFixed(2)}
-                  </p>
-                )}
-                <p className="text-3xl font-bold text-[#2096D8] mb-4">
-                  MKD {currentPrice.toFixed(2)}
-                </p>
-                {originalPrice > 0 && originalPrice !== currentPrice && (
-                  <p className="text-sm text-green-600 mb-2">
-                    Save MKD {(originalPrice - currentPrice).toFixed(2)} (
-                    {Math.round(
-                      ((originalPrice - currentPrice) / originalPrice) * 100,
-                    )}
-                    % off)
-                  </p>
-                )}
-                {originalPrice > 0 && originalPrice !== currentPrice && (
-                  <div className="mb-4 flex flex-wrap items-center gap-2 text-sm font-semibold">
-                    <span className="bg-red-600 px-2 py-1 text-white">
-                      {Math.round(((originalPrice - currentPrice) / originalPrice) * 100)}% {translate("promotionBadge")}
-                    </span>
-                    {saleEndDate && (
-                      <span className="text-red-600">{translate("saleEnds")} {saleEndDate}</span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {hasVariants && availableFlavors.length > 0 && (
-                <FlavorImageSelector
-                  flavors={availableFlavors}
-                  variants={variants}
-                  packageVariants={packageVariants}
-                  selectedFlavorName={selectedFlavorName}
-                  onSelect={handleFlavorSelect}
-                  imageUrl={getImageUrl}
-                  label={variantOptionLabel}
-                />
-              )}
-
-              {hasVariants && availablePackagings.length > 0 && (
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {translate("packaging")}
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {[...availablePackagings]
-                      .sort(sortPackagingsByWeight)
-                      .map((packaging) => {
-                        const hasStock = variants.some(
-                          (v) => v.packaging_Name === packaging.id &&
-                            v.quantity > 0 && v.isActive,
-                        );
-                        const isSelected =
-                          selectedPackagingName === packaging.id;
-                        return (
-                          <button
-                            key={packaging.id}
-                            onClick={() =>
-                              hasStock && handlePackagingSelect(packaging.id)
-                            }
-                            disabled={!hasStock}
-                            className={`px-4 py-2 text-sm font-medium transition-all ${
-                              isSelected
-                                ? "bg-[#2096D8] text-white shadow-md"
-                                : hasStock
-                                  ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            }`}
-                          >
-                            {packaging.name}
-                          </button>
-                        );
-                      })}
-                  </div>
-                </div>
-              )}
-
-              <div className="mb-2 flex justify-end text-xs font-semibold text-[#1b88c5]">
-                {loyaltyPoints} {translate("loyaltyPoints")}
-              </div>
-              <div className="flex gap-2">
-                <div className="flex border border-gray-300">
-                  <button
-                    onClick={decreaseQuantity}
-                    disabled={currentStock === 0 || quantity <= 1}
-                    className="w-[40px] py-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    value={quantity}
-                    onChange={handleQuantityChange}
-                    min="1"
-                    max={currentStock > 0 ? currentStock : 1}
-                    disabled={currentStock === 0}
-                    className="w-12 text-center border-x border-gray-300 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed appearance-none"
-                  />
-                  <button
-                    onClick={increaseQuantity}
-                    disabled={currentStock === 0 || quantity >= currentStock}
-                    className="w-[40px] py-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    +
-                  </button>
-                </div>
-                <button
-                  onClick={handleAddToCart}
-                  disabled={adding || currentStock === 0}
-                  className={`flex-1 py-2 text-sm font-semibold transition-colors text-nowrap ${
-                    currentStock === 0
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-[#FDC700] hover:bg-[#e7b700] text-black"
-                  }`}
-                >
-                  {adding
-                    ? `${translate("adding")}`
-                    : currentStock === 0
-                      ? `${translate("outOfStock")}`
-                      : `${translate("addToCart")}`}
-                </button>
-                <button
-                  onClick={handleToggleFavorite}
-                  disabled={favoriteLoading}
-                  className={`hover:bg-gray-50 transition-colors ${
-                    favoriteLoading ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                >
-                  {isFavorite ? (
-                    <FaHeart size={22} color="#1b88c5" />
-                  ) : (
-                    <FiHeart size={22} color="#1b88c5" strokeWidth={2} />
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        )}
 
         <ProductQuestionForm productName={displayName} />
       </div>
 
+      {/* Sticky bottom bar: options + price + add to cart */}
+      <div
+        aria-hidden={!showStickyBar}
+        className={`pdp-bar fixed inset-x-0 bottom-[var(--bottom-nav-h,0px)] z-50 border-t border-gray-200 bg-white transition-all duration-300 ${
+          showStickyBar
+            ? "visible translate-y-0"
+            : "invisible translate-y-full"
+        }`}
+      >
+        <div className="mx-auto flex w-full max-w-[1240px] flex-wrap items-center gap-2 px-4 py-2.5 md:flex-nowrap md:gap-4 md:py-3">
+          <div className="hidden min-w-0 flex-1 items-center gap-3 md:flex">
+            <img
+              src={getImageUrl(activeImagePath)}
+              alt=""
+              className="h-12 w-12 shrink-0 rounded-xl border border-gray-200 bg-white object-contain p-0.5"
+            />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{displayName}</p>
+              {selectionSummary && (
+                <p className="truncate text-xs text-gray-500">{selectionSummary}</p>
+              )}
+            </div>
+          </div>
+
+          {hasVariants && (availableFlavors.length > 0 || sortedPackagings.length > 0) && (
+            <div className="flex w-full gap-2 md:w-auto">
+              {availableFlavors.length > 0 && (
+                <label className="relative min-w-0 flex-1 md:w-48 md:flex-none">
+                  <span className="sr-only">{variantOptionLabel}</span>
+                  <select
+                    value={selectedFlavorName || ""}
+                    onChange={(event) => handleFlavorSelect(event.target.value)}
+                    tabIndex={showStickyBar ? 0 : -1}
+                    className="h-10 w-full appearance-none truncate rounded-full border border-gray-300 bg-white pl-4 pr-9 text-sm font-medium outline-none focus:border-[var(--ink)]"
+                  >
+                    {availableFlavors.map((flavor) => {
+                      const variant = packageVariants.find(
+                        (item) => item.flavor_Name === flavor.id,
+                      );
+                      return (
+                        <option
+                          key={flavor.id}
+                          value={flavor.id}
+                          disabled={!isVariantAvailable(variant)}
+                        >
+                          {flavor.name}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <FiChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                </label>
+              )}
+              {sortedPackagings.length > 0 && (
+                <label className="relative min-w-0 flex-1 md:w-36 md:flex-none">
+                  <span className="sr-only">{translate("packaging")}</span>
+                  <select
+                    value={selectedPackagingName || ""}
+                    onChange={(event) => handlePackagingSelect(event.target.value)}
+                    tabIndex={showStickyBar ? 0 : -1}
+                    className="h-10 w-full appearance-none truncate rounded-full border border-gray-300 bg-white pl-4 pr-9 text-sm font-medium outline-none focus:border-[var(--ink)]"
+                  >
+                    {sortedPackagings.map((packaging) => (
+                      <option
+                        key={packaging.id}
+                        value={packaging.id}
+                        disabled={
+                          !variants.some(
+                            (v) =>
+                              v.packaging_Name === packaging.id &&
+                              isVariantAvailable(v),
+                          )
+                        }
+                      >
+                        {packaging.name}
+                      </option>
+                    ))}
+                  </select>
+                  <FiChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                </label>
+              )}
+            </div>
+          )}
+
+          <div className="flex w-full items-center gap-3 md:w-auto">
+            <div className="min-w-0 flex-1 md:flex-none md:text-right">
+              <p className="text-lg font-bold leading-tight text-[var(--ink)]">
+                {formatPrice(currentPrice * quantity)}
+              </p>
+              {quantity > 1 && (
+                <p className="text-[11px] text-gray-500">
+                  {quantity} × {formatPrice(currentPrice)}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={adding || isOutOfStock}
+              tabIndex={showStickyBar ? 0 : -1}
+              className="pdp-cta flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-sm sm:px-6 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <FiShoppingBag size={16} />
+              {addToCartLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <style>{`
+        .pdp { --card: #ffffff; --card-muted: #ecebe6; --ink: #141409; --paper: #f6f5f1; --cta-bg: #141409; --cta-fg: #ffffff; --cta-hover: #2c2c22; }
+        html[data-theme="dark"] .pdp { --card: var(--d-surface); --card-muted: var(--d-raised); --ink: #ececee; --paper: var(--d-bg); --cta-bg: #fdc700; --cta-fg: #141409; --cta-hover: #ffe066; }
+        .pdp-cta { background: var(--cta-bg); color: var(--cta-fg); }
+        .pdp-cta:not(:disabled):hover { background: var(--cta-hover); }
+        .pdp-cta:not(:disabled):active { transform: scale(0.98); }
+        .pdp-bar { box-shadow: 0 -10px 30px -18px rgba(20, 20, 9, 0.35); }
+        .pdp-qty::-webkit-outer-spin-button, .pdp-qty::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .pdp-qty { -moz-appearance: textfield; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fadeIn { animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
-        @keyframes slide-left { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes slide-right { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeIn { animation: fadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        @keyframes slide-left { from { transform: translateX(40%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slide-right { from { transform: translateX(-40%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @media (prefers-reduced-motion: reduce) {
+          .pdp *, .pdp-bar { animation: none !important; transition: none !important; }
+        }
       `}</style>
     </div>
   );
@@ -1911,11 +1703,15 @@ function FlavorImageSelector({
   onSelect,
   imageUrl,
   label,
+  soldOutLabel,
 }) {
   return (
-    <div className="mb-4">
-      <p className="mb-2 block text-sm font-medium text-gray-700">{label}</p>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+    <div className="mb-6">
+      <p className="mb-3 text-sm font-semibold">
+        {label}:{" "}
+        <span className="font-normal text-gray-600">{selectedFlavorName}</span>
+      </p>
+      <div className="grid grid-cols-3 gap-3">
         {flavors.map((flavor) => {
           const variant =
             packageVariants.find((item) => item.flavor_Name === flavor.id) ||
@@ -1932,28 +1728,44 @@ function FlavorImageSelector({
               onClick={() => hasStock && onSelect(flavor.id)}
               disabled={!hasStock}
               aria-pressed={isSelected}
-              className={`overflow-hidden border bg-white text-left transition-all ${
+              title={hasStock ? flavor.name : `${flavor.name} · ${soldOutLabel}`}
+              className={`group relative flex flex-col items-center rounded-2xl border-2 p-3 text-center transition ${
                 isSelected
-                  ? "border-[#2096D8] ring-2 ring-[#2096D8]/20"
+                  ? "border-[var(--ink)] bg-[var(--card)] shadow-sm"
                   : hasStock
-                    ? "border-gray-200 hover:border-[#2096D8]"
-                    : "cursor-not-allowed border-gray-100 opacity-45"
+                    ? "border-gray-200 bg-[var(--card)] shadow-sm hover:border-gray-400"
+                    : "cursor-not-allowed border-dashed border-gray-300 bg-[var(--card-muted)]"
               }`}
             >
-              <span className="flex h-20 items-center justify-center bg-white p-1">
+              <span className="flex h-24 w-full items-center justify-center sm:h-28">
                 {variant?.variant_Image_Path ? (
                   <img
                     src={imageUrl(variant.variant_Image_Path)}
-                    alt={flavor.name}
-                    className="h-full w-full object-contain"
+                    alt=""
+                    className={`h-full w-full object-contain transition-transform ${
+                      hasStock ? "group-hover:scale-105" : "opacity-40 grayscale"
+                    }`}
                   />
                 ) : (
-                  <span className="text-xs text-gray-400">No image</span>
+                  <span
+                    className={`h-10 w-10 rounded-full ${
+                      hasStock ? "bg-[#FDC700]" : "bg-gray-300"
+                    }`}
+                  />
                 )}
               </span>
-              <span className="block min-h-10 border-t border-gray-100 px-2 py-1.5 text-center text-[11px] leading-tight">
+              <span
+                className={`mt-2 line-clamp-3 min-h-[2.5rem] break-words text-xs sm:line-clamp-2 font-semibold leading-tight sm:text-sm ${
+                  hasStock ? "" : "text-gray-400"
+                }`}
+              >
                 {flavor.name}
               </span>
+              {!hasStock && (
+                <span className="absolute left-1/2 top-2 -translate-x-1/2 whitespace-nowrap rounded-full border border-dashed border-gray-300 bg-[var(--card)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                  {soldOutLabel}
+                </span>
+              )}
             </button>
           );
         })}
@@ -1983,7 +1795,7 @@ function ProductQuestionForm({ productName }) {
   };
 
   return (
-    <section className="mt-12 bg-white p-6 shadow-sm lg:p-8" aria-labelledby="product-question-title">
+    <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 lg:p-8" aria-labelledby="product-question-title">
       <h2 id="product-question-title" className="mb-6 text-2xl font-bold">
         Frequently Asked Questions
       </h2>
@@ -1994,7 +1806,7 @@ function ProductQuestionForm({ productName }) {
             name="name"
             required
             autoComplete="name"
-            className="border border-gray-300 px-3 py-2 outline-none focus:border-[#2096D8]"
+            className="border border-gray-300 px-3 py-2 outline-none focus:border-[#141409] rounded-xl"
           />
         </label>
         <label className="grid gap-1 text-sm font-medium">
@@ -2004,7 +1816,7 @@ function ProductQuestionForm({ productName }) {
             type="email"
             required
             autoComplete="email"
-            className="border border-gray-300 px-3 py-2 outline-none focus:border-[#2096D8]"
+            className="border border-gray-300 px-3 py-2 outline-none focus:border-[#141409] rounded-xl"
           />
         </label>
         <label className="grid gap-1 text-sm font-medium">
@@ -2013,7 +1825,7 @@ function ProductQuestionForm({ productName }) {
             name="question"
             required
             rows="5"
-            className="resize-y border border-gray-300 px-3 py-2 outline-none focus:border-[#2096D8]"
+            className="resize-y border border-gray-300 px-3 py-2 outline-none focus:border-[#141409] rounded-xl"
           />
         </label>
         <label className="flex items-start gap-2 text-xs text-gray-600">
@@ -2022,7 +1834,7 @@ function ProductQuestionForm({ productName }) {
         </label>
         <button
           type="submit"
-          className="bg-[#FDC700] px-5 py-3 font-semibold text-black hover:bg-[#e7b700]"
+          className="rounded-full bg-[#FDC700] px-5 py-3 font-semibold text-[#141409] hover:bg-[#e7b700]"
         >
           Send a question
         </button>
@@ -2039,33 +1851,34 @@ function ProductQuestionForm({ productName }) {
 function ProductDetailSkeleton() {
   return (
     <div
-      className="w-full flex justify-center bg-gray-50"
+      className="w-full bg-[#f6f5f1]"
       aria-busy="true"
       aria-label="Loading product"
     >
-      <div className="max-w-[1240px] py-12 px-4 w-full animate-pulse">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_390px] gap-8 items-start">
-          <div className="w-full">
-            <div className="mb-[20px] h-3 w-40 bg-gray-200" />
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="order-2 md:order-1 flex flex-row md:flex-col gap-3 md:w-28">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-20 w-20 md:h-24 md:w-24 bg-gray-200" />
-                ))}
-              </div>
-              <div className="order-1 md:order-2 flex-1 flex justify-center">
-                <div className="aspect-square w-full max-w-[550px] bg-gray-200" />
-              </div>
+      <BrandLoader size={0} className="hidden" />
+      <div className="mx-auto w-full max-w-[1240px] px-4 pt-5 pb-12 opacity-60 lg:pt-8">
+        <div className="mb-5 h-3 w-40 rounded bg-gray-200" />
+        <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2 lg:gap-12">
+          <div>
+            <div className="aspect-square w-full rounded-3xl bg-gray-200" />
+            <div className="mt-3 flex gap-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-16 w-16 rounded-xl bg-gray-200 sm:h-20 sm:w-20" />
+              ))}
             </div>
           </div>
-          <div className="w-full max-w-[600px] mx-auto lg:max-w-none bg-white rounded-xl p-6 shadow-md space-y-4">
-            <div className="h-7 w-3/4 bg-gray-200" />
-            <div className="h-3 w-1/2 bg-gray-200" />
-            <div className="h-4 w-1/3 bg-gray-200" />
-            <div className="h-8 w-1/3 bg-gray-200" />
-            <div className="h-10 w-full bg-gray-200" />
-            <div className="h-10 w-full bg-gray-200" />
-            <div className="h-11 w-full bg-gray-200" />
+          <div className="space-y-4">
+            <div className="h-3 w-24 rounded bg-gray-200" />
+            <div className="h-9 w-3/4 rounded bg-gray-200" />
+            <div className="h-4 w-1/3 rounded bg-gray-200" />
+            <div className="h-16 w-full rounded bg-gray-200" />
+            <div className="grid grid-cols-4 gap-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-24 rounded-2xl bg-gray-200" />
+              ))}
+            </div>
+            <div className="h-9 w-1/3 rounded bg-gray-200" />
+            <div className="h-14 w-full rounded-full bg-gray-200" />
           </div>
         </div>
       </div>

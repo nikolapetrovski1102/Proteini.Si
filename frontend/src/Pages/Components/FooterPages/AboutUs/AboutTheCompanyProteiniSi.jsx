@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../../../../services/api";
+import { BrandLoader } from "../../Loaders/BrandLoader";
 
 export default function AboutTheCompanyProteiniSi() {
   const [sections, setSections] = useState([]);
@@ -92,7 +93,7 @@ export default function AboutTheCompanyProteiniSi() {
   if (loading) {
     return (
       <div className="w-full flex justify-center items-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        <BrandLoader variant="shaker" size={120} />
       </div>
     );
   }

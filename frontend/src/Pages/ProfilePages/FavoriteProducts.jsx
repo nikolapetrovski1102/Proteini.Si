@@ -1,135 +1,132 @@
-import { useState, useEffect } from "react";
-import { TfiClose } from "react-icons/tfi";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { FiArrowRight, FiHeart, FiX } from "react-icons/fi";
 import { api } from "../../services/api";
-import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../translation/LanguageContext";
+import {
+  Notice,
+  ProfileEmpty,
+  ProfileHeader,
+  ProfileLoading,
+  ghostButtonClass,
+} from "./ProfileKit";
+import { formatPrice } from "./profileFormat";
 
 export default function FavoriteProducts() {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [removing, setRemoving] = useState(null);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
   const { translate } = useLanguage();
+
   useEffect(() => {
-    fetchFavorites();
+    (async () => {
+      try {
+        const response = await api.getFavorites();
+        if (response.success) setFavorites(response.data || []);
+      } catch (err) {
+        console.error("Error fetching favorites:", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
-  const fetchFavorites = async () => {
-    try {
-      setLoading(true);
-      const response = await api.getFavorites();
-      if (response.success) {
-        setFavorites(response.data || []);
-      }
-    } catch (error) {
-      console.error("Error fetching favorites:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRemoveFavorite = async (productId) => {
+  const handleRemove = async (productId) => {
+    setRemoving(productId);
+    setError("");
     try {
       const response = await api.removeFromFavorites(productId);
       if (response.success) {
-        setFavorites(favorites.filter((fav) => fav.productId !== productId));
+        setFavorites((list) => list.filter((fav) => fav.productId !== productId));
+      } else {
+        setError(translate("favRemoveError"));
       }
-    } catch (error) {
-      console.error("Error removing favorite:", error);
-      alert("Failed to remove from favorites. Please try again.");
+    } catch (err) {
+      console.error("Error removing favorite:", err);
+      setError(translate("favRemoveError"));
+    } finally {
+      setRemoving(null);
     }
   };
 
-  const handleKeepShopping = () => {
-    navigate("/all-products");
-  };
-
-  const handleProductClick = (productId) => {
-    navigate(`/product/${productId}`);
-  };
+  const goShopping = () => navigate("/all-products");
 
   if (loading) {
     return (
-      <div className="w-full max-w-[740px] pr-[50px] max-lg:pr-0 pb-[70px]">
-        <p className="text-[24px] font-bold mb-[20px] pt-[70px] pr-[50px]">
-          {translate("favouriteProducts")}
-        </p>
-        <div className="bg-white rounded-lg py-6 text-center">
-          <p className="text-gray-500">Loading favorites...</p>
-        </div>
+      <div>
+        <ProfileHeader eyebrow={translate("profileMemberArea")} title={translate("favouriteProducts")} />
+        <ProfileLoading />
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-[740px] pr-[50px] max-lg:pr-0 pb-[70px]">
-      <p className="text-[24px] font-bold mb-[20px] pt-[70px] max-sm:pt-0 pr-[50px]">
-        {translate("favouriteProducts")} ({favorites.length})
-      </p>
+    <div>
+      <ProfileHeader
+        eyebrow={translate("profileMemberArea")}
+        title={translate("favouriteProducts")}
+        count={favorites.length}
+        action={
+          favorites.length > 0 && (
+            <button type="button" onClick={goShopping} className={ghostButtonClass}>
+              {translate("keepShopping")}
+              <FiArrowRight />
+            </button>
+          )
+        }
+      />
+
+      {error && (
+        <div className="mb-4">
+          <Notice tone="error">{error}</Notice>
+        </div>
+      )}
 
       {favorites.length === 0 ? (
-        <div className="bg-white rounded-lg py-12 text-start">
-          <p className="text-gray-500 mb-4">
-            {translate("noFavoriteProductsYet")}{" "}
-          </p>
-          <button
-            onClick={handleKeepShopping}
-            className="w-full bg-[#E5E5E5] font-bold p-[14px] hover:bg-[#D8D8D8] transition-all duration-300 ease-in-out"
-          >
-            {translate("keepShopping")}
-          </button>
-        </div>
+        <ProfileEmpty
+          icon={FiHeart}
+          title={translate("noFavoriteProductsYet")}
+          text={translate("favEmptyText")}
+          actionLabel={translate("keepShopping")}
+          onAction={goShopping}
+        />
       ) : (
-        <div className="space-y-4">
-          {favorites.map((favorite) => (
-            <div
-              key={favorite.favoriteId}
-              className="bg-white rounded-lg py-6 px-4 border border-gray-100"
+        <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
+          {favorites.map((fav) => (
+            <li
+              key={fav.favoriteId}
+              className="group relative flex flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.06] transition hover:ring-black/[0.14]"
             >
-              <div className="flex justify-between gap-4">
-                <div
-                  className="w-1/3 cursor-pointer"
-                  onClick={() => handleProductClick(favorite.productId)}
-                >
+              <Link to={`/product/${fav.productId}`} className="flex flex-1 flex-col">
+                <div className="flex aspect-square items-center justify-center bg-[#f6f5f1] p-4">
                   <img
-                    src={favorite.productImage || "/img/placeholder.jpg"}
-                    className="w-full object-contain"
-                    alt={favorite.productName}
+                    src={fav.productImage || "/img/placeholder.jpg"}
+                    alt={fav.productName}
+                    loading="lazy"
+                    className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.04]"
                   />
                 </div>
-                <div className="w-full flex flex-col items-end">
-                  <button
-                    onClick={() => handleRemoveFavorite(favorite.productId)}
-                    className="hover:opacity-70 transition-opacity"
-                  >
-                    <TfiClose strokeWidth={0.5} color="#828282" size={12} />
-                  </button>
-                  <div className="w-full text-start mt-2">
-                    <p className="text-[12px] mb-[2px] text-[#828282]">
-                      {/* Extract brand from product name or add to API */}
-                      {favorite.productName?.split(" ")[0] || "Product"}
-                    </p>
-                    <p
-                      className="text-[16px] mb-[2px] font-semibold cursor-pointer hover:text-[#2096D8] transition-colors"
-                      onClick={() => handleProductClick(favorite.productId)}
-                    >
-                      {favorite.productName}
-                    </p>
-                    <p className="text-[14px] font-bold mt-2">
-                      MKD {(favorite.productPrice || 0).toFixed(2)}
-                    </p>
-                  </div>
+                <div className="flex flex-1 flex-col p-3.5 sm:p-4">
+                  <p className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900">{fav.productName}</p>
+                  <p className="mt-auto pt-2 text-[15px] font-bold tabular-nums text-gray-900">
+                    {formatPrice(fav.productPrice)}
+                  </p>
                 </div>
-              </div>
-            </div>
+              </Link>
+              <button
+                type="button"
+                onClick={() => handleRemove(fav.productId)}
+                disabled={removing === fav.productId}
+                aria-label={`${translate("favRemove")}: ${fav.productName}`}
+                className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm ring-1 ring-black/[0.08] transition hover:bg-[#141409] hover:text-white disabled:opacity-50"
+              >
+                <FiX size={16} />
+              </button>
+            </li>
           ))}
-
-          <button
-            onClick={handleKeepShopping}
-            className="w-full bg-[#E5E5E5] font-bold p-[14px] hover:bg-[#D8D8D8] transition-all duration-300 ease-in-out"
-          >
-            {translate("keepShopping")}
-          </button>
-        </div>
+        </ul>
       )}
     </div>
   );

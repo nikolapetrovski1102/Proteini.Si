@@ -9,15 +9,15 @@ import ProtectedRoute from "./contexts/ProtectedRoute";
 import AdminRoute from "./contexts/AdminRoute";
 import ScrollToTopButton from "./Pages/Components/ScrollToTopButton";
 import CookieConsent from "./Pages/Components/CookieConsent";
+import { BrandLoaderOverlay } from "./Pages/Components/Loaders/BrandLoader";
+import CartToaster from "./Pages/Components/Cart/CartToaster";
+import ScrollToTopOnNavigate from "./Pages/Components/ScrollToTopOnNavigate";
 
 // Import your page components
 import Home from "./Pages/HomePages/Home";
 import NotFound from "./Pages/Components/NotFound";
-import Slider from "./Pages/Slider";
 import NeedHelp from "./Pages/NeedHelp";
 import Subscribe from "./Pages/Subscribe";
-import ShareYourExperience from "./Pages/ShareYourExperience";
-import Partners from "./Pages/Partners";
 import Tips from "./Pages/Tips";
 import TipArticle from "./Pages/TipArticle";
 import ProductsPage from "./Pages/Products/ProductsPage";
@@ -107,16 +107,7 @@ function AppContent() {
         {/* PUBLIC ROUTES - Accessible without login */}
         <Route
           path="/"
-          element={
-            <>
-              <div className="w-full text-gray-800 font-montserrat">
-                <Slider />
-              </div>
-              <Home />
-              <Partners />
-              <ShareYourExperience />
-            </>
-          }
+          element={<Home />}
         />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/goals" element={<Goals />} />
@@ -348,6 +339,9 @@ function AppContent() {
       <ScrollToTopButton />
       {showLayout && <CookieConsent />}
       <LanguageModal isOpen={isModalOpen} setIsOpen={setIsModalOpen} />
+      <ScrollToTopOnNavigate />
+      <BrandLoaderOverlay />
+      <CartToaster />
     </>
   );
 }

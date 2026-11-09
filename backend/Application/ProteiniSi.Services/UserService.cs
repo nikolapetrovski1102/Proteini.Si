@@ -16,8 +16,12 @@ namespace ProteiniSi.Services;
 public class UserService(IUserProvider provider, IEmailSender emailSender, IConfiguration config) : IUserService
 {
     private const string GenericForgotMessage = "If your email exists in our system, you will receive a password reset link.";
+    private const string GenericResendMessage = "If this account is waiting for confirmation, a new code has been sent.";
+    private const int CodeValidMinutes = 15;
+    private const int CodeResendCooldownSeconds = 60;
+    private const int MaxCodeAttempts = 5;
 
-    public async Task<AuthResponseDto> RegisterAsync(UserForRegistrationDto registration)
+    public async Task<RegistrationResponseDto> RegisterAsync(UserForRegistrationDto registration)
     {
         try
         {
@@ -34,7 +38,7 @@ public class UserService(IUserProvider provider, IEmailSender emailSender, IConf
         }
     }
 
-    private async Task<AuthResponseDto> RegisterCoreAsync(UserForRegistrationDto registration)
+    private async Task<RegistrationResponseDto> RegisterCoreAsync(UserForRegistrationDto registration)
     {
         if (registration.Password != registration.PasswordConfirm)
             throw Error("Password confirmation does not match", "The passwords you entered do not match. Please try again.");
@@ -101,7 +105,11 @@ public class UserService(IUserProvider provider, IEmailSender emailSender, IConf
                 errors = new[] { "Please try logging in with your new account." }
             });
 
-        return new AuthResponseDto(true, CreateToken(user), "✅ Registration successful! Welcome to Proteinisi!", ToAuthUser(user));
+        await SendVerificationCodeAsync(user, registration.Language);
+
+        return new RegistrationResponseDto(true, true, user.User_Email,
+            "Registration successful! We sent a 6-digit code to your email. Enter it to activate your account.",
+            CodeResendCooldownSeconds);
     }
 
     public async Task<AuthResponseDto> LoginAsync(UserForLoginDto login)
@@ -120,7 +128,112 @@ public class UserService(IUserProvider provider, IEmailSender emailSender, IConf
         if (!CryptographicOperations.FixedTimeEquals(passwordHash, user.PasswordHash))
             throw InvalidCredentials();
 
+        if (!user.EmailConfirmed)
+        {
+            var retryAfter = await SendVerificationCodeIfAllowedAsync(user, login.Language);
+            throw new ForbiddenException("Email not confirmed", new
+            {
+                status = false,
+                requiresVerification = true,
+                email = user.User_Email,
+                retryAfterSeconds = retryAfter,
+                message = "Email not confirmed",
+                errors = new[] { "Please confirm your email address. We sent you a 6-digit code." }
+            });
+        }
+
         return new AuthResponseDto(true, CreateToken(user), "✅ Login successful! Welcome back!", ToAuthUser(user));
+    }
+
+    public async Task<AuthResponseDto> VerifyEmailAsync(VerifyEmailDto request)
+    {
+        var code = EmailVerificationCode.Normalize(request.Code)
+            ?? throw Error("Invalid code", "Please enter the 6-digit code from the email.");
+
+        if (string.IsNullOrWhiteSpace(request.User_Email))
+            throw Error("Email address is required", "Please enter your email address");
+
+        var user = await provider.GetByEmailAsync(request.User_Email.Trim())
+            ?? throw InvalidCode();
+
+        if (user.EmailConfirmed)
+            throw Error("Email already confirmed", "Your email is already confirmed. Please sign in.");
+
+        var info = await provider.GetEmailCodeAsync(user.User_Id);
+        if (info?.EmailCode_Hash == null || info.EmailCode_ExpiresAt == null)
+            throw CodeExpired();
+
+        if (info.EmailCode_Attempts >= MaxCodeAttempts)
+            throw TooManyAttempts();
+
+        if (info.EmailCode_ExpiresAt < DateTime.UtcNow)
+            throw CodeExpired();
+
+        var attempts = await provider.IncrementEmailCodeAttemptsAsync(user.User_Id);
+        if (attempts > MaxCodeAttempts)
+            throw TooManyAttempts();
+
+        var candidate = EmailVerificationCode.Hash(user.User_Id, code, TokenKey());
+        if (!EmailVerificationCode.Matches(info.EmailCode_Hash, candidate))
+        {
+            var left = MaxCodeAttempts - attempts;
+            if (left <= 0)
+                throw TooManyAttempts();
+
+            throw new BadRequestException("Invalid code", new
+            {
+                status = false,
+                message = "Invalid code",
+                attemptsLeft = left,
+                errors = new[] { $"The code is not correct. You have {left} attempt(s) left." }
+            });
+        }
+
+        if (!await provider.ConfirmEmailAsync(user.User_Id, candidate, DateTime.UtcNow))
+            throw CodeExpired();
+
+        user.EmailConfirmed = true;
+        return new AuthResponseDto(true, CreateToken(user), "✅ Email confirmed! Welcome to Proteini.si!", ToAuthUser(user));
+    }
+
+    public async Task<ResendVerificationResponseDto> ResendVerificationCodeAsync(ResendVerificationCodeDto request)
+    {
+        if (string.IsNullOrWhiteSpace(request.User_Email))
+            throw Error("Email address is required", "Please enter your email address");
+
+        var user = await provider.GetByEmailAsync(request.User_Email.Trim());
+        if (user == null || user.EmailConfirmed)
+            return new ResendVerificationResponseDto(true, GenericResendMessage, CodeResendCooldownSeconds);
+
+        var retryAfter = await SendVerificationCodeIfAllowedAsync(user, request.Language);
+        return new ResendVerificationResponseDto(true, GenericResendMessage, retryAfter);
+    }
+
+    /// <summary>Sends a fresh code unless one went out within the cooldown; returns seconds until the next resend.</summary>
+    private async Task<int> SendVerificationCodeIfAllowedAsync(User user, string? language)
+    {
+        var info = await provider.GetEmailCodeAsync(user.User_Id);
+        if (info?.EmailCode_SentAt is { } sentAt)
+        {
+            var wait = CodeResendCooldownSeconds - (int)(DateTime.UtcNow - sentAt).TotalSeconds;
+            if (wait > 0)
+                return wait;
+        }
+
+        await SendVerificationCodeAsync(user, language);
+        return CodeResendCooldownSeconds;
+    }
+
+    private async Task SendVerificationCodeAsync(User user, string? language)
+    {
+        var code = EmailVerificationCode.Generate();
+        var now = DateTime.UtcNow;
+
+        await provider.SetEmailCodeAsync(user.User_Id, EmailVerificationCode.Hash(user.User_Id, code, TokenKey()),
+            now.AddMinutes(CodeValidMinutes), now);
+
+        var (subject, html) = VerificationEmailTemplate.Build(user.User_FullName, code, CodeValidMinutes, language);
+        await emailSender.SendAsync([user.User_Email], subject, html);
     }
 
     public async Task<StatusMessageDto> ForgotPasswordAsync(ForgotPasswordDto request)
@@ -322,6 +435,27 @@ public class UserService(IUserProvider provider, IEmailSender emailSender, IConf
             status = false,
             message = "Invalid email or password",
             errors = new[] { "The email address or password you entered is incorrect. Please try again." }
+        });
+
+    private static BadRequestException InvalidCode() =>
+        Error("Invalid code", "The code is not correct. Please check the email and try again.");
+
+    private static BadRequestException CodeExpired() =>
+        new("Code expired", new
+        {
+            status = false,
+            message = "Code expired",
+            codeExpired = true,
+            errors = new[] { "This code has expired. Please request a new one." }
+        });
+
+    private static BadRequestException TooManyAttempts() =>
+        new("Too many attempts", new
+        {
+            status = false,
+            message = "Too many attempts",
+            codeExpired = true,
+            errors = new[] { "Too many incorrect attempts. Please request a new code." }
         });
 
     private static BadRequestException TokenAlreadyUsed() =>

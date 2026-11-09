@@ -1,1431 +1,783 @@
-import { useState } from "react";
-import { FcGoogle } from "react-icons/fc";
-import { FaFacebook } from "react-icons/fa";
-import { FaApple } from "react-icons/fa";
-import { IoCheckmarkSharp } from "react-icons/io5";
+import { createElement, useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  FiArrowLeft,
+  FiArrowRight,
+  FiBriefcase,
+  FiCheck,
+  FiHeart,
+  FiMail,
+  FiPackage,
+  FiStar,
+  FiUser,
+  FiZap,
+} from "react-icons/fi";
 import { useAuth } from "../../contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../translation/LanguageContext";
+import { COUNTRIES } from "../Components/countries";
+import {
+  Alert,
+  AuthShell,
+  Field,
+  OtpInput,
+  PasswordInput,
+  PasswordStrength,
+  eyebrowClass,
+  headingClass,
+  inputClass,
+  linkButtonClass,
+  primaryButtonClass,
+} from "./AuthKit";
+import { checkPasswordStrength, useCountdown } from "./authUtils";
+
+// Survives a refresh while the user goes to their inbox for the code.
+const PENDING_KEY = "pendingEmailVerification";
+
+const readPending = () => {
+  try {
+    const raw = sessionStorage.getItem(PENDING_KEY);
+    const pending = raw ? JSON.parse(raw) : null;
+    return pending?.email ? pending : null;
+  } catch {
+    return null;
+  }
+};
+
+const writePending = (pending) => {
+  try {
+    if (pending) sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
+    else sessionStorage.removeItem(PENDING_KEY);
+  } catch {
+    /* storage unavailable: the flow still works for this page view */
+  }
+};
+
+const EMPTY_REGISTER = {
+  User_FullName: "",
+  User_Email: "",
+  Password: "",
+  PasswordConfirm: "",
+  Company_Name: "",
+  Company_Address: "",
+  Company_TaxNumber: "",
+  Company_PostCode: "",
+  Company_City: "",
+  Company_Country: "",
+  Company_Phone: "",
+};
+
+const BENEFITS = [
+  [FiZap, "fasterPurchase"],
+  [FiPackage, "trackOrderStatus"],
+  [FiStar, "collectAndUseLoyalty"],
+  [FiHeart, "favoriteProductList"],
+];
+
+const errorText = (err, fallback) =>
+  err?.data?.errors?.[0] || err?.message || fallback;
 
 export default function Login() {
-  const [isLoginView, setIsLoginView] = useState(true);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [accountType, setAccountType] = useState("natural");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
-  const [forgotPasswordMessage, setForgotPasswordMessage] = useState("");
-  const [forgotPasswordError, setForgotPasswordError] = useState("");
-  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
-
-  // Password strength state for registration
-  const [passwordStrength, setPasswordStrength] = useState({
-    isValid: false,
-    metCount: 0,
-    totalRequired: 5,
-    missingRequirements: [],
-    strengthPercent: 0,
-  });
-
-  const { login, register, forgotPassword } = useAuth();
+  const { login, register, forgotPassword, verifyEmail, resendVerificationCode } =
+    useAuth();
   const navigate = useNavigate();
-  const { translate } = useLanguage();
+  const { translate, language } = useLanguage();
 
-  // Login form state
-  const [loginForm, setLoginForm] = useState({
-    User_Email: "",
-    Password: "",
-  });
+  const [pending, setPending] = useState(readPending);
+  const [view, setView] = useState(() => (readPending() ? "verify" : "login"));
+  const [notice, setNotice] = useState("");
 
-  // Register form state for natural person
-  const [registerForm, setRegisterForm] = useState({
-    User_FullName: "",
-    User_Email: "",
-    Password: "",
-    PasswordConfirm: "",
-    User_IsCompany: false,
-    // Company specific fields
-    Company_Name: "",
-    Company_Address: "",
-    Company_TaxNumber: "",
-    Company_PostCode: "",
-    Company_City: "",
-    Company_Country: "",
-    Company_Phone: "",
-  });
-  const handlePrivacyPolicyNavigation = () => {
-    window.scrollTo(0, 0);
-    navigate("/privacy-policy");
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [view]);
+
+  const goTo = (next) => {
+    setNotice("");
+    setView(next);
   };
 
-  // Check password strength function
-  const checkPasswordStrength = (pwd) => {
-    const requirements = {
-      minLength: pwd.length >= 8,
-      uppercase: /[A-Z]/.test(pwd),
-      lowercase: /[a-z]/.test(pwd),
-      digit: /[0-9]/.test(pwd),
-      specialChar: /[!@#$%^&*(),.?":{}|<>]/.test(pwd),
+  const startVerification = (email, retryAfterSeconds, message = "") => {
+    const next = {
+      email,
+      resendAt: Date.now() + (retryAfterSeconds ?? 60) * 1000,
     };
-
-    const missing = [];
-    if (!requirements.minLength) missing.push("At least 8 characters");
-    if (!requirements.uppercase) missing.push("One uppercase letter (A-Z)");
-    if (!requirements.lowercase) missing.push("One lowercase letter (a-z)");
-    if (!requirements.digit) missing.push("One number (0-9)");
-    if (!requirements.specialChar)
-      missing.push("One special character (!@#$%^&* etc.)");
-
-    const metCount = Object.values(requirements).filter(Boolean).length;
-    const isValid = metCount === 5;
-    const strengthPercent = (metCount * 100) / 5;
-
-    return {
-      isValid,
-      metCount,
-      totalRequired: 5,
-      missingRequirements: missing,
-      strengthPercent,
-      requirements,
-    };
+    writePending(next);
+    setPending(next);
+    setNotice(message);
+    setView("verify");
   };
 
-  // Get strength color and text
-  const getStrengthInfo = (strengthPercent) => {
-    if (strengthPercent === 0)
-      return {
-        color: "bg-gray-200",
-        text: "Not started",
-        textColor: "text-gray-500",
-      };
-    if (strengthPercent <= 20)
-      return {
-        color: "bg-red-500",
-        text: "Very Weak",
-        textColor: "text-red-500",
-      };
-    if (strengthPercent <= 40)
-      return {
-        color: "bg-orange-500",
-        text: "Weak",
-        textColor: "text-orange-500",
-      };
-    if (strengthPercent <= 60)
-      return {
-        color: "bg-yellow-500",
-        text: "Fair",
-        textColor: "text-yellow-600",
-      };
-    if (strengthPercent <= 80)
-      return {
-        color: "bg-blue-500",
-        text: "Strong",
-        textColor: "text-blue-500",
-      };
-    return {
-      color: "bg-green-500",
-      text: "Very Strong",
-      textColor: "text-green-500",
-    };
+  const finishSignIn = (response) => {
+    writePending(null);
+    const isMaintenanceMode = localStorage.getItem("maintenance_mode") === "true";
+    const isSuperAdmin =
+      response.user?.superAdmin === true || response.user?.SuperAdmin === true;
+    navigate(isMaintenanceMode && !isSuperAdmin ? "/maintenance" : "/profile");
   };
 
-  // Handle password change with real-time strength check
-  const handlePasswordChange = (e) => {
-    const newPassword = e.target.value;
-    setRegisterForm({
-      ...registerForm,
-      Password: newPassword,
-    });
-    const strength = checkPasswordStrength(newPassword);
-    setPasswordStrength(strength);
-
-    // Clear password-related errors
-    if (error && (error.includes("Password") || error.includes("password"))) {
-      setError("");
-    }
+  const leaveVerification = (target) => {
+    writePending(null);
+    setPending(null);
+    goTo(target);
   };
 
-  // List of countries
-  const countries = [
-    "Afghanistan",
-    "Albania",
-    "Algeria",
-    "Andorra",
-    "Angola",
-    "Antigua and Barbuda",
-    "Argentina",
-    "Armenia",
-    "Australia",
-    "Austria",
-    "Azerbaijan",
-    "Bahamas",
-    "Bahrain",
-    "Bangladesh",
-    "Barbados",
-    "Belarus",
-    "Belgium",
-    "Belize",
-    "Benin",
-    "Bhutan",
-    "Bolivia",
-    "Bosnia and Herzegovina",
-    "Botswana",
-    "Brazil",
-    "Brunei",
-    "Bulgaria",
-    "Burkina Faso",
-    "Burundi",
-    "Cabo Verde",
-    "Cambodia",
-    "Cameroon",
-    "Canada",
-    "Central African Republic",
-    "Chad",
-    "Chile",
-    "China",
-    "Colombia",
-    "Comoros",
-    "Congo",
-    "Costa Rica",
-    "Croatia",
-    "Cuba",
-    "Cyprus",
-    "Czech Republic",
-    "Denmark",
-    "Djibouti",
-    "Dominica",
-    "Dominican Republic",
-    "Ecuador",
-    "Egypt",
-    "El Salvador",
-    "Equatorial Guinea",
-    "Eritrea",
-    "Estonia",
-    "Eswatini",
-    "Ethiopia",
-    "Fiji",
-    "Finland",
-    "France",
-    "Gabon",
-    "Gambia",
-    "Georgia",
-    "Germany",
-    "Ghana",
-    "Greece",
-    "Grenada",
-    "Guatemala",
-    "Guinea",
-    "Guinea-Bissau",
-    "Guyana",
-    "Haiti",
-    "Honduras",
-    "Hungary",
-    "Iceland",
-    "India",
-    "Indonesia",
-    "Iran",
-    "Iraq",
-    "Ireland",
-    "Israel",
-    "Italy",
-    "Jamaica",
-    "Japan",
-    "Jordan",
-    "Kazakhstan",
-    "Kenya",
-    "Kiribati",
-    "Korea, North",
-    "Korea, South",
-    "Kosovo",
-    "Kuwait",
-    "Kyrgyzstan",
-    "Laos",
-    "Latvia",
-    "Lebanon",
-    "Lesotho",
-    "Liberia",
-    "Libya",
-    "Liechtenstein",
-    "Lithuania",
-    "Luxembourg",
-    "Madagascar",
-    "Malawi",
-    "Malaysia",
-    "Maldives",
-    "Mali",
-    "Malta",
-    "Marshall Islands",
-    "Mauritania",
-    "Mauritius",
-    "Mexico",
-    "Micronesia",
-    "Moldova",
-    "Monaco",
-    "Mongolia",
-    "Montenegro",
-    "Morocco",
-    "Mozambique",
-    "Myanmar",
-    "Namibia",
-    "Nauru",
-    "Nepal",
-    "Netherlands",
-    "New Zealand",
-    "Nicaragua",
-    "Niger",
-    "Nigeria",
-    "North Macedonia",
-    "Norway",
-    "Oman",
-    "Pakistan",
-    "Palau",
-    "Palestine",
-    "Panama",
-    "Papua New Guinea",
-    "Paraguay",
-    "Peru",
-    "Philippines",
-    "Poland",
-    "Portugal",
-    "Qatar",
-    "Romania",
-    "Russia",
-    "Rwanda",
-    "Saint Kitts and Nevis",
-    "Saint Lucia",
-    "Saint Vincent and the Grenadines",
-    "Samoa",
-    "San Marino",
-    "Sao Tome and Principe",
-    "Saudi Arabia",
-    "Senegal",
-    "Serbia",
-    "Seychelles",
-    "Sierra Leone",
-    "Singapore",
-    "Slovakia",
-    "Slovenia",
-    "Solomon Islands",
-    "Somalia",
-    "South Africa",
-    "South Sudan",
-    "Spain",
-    "Sri Lanka",
-    "Sudan",
-    "Suriname",
-    "Sweden",
-    "Switzerland",
-    "Syria",
-    "Taiwan",
-    "Tajikistan",
-    "Tanzania",
-    "Thailand",
-    "Timor-Leste",
-    "Togo",
-    "Tonga",
-    "Trinidad and Tobago",
-    "Tunisia",
-    "Turkey",
-    "Turkmenistan",
-    "Tuvalu",
-    "Uganda",
-    "Ukraine",
-    "United Arab Emirates",
-    "United Kingdom",
-    "United States",
-    "Uruguay",
-    "Uzbekistan",
-    "Vanuatu",
-    "Vatican City",
-    "Venezuela",
-    "Vietnam",
-    "Yemen",
-    "Zambia",
-    "Zimbabwe",
-  ];
-
-  // Handle login input changes
-  const handleLoginChange = (e) => {
-    setLoginForm({
-      ...loginForm,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  // Handle register input changes
-  const handleRegisterChange = (e) => {
-    setRegisterForm({
-      ...registerForm,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  // Handle login submit
-  // Handle login submit
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      const response = await login({
-        User_Email: loginForm.User_Email,
-        Password: loginForm.Password,
-      });
-
-      if (response.status) {
-        // Check if maintenance mode is on and user is not SuperAdmin
-        const isMaintenanceMode =
-          localStorage.getItem("maintenance_mode") === "true";
-        const isSuperAdmin =
-          response.user?.superAdmin === true ||
-          response.user?.SuperAdmin === true;
-
-        if (isMaintenanceMode && !isSuperAdmin) {
-          // Redirect to maintenance page
-          navigate("/maintenance");
-        } else {
-          // Redirect to profile
-          navigate("/profile");
-        }
-        setLoginForm({ User_Email: "", Password: "" });
-      }
-    } catch (err) {
-      setError(err.message || "Login failed. Please check your credentials.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle forgot password submit
-  const handleForgotPassword = async (e) => {
-    e.preventDefault();
-    setForgotPasswordError("");
-    setForgotPasswordMessage("");
-    setForgotPasswordLoading(true);
-
-    try {
-      const response = await forgotPassword({
-        User_Email: forgotPasswordEmail,
-      });
-
-      if (response.status) {
-        setForgotPasswordMessage(
-          "If an account with that email exists, password reset instructions have been sent.",
-        );
-        setTimeout(() => {
-          setForgotPasswordEmail("");
-        }, 3000);
-      } else {
-        setForgotPasswordError(
-          response.message || "Something went wrong. Please try again.",
-        );
-      }
-    } catch (err) {
-      setForgotPasswordError(
-        err.message || "Failed to send reset email. Please try again.",
-      );
-    } finally {
-      setForgotPasswordLoading(false);
-    }
-  };
-
-  // Return to login from forgot password
-  const handleReturnToLogin = () => {
-    setShowForgotPassword(false);
-    setForgotPasswordEmail("");
-    setForgotPasswordMessage("");
-    setForgotPasswordError("");
-  };
-
-  // Handle register submit
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError("");
-
-    // Check if passwords match
-    if (registerForm.Password !== registerForm.PasswordConfirm) {
-      setError("Passwords do not match");
-      return;
-    }
-
-    // Check password strength
-    if (!passwordStrength.isValid) {
-      setError(
-        `Password is too weak. ${passwordStrength.missingRequirements.join(", ")}`,
-      );
-      return;
-    }
-
-    // Validate company fields if registering as company
-    if (accountType === "company") {
-      if (!registerForm.Company_Name) {
-        setError("Company name is required");
-        return;
-      }
-      if (!registerForm.Company_Address) {
-        setError("Company address is required");
-        return;
-      }
-      if (!registerForm.Company_TaxNumber) {
-        setError("Tax number is required");
-        return;
-      }
-      if (!registerForm.Company_PostCode) {
-        setError("Post code is required");
-        return;
-      }
-      if (!registerForm.Company_City) {
-        setError("City is required");
-        return;
-      }
-      if (!registerForm.Company_Country) {
-        setError("Country is required");
-        return;
-      }
-      if (!registerForm.Company_Phone) {
-        setError("Phone number is required");
-        return;
-      }
-    }
-
-    setLoading(true);
-
-    try {
-      let userData;
-
-      if (accountType === "company") {
-        userData = {
-          user_Email: registerForm.User_Email,
-          password: registerForm.Password,
-          passwordConfirm: registerForm.PasswordConfirm,
-          user_IsCompany: true,
-          user_Phone: registerForm.Company_Phone || "",
-          company_Name: registerForm.Company_Name,
-          company_Address: registerForm.Company_Address,
-          company_TaxNumber: registerForm.Company_TaxNumber,
-          company_PostCode: registerForm.Company_PostCode,
-          company_City: registerForm.Company_City,
-          company_Country: registerForm.Company_Country,
-          company_Phone: registerForm.Company_Phone,
-        };
-      } else {
-        userData = {
-          user_FullName: registerForm.User_FullName,
-          user_Email: registerForm.User_Email,
-          password: registerForm.Password,
-          passwordConfirm: registerForm.PasswordConfirm,
-          user_IsCompany: false,
-          user_Phone: registerForm.User_Phone || "",
-        };
-      }
-      const response = await register(userData);
-
-      if (response.status && response.token) {
-        alert("Registration successful! Please login.");
-
-        // Switch back to login view
-        setIsLoginView(true);
-
-        // Clear register form
-        setRegisterForm({
-          User_FullName: "",
-          User_Email: "",
-          Password: "",
-          PasswordConfirm: "",
-          User_IsCompany: false,
-          Company_Name: "",
-          Company_Address: "",
-          Company_TaxNumber: "",
-          Company_PostCode: "",
-          Company_City: "",
-          Company_Country: "",
-          Company_Phone: "",
-        });
-
-        // Reset password strength
-        setPasswordStrength({
-          isValid: false,
-          metCount: 0,
-          totalRequired: 5,
-          missingRequirements: [],
-          strengthPercent: 0,
-        });
-
-        // Pre-fill login email
-        setLoginForm({
-          User_Email: registerForm.User_Email,
-          Password: "",
-        });
-      }
-    } catch (err) {
-      setError(err.message || "Registration failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleView = () => {
-    setIsLoginView(!isLoginView);
-    setError("");
-    setLoginForm({ User_Email: "", Password: "" });
-    setRegisterForm({
-      User_FullName: "",
-      User_Email: "",
-      Password: "",
-      PasswordConfirm: "",
-      User_IsCompany: false,
-      Company_Name: "",
-      Company_Address: "",
-      Company_TaxNumber: "",
-      Company_PostCode: "",
-      Company_City: "",
-      Company_Country: "",
-      Company_Phone: "",
-    });
-    // Reset password strength when switching views
-    setPasswordStrength({
-      isValid: false,
-      metCount: 0,
-      totalRequired: 5,
-      missingRequirements: [],
-      strengthPercent: 0,
-    });
-  };
-
-  // FORGOT PASSWORD MODAL VIEW
-  if (showForgotPassword) {
-    return (
-      <div className="w-full flex justify-center">
-        <div className="w-full max-w-[1240px] flex max-lg:flex-col justify-center my-[20px] items-start">
-          <div className="w-full max-w-[500px]">
-            <form
-              onSubmit={handleForgotPassword}
-              className="pt-[55px] pb-[65px] px-[38px] border border-[#FDC700] w-full max-sm:border-none"
-            >
-              <p className="mb-[29px] text-[24px] font-bold leading-[32px] text-center">
-                Forgot your password?
-              </p>
-
-              <p className="text-[14px] text-gray-600 mb-[20px] text-center">
-                Enter your email address and we'll send you a link to reset your
-                password.
-              </p>
-
-              {forgotPasswordMessage && (
-                <div className="mb-4 p-3 bg-green-100 text-green-700 rounded text-center">
-                  {forgotPasswordMessage}
-                </div>
-              )}
-
-              {forgotPasswordError && (
-                <div className="mb-4 p-3 bg-red-100 text-red-700 rounded text-center">
-                  {forgotPasswordError}
-                </div>
-              )}
-
-              <div className="flex flex-col mb-[23px]">
-                <div className="flex flex-col mb-[11px]">
-                  <label className="text-[13px] mb-[5px] font-medium">
-                    Email address
-                  </label>
-                  <input
-                    type="email"
-                    value={forgotPasswordEmail}
-                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                    required
-                    placeholder="your@email.com"
-                    className="p-[13px] border border-[#c4c4c4] outline-none w-full focus:border-[#FDC700] transition"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={forgotPasswordLoading}
-                  className="bg-[#FDC700] text-[16px] mb-[15px] p-[14px] font-bold disabled:opacity-50 hover:bg-[#e5b300] transition"
-                >
-                  {forgotPasswordLoading ? "Sending..." : "Send reset link"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleReturnToLogin}
-                  className="text-[12px] underline hover:text-[#2096D8] transition text-center"
-                >
-                  Return to login
-                </button>
-              </div>
-            </form>
-          </div>
+  const aside = (
+    <>
+      <p className={`${eyebrowClass} !text-[#FDC700]`}>Proteini.si</p>
+      <h2 className="mt-4 max-w-[440px] font-display text-5xl font-bold uppercase leading-[0.95] tracking-tight [text-wrap:balance] xl:text-6xl">
+        {translate("authAsideTitle")}
+      </h2>
+      <p className="mt-5 max-w-[400px] text-[15px] leading-relaxed text-white/70">
+        {translate("proteiniSiAllows")}
+      </p>
+      <ul className="mt-8 space-y-3">
+        {BENEFITS.map(([icon, key]) => (
+          <li key={key} className="flex items-center gap-3 text-[15px] font-medium">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-[#FDC700]">
+              {createElement(icon, { size: 17 })}
+            </span>
+            {translate(key)}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-auto pt-10">
+        <div className="inline-flex items-center gap-2 rounded-full bg-[#FDC700] px-4 py-2 text-sm font-bold text-[#141409]">
+          <FiStar size={15} />
+          {translate("exclusiveBenefits1")}
         </div>
       </div>
-    );
-  }
+    </>
+  );
+
+  const mobileAside = (
+    <div className="rounded-2xl bg-white p-5 ring-1 ring-black/[0.06]">
+      <p className={eyebrowClass}>{translate("proteiniSiAllows")}</p>
+      <ul className="mt-3 grid grid-cols-2 gap-3">
+        {BENEFITS.map(([icon, key]) => (
+          <li key={key} className="flex items-start gap-2 text-[13px] font-medium leading-snug text-gray-800">
+            {createElement(icon, { size: 15, className: "mt-0.5 shrink-0 text-[#141409]" })}
+            {translate(key)}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 
   return (
-    <div className="w-full flex justify-center">
-      <div className="w-full max-w-[1240px] flex max-md:flex-col max-md:gap-16 gap-4 justify-center my-[20px] items-center">
-        {isLoginView ? (
-          // LOGIN VIEW
-          <>
-            {/* Left Side - Login Form */}
-            <form
-              onSubmit={handleLogin}
-              className="mr-[50px] max-lg:mr-0 pt-[55px] max-sm:p-4  pb-[65px] px-[38px] border border-[#FDC700] max-sm:border-none max-w-[643px] w-full"
+    <AuthShell aside={aside} mobileAside={view === "verify" ? null : mobileAside}>
+      {(view === "login" || view === "register") && (
+        <div
+          role="tablist"
+          aria-label={translate("authTabsLabel")}
+          className="mb-8 grid grid-cols-2 rounded-full bg-[#f6f5f1] p-1 ring-1 ring-black/[0.05]"
+        >
+          {[
+            ["login", "login"],
+            ["register", "createAnAcc"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={view === key}
+              onClick={() => goTo(key)}
+              className={`min-h-[44px] rounded-full px-4 text-sm font-bold transition ${
+                view === key
+                  ? "bg-[#141409] text-white shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
             >
-              <p className="mb-[29px] text-[21px] font-bold leading-[26px]">
-                {translate("signInTo")}
-              </p>
+              {translate(label)}
+            </button>
+          ))}
+        </div>
+      )}
 
-              {error && (
-                <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
-                  {error}
-                </div>
-              )}
+      {view === "login" && (
+        <LoginForm
+          translate={translate}
+          language={language}
+          login={login}
+          notice={notice}
+          onForgot={() => goTo("forgot")}
+          onSignedIn={finishSignIn}
+          onNeedsVerification={(email, retry) =>
+            startVerification(email, retry, translate("verifyLoginNeeded"))
+          }
+        />
+      )}
 
-              <div className="flex flex-col mb-[23px]">
-                <div className="flex items-center mb-[11px] max-sm:flex-col max-sm:items-start">
-                  <span className="text-[13px] w-full max-w-[124px]">
-                    {translate("eMail")}
-                  </span>
-                  <input
-                    type="email"
-                    name="User_Email"
-                    value={loginForm.User_Email}
-                    onChange={handleLoginChange}
-                    required
-                    className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                  />
-                </div>
-                <div className="flex items-center mb-[11px] max-sm:flex-col max-sm:items-start">
-                  <span className="text-[13px] w-full max-w-[124px]">
-                    {translate("password")}
-                  </span>
-                  <input
-                    type="password"
-                    name="Password"
-                    value={loginForm.Password}
-                    onChange={handleLoginChange}
-                    required
-                    className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-[#FDC700] text-[16px] mb-[5px] p-[14px] font-bold disabled:opacity-50"
-                >
-                  {loading ? translate("loggingIn") : translate("login")}
-                </button>
-              </div>
-              <div className="flex max-sm:flex-col justify-between mb-[30px] max-sm:gap-6">
-                <div className="flex items-end max-sm:items-center gap-2 pr-[15px] max-sm:border-b max-sm:border-b-[#E5E5E5] pb-3">
-                  <FcGoogle size={28} />
-                  <p className="text-[11px] text-[#828282]">
-                    {translate("signInWithGoogle")}
-                  </p>
-                </div>
-                <div className="flex items-end max-sm:items-center gap-2 px-[15px] max-sm:border-b max-sm:border-b-[#E5E5E5] pb-3 max-sm:px-0">
-                  <FaFacebook size={28} color="#4267B2" />
-                  <p className="text-[11px] text-[#828282]">
-                    {translate("signInWithFb")}
-                  </p>
-                </div>
-                <div className="flex items-end max-sm:items-center gap-2 px-[15px] max-sm:border-b max-sm:border-b-[#E5E5E5] pb-3 max-sm:px-0">
-                  <FaApple size={28} />
-                  <p className="text-[11px] text-[#828282]">
-                    {translate("signInWithApple")}
-                  </p>
-                </div>
-              </div>
-              <div>
-                <p
-                  onClick={() => setShowForgotPassword(true)}
-                  className="text-[12px] underline mb-[20px] cursor-pointer hover:text-[#2096D8] transition"
-                >
-                  {translate("forgotPassword")}
-                </p>
-                <div className="flex gap-1">
-                  <p className="mb-[20px] text-[12px] text-[#828282]">
-                    {translate("weCareAndProcess")}{" "}
-                    <a
-                      onClick={handlePrivacyPolicyNavigation}
-                      className="text-[12px] underline cursor-pointer"
-                    >
-                      {translate("privacyPolicy")}
-                    </a>
-                  </p>
-                </div>
-              </div>
-            </form>
+      {view === "register" && (
+        <RegisterForm
+          translate={translate}
+          language={language}
+          register={register}
+          onRegistered={(email, retry) => startVerification(email, retry)}
+          onPrivacy={() => window.scrollTo(0, 0)}
+        />
+      )}
 
-            {/* Right Side - Register Prompt */}
-            <div className="w-full max-w-[343px] flex flex-col justify-center">
-              <p className="text-[20px] mb-[20px] font-bold">
-                {translate("dontHaveAnAccountYet")}
-              </p>
-              <p className="text-[16px] mb-[23px]">
-                {translate("proteiniSiAllows")}
-              </p>
-              <div className="mb-[33px]">
-                <div className="flex gap-2 mb-[17px]">
-                  <IoCheckmarkSharp size={24} color="#0000008A" />
-                  <p className="text-[16px] text-[#0B0B0B] font-bold">
-                    {translate("exclusiveBenefits1")}
-                  </p>
-                </div>
-                <div className="flex gap-2 mb-[17px]">
-                  <IoCheckmarkSharp size={24} color="#0000008A" />
-                  <p className="text-[16px] text-[#0B0B0B] font-bold">
-                    {translate("fasterPurchase")}
-                  </p>
-                </div>
-                <div className="flex gap-2 mb-[17px]">
-                  <IoCheckmarkSharp size={24} color="#0000008A" />
-                  <p className="text-[16px] text-[#0B0B0B] font-bold">
-                    {translate("trackOrderStatus")}
-                  </p>
-                </div>
-                <div className="flex gap-2 mb-[17px]">
-                  <IoCheckmarkSharp size={24} color="#0000008A" />
-                  <p className="text-[16px] text-[#0B0B0B] font-bold">
-                    {translate("favoriteProductList")}
-                  </p>
-                </div>
-                <div className="flex gap-2 mb-[17px]">
-                  <IoCheckmarkSharp size={24} color="#0000008A" />
-                  <p className="text-[16px] text-[#0B0B0B] font-bold">
-                    {translate("collectAndUseLoyalty")}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={toggleView}
-                className="bg-[#2096D8] p-[14px] text-[16px] text-white w-full font-bold"
-              >
-                {translate("createAnAcc")}
-              </button>
-            </div>
-          </>
-        ) : (
-          // REGISTER VIEW
-          <>
-            {/* Left Side - Login Prompt */}
-            <div className="ml-[50px] px-8 pt-[50px] pb-[30px] max-w-[413px] w-full flex flex-col justify-center max-sm:m-0">
-              <p className="text-[20px] mb-[20px] font-bold leading-[26px]">
-                {translate("advatagesOfCreating")}
-              </p>
-              <p className="text-[16px] mb-[23px]">
-                {translate("proteiniSiAllows")}
-              </p>
-              <div className="mb-[33px]">
-                <div className="flex gap-2 mb-[17px]">
-                  <IoCheckmarkSharp size={24} color="#2096D8" />
-                  <p className="text-[16px] text-[#0B0B0B] font-bold">
-                    {translate("exclusiveBenefits1")}
-                  </p>
-                </div>
-                <div className="flex gap-2 mb-[17px]">
-                  <IoCheckmarkSharp size={24} color="#2096D8" />
-                  <p className="text-[16px] text-[#0B0B0B] font-bold">
-                    {translate("fasterPurchase")}
-                  </p>
-                </div>
-                <div className="flex gap-2 mb-[17px]">
-                  <IoCheckmarkSharp size={24} color="#2096D8" />
-                  <p className="text-[16px] text-[#0B0B0B] font-bold">
-                    {translate("trackOrderStatus")}
-                  </p>
-                </div>
-                <div className="flex gap-2 mb-[17px]">
-                  <IoCheckmarkSharp size={24} color="#2096D8" />
-                  <p className="text-[16px] text-[#0B0B0B] font-bold">
-                    {translate("collectAndUseLoyalty")}
-                  </p>
-                </div>
-                <div className="flex gap-2 mb-[17px]">
-                  <IoCheckmarkSharp size={24} color="#2096D8" />
-                  <p className="text-[16px] text-[#0B0B0B] font-bold">
-                    {translate("favoriteProductList")}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={toggleView}
-                className="bg-[#FDC700] p-[14px] text-[16px] w-full font-bold"
-              >
-                {translate("alreadyHaveAnAccount")}
-              </button>
-            </div>
+      {view === "forgot" && (
+        <ForgotForm
+          translate={translate}
+          forgotPassword={forgotPassword}
+          onBack={() => goTo("login")}
+        />
+      )}
 
-            {/* Right Side - Register Form */}
-            <form
-              onSubmit={handleRegister}
-              className="ml-[50px] pt-[20px] pb-[65px] px-[28px] max-sm:p-4 border border-[#2096D8] max-w-[643px] w-full max-sm:m-0 max-sm:border-none"
-            >
-              <p className="mb-[29px] text-[21px] font-bold leading-[26px]">
-                {translate("createYourAccount")}
-              </p>
+      {view === "verify" && pending && (
+        <VerifyEmailStep
+          key={pending.email}
+          translate={translate}
+          language={language}
+          pending={pending}
+          notice={notice}
+          verifyEmail={verifyEmail}
+          resendVerificationCode={resendVerificationCode}
+          onPendingChange={(next) => {
+            writePending(next);
+            setPending(next);
+          }}
+          onVerified={finishSignIn}
+          onChangeEmail={() => leaveVerification("register")}
+          onBackToLogin={() => leaveVerification("login")}
+        />
+      )}
+    </AuthShell>
+  );
+}
 
-              {error && (
-                <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
-                  {error}
-                </div>
-              )}
+/* ------------------------------------------------------------------ login */
 
-              <div className="flex flex-col mb-[23px]">
-                <div className="flex items-center mb-[11px] max-sm:mb-[20px] max-sm:flex-col max-sm:items-start max-sm:gap-2">
-                  <span className="text-[13px] w-full max-w-[124px]">
-                    {translate("status")}
-                  </span>
-                  <div className="flex gap-3">
-                    <label className="flex items-center gap-1 text-[13px]">
-                      {translate("neutralPerson")}
-                      <input
-                        type="radio"
-                        name="accountType"
-                        className="ml-2"
-                        checked={accountType === "natural"}
-                        onChange={() => setAccountType("natural")}
-                      />
-                    </label>
-                    <label className="flex items-center gap-1 text-[13px]">
-                      {translate("company")}
-                      <input
-                        type="radio"
-                        name="accountType"
-                        className="ml-2"
-                        checked={accountType === "company"}
-                        onChange={() => setAccountType("company")}
-                      />
-                    </label>
-                  </div>
-                </div>
+function LoginForm({
+  translate,
+  language,
+  login,
+  notice,
+  onForgot,
+  onSignedIn,
+  onNeedsVerification,
+}) {
+  const [form, setForm] = useState({ User_Email: "", Password: "" });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-                {/* Natural Person Fields */}
-                {accountType === "natural" && (
-                  <>
-                    <div className="flex items-center mb-[11px] max-sm:mb-[20px] max-sm:flex-col max-sm:items-start max-sm:gap-2">
-                      <span className="text-[13px] w-full max-w-[124px] max-sm:text-nowrap">
-                        {translate("nameAndSurname")}
-                      </span>
-                      <input
-                        type="text"
-                        name="User_FullName"
-                        value={registerForm.User_FullName}
-                        onChange={handleRegisterChange}
-                        required
-                        className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                      />
-                    </div>
-                    <div className="flex items-center mb-[11px] max-sm:mb-[20px] max-sm:flex-col max-sm:items-start max-sm:gap-2">
-                      <span className="text-[13px] w-full max-w-[124px]">
-                        {translate("email1")}
-                      </span>
-                      <input
-                        type="email"
-                        name="User_Email"
-                        value={registerForm.User_Email}
-                        onChange={handleRegisterChange}
-                        required
-                        className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                      />
-                    </div>
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const response = await login({ ...form, Language: language });
+      if (response.status) onSignedIn(response);
+    } catch (err) {
+      if (err.data?.requiresVerification) {
+        onNeedsVerification(err.data.email || form.User_Email, err.data.retryAfterSeconds);
+        return;
+      }
+      setError(
+        err.status === 401
+          ? translate("authInvalidCredentials")
+          : errorText(err, translate("authGenericError")),
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
-                    {/* Password Field with Strength Meter */}
-                    <div className="flex flex-col mb-[11px]">
-                      <div className="flex items-center max-sm:mb-[20px] max-sm:flex-col max-sm:items-start max-sm:gap-2">
-                        <span className="text-[13px] w-full max-w-[124px]">
-                          {translate("password")}
-                        </span>
-                        <input
-                          type="password"
-                          name="Password"
-                          value={registerForm.Password}
-                          onChange={handlePasswordChange}
-                          required
-                          className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                          placeholder={translate("passwordShouldBeAtLeast")}
-                        />
-                      </div>
+  return (
+    <form onSubmit={handleSubmit}>
+      <h1 className={`${headingClass} text-[40px] sm:text-5xl`}>
+        {translate("authWelcomeBack")}
+      </h1>
+      <p className="mt-3 text-[15px] leading-relaxed text-gray-600">
+        {translate("authSignInSubtitle")}
+      </p>
 
-                      {/* Password Strength Meter */}
-                      {registerForm.Password && (
-                        <div className="mt-3 ml-[124px]">
-                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full ${getStrengthInfo(passwordStrength.strengthPercent).color} transition-all duration-300`}
-                              style={{
-                                width: `${passwordStrength.strengthPercent}%`,
-                              }}
-                            />
-                          </div>
-                          <p
-                            className={`text-[11px] mt-1 ${getStrengthInfo(passwordStrength.strengthPercent).textColor} font-medium`}
-                          >
-                            Password strength:{" "}
-                            {
-                              getStrengthInfo(passwordStrength.strengthPercent)
-                                .text
-                            }
-                          </p>
+      <div className="mt-7 space-y-4">
+        <Alert tone="info">{notice}</Alert>
+        <Alert>{error}</Alert>
 
-                          {/* Requirements list */}
-                          <div className="mt-2 space-y-1">
-                            <p className="text-[11px] font-medium text-gray-600 mb-1">
-                              Password must contain:
-                            </p>
-                            <ul className="text-[11px] space-y-1">
-                              <li
-                                className={
-                                  !passwordStrength.missingRequirements.includes(
-                                    "At least 8 characters",
-                                  )
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }
-                              >
-                                {!passwordStrength.missingRequirements.includes(
-                                  "At least 8 characters",
-                                )
-                                  ? "✅"
-                                  : "❌"}{" "}
-                                At least 8 characters
-                              </li>
-                              <li
-                                className={
-                                  !passwordStrength.missingRequirements.includes(
-                                    "One uppercase letter (A-Z)",
-                                  )
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }
-                              >
-                                {!passwordStrength.missingRequirements.includes(
-                                  "One uppercase letter (A-Z)",
-                                )
-                                  ? "✅"
-                                  : "❌"}{" "}
-                                One uppercase letter (A-Z)
-                              </li>
-                              <li
-                                className={
-                                  !passwordStrength.missingRequirements.includes(
-                                    "One lowercase letter (a-z)",
-                                  )
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }
-                              >
-                                {!passwordStrength.missingRequirements.includes(
-                                  "One lowercase letter (a-z)",
-                                )
-                                  ? "✅"
-                                  : "❌"}{" "}
-                                One lowercase letter (a-z)
-                              </li>
-                              <li
-                                className={
-                                  !passwordStrength.missingRequirements.includes(
-                                    "One number (0-9)",
-                                  )
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }
-                              >
-                                {!passwordStrength.missingRequirements.includes(
-                                  "One number (0-9)",
-                                )
-                                  ? "✅"
-                                  : "❌"}{" "}
-                                One number (0-9)
-                              </li>
-                              <li
-                                className={
-                                  !passwordStrength.missingRequirements.includes(
-                                    "One special character (!@#$%^&* etc.)",
-                                  )
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }
-                              >
-                                {!passwordStrength.missingRequirements.includes(
-                                  "One special character (!@#$%^&* etc.)",
-                                )
-                                  ? "✅"
-                                  : "❌"}{" "}
-                                One special character (!@#$%^&* etc.)
-                              </li>
-                            </ul>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+        <Field label={translate("eMail")} htmlFor="login-email">
+          <input
+            id="login-email"
+            type="email"
+            name="User_Email"
+            autoComplete="email"
+            required
+            value={form.User_Email}
+            onChange={(e) => setForm({ ...form, User_Email: e.target.value })}
+            className={inputClass}
+            placeholder="name@email.com"
+          />
+        </Field>
 
-                    {/* Confirm Password Field */}
-                    <div className="flex items-center mb-[11px] max-sm:mb-[20px] max-sm:flex-col max-sm:items-start max-sm:gap-2">
-                      <span className="text-[13px] w-full max-w-[124px] max-sm:text-nowrap">
-                        {translate("confirmYour")}
-                      </span>
-                      <div className="w-full">
-                        <input
-                          type="password"
-                          name="PasswordConfirm"
-                          value={registerForm.PasswordConfirm}
-                          onChange={handleRegisterChange}
-                          required
-                          className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                          placeholder={translate("confirmYour")}
-                        />
-                        {registerForm.PasswordConfirm &&
-                          registerForm.Password !==
-                            registerForm.PasswordConfirm && (
-                            <p className="text-red-500 text-[11px] mt-1">
-                              Passwords do not match
-                            </p>
-                          )}
-                        {registerForm.PasswordConfirm &&
-                          registerForm.Password ===
-                            registerForm.PasswordConfirm &&
-                          registerForm.Password.length > 0 && (
-                            <p className="text-green-500 text-[11px] mt-1">
-                              ✓ Passwords match
-                            </p>
-                          )}
-                      </div>
-                    </div>
-                  </>
-                )}
+        <Field label={translate("password")} htmlFor="login-password">
+          <PasswordInput
+            id="login-password"
+            name="Password"
+            autoComplete="current-password"
+            required
+            value={form.Password}
+            onChange={(e) => setForm({ ...form, Password: e.target.value })}
+            translate={translate}
+          />
+        </Field>
 
-                {/* Company Fields */}
-                {accountType === "company" && (
-                  <>
-                    <div className="flex items-center mb-[11px]">
-                      <span className="text-[13px] w-full max-w-[124px]">
-                        {translate("companyName")}
-                      </span>
-                      <input
-                        type="text"
-                        name="Company_Name"
-                        value={registerForm.Company_Name}
-                        onChange={handleRegisterChange}
-                        required
-                        className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                      />
-                    </div>
-                    <div className="flex items-center mb-[11px]">
-                      <span className="text-[13px] w-full max-w-[124px]">
-                        {translate("companyAddress")}
-                      </span>
-                      <input
-                        type="text"
-                        name="Company_Address"
-                        value={registerForm.Company_Address}
-                        onChange={handleRegisterChange}
-                        required
-                        className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                        placeholder={translate("streetName")}
-                      />
-                    </div>
-                    <div className="flex items-center mb-[11px]">
-                      <span className="text-[13px] w-full max-w-[124px]">
-                        {translate("taxNumber")}
-                      </span>
-                      <input
-                        type="text"
-                        name="Company_TaxNumber"
-                        value={registerForm.Company_TaxNumber}
-                        onChange={handleRegisterChange}
-                        required
-                        className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                        placeholder="123456789"
-                      />
-                    </div>
-                    <div className="flex items-center mb-[11px]">
-                      <span className="text-[13px] w-full max-w-[124px]">
-                        {translate("postCode")}
-                      </span>
-                      <input
-                        type="text"
-                        name="Company_PostCode"
-                        value={registerForm.Company_PostCode}
-                        onChange={handleRegisterChange}
-                        required
-                        className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                        placeholder="1000"
-                      />
-                    </div>
-                    <div className="flex items-center mb-[11px]">
-                      <span className="text-[13px] w-full max-w-[124px]">
-                        {translate("city")}
-                      </span>
-                      <input
-                        type="text"
-                        name="Company_City"
-                        value={registerForm.Company_City}
-                        onChange={handleRegisterChange}
-                        required
-                        className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                        placeholder="Skopje"
-                      />
-                    </div>
-                    <div className="flex items-center mb-[11px]">
-                      <span className="text-[13px] w-full max-w-[124px]">
-                        {translate("country")}
-                      </span>
-                      <select
-                        name="Company_Country"
-                        value={registerForm.Company_Country}
-                        onChange={handleRegisterChange}
-                        required
-                        className="p-[13px] border border-[#c4c4c4] outline-none w-full bg-white"
-                      >
-                        <option value="">{translate("selectACountry")}</option>
-                        {countries.map((country) => (
-                          <option key={country} value={country}>
-                            {country}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center mb-[11px]">
-                      <span className="text-[13px] w-full max-w-[124px]">
-                        {translate("phone")}
-                      </span>
-                      <input
-                        type="tel"
-                        name="Company_Phone"
-                        value={registerForm.Company_Phone}
-                        onChange={handleRegisterChange}
-                        required
-                        className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                        placeholder="+1234567890"
-                      />
-                    </div>
-                    <div className="flex items-center mb-[11px]">
-                      <span className="text-[13px] w-full max-w-[124px]">
-                        {translate("email1")}
-                      </span>
-                      <input
-                        type="email"
-                        name="User_Email"
-                        value={registerForm.User_Email}
-                        onChange={handleRegisterChange}
-                        required
-                        placeholder="johndoe@gmail.com"
-                        className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                      />
-                    </div>
+        <div className="flex justify-end">
+          <button type="button" onClick={onForgot} className={`${linkButtonClass} text-sm`}>
+            {translate("forgotPassword")}
+          </button>
+        </div>
+      </div>
 
-                    {/* Password Field with Strength Meter for Company */}
-                    <div className="flex flex-col mb-[11px]">
-                      <div className="flex items-center">
-                        <span className="text-[13px] w-full max-w-[124px]">
-                          {translate("password")}
-                        </span>
-                        <input
-                          type="password"
-                          name="Password"
-                          value={registerForm.Password}
-                          onChange={handlePasswordChange}
-                          required
-                          className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                          placeholder={translate("passwordShouldBeAtLeast")}
-                        />
-                      </div>
-
-                      {/* Password Strength Meter */}
-                      {registerForm.Password && (
-                        <div className="mt-3 ml-[124px]">
-                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full ${getStrengthInfo(passwordStrength.strengthPercent).color} transition-all duration-300`}
-                              style={{
-                                width: `${passwordStrength.strengthPercent}%`,
-                              }}
-                            />
-                          </div>
-                          <p
-                            className={`text-[11px] mt-1 ${getStrengthInfo(passwordStrength.strengthPercent).textColor} font-medium`}
-                          >
-                            Password strength:{" "}
-                            {
-                              getStrengthInfo(passwordStrength.strengthPercent)
-                                .text
-                            }
-                          </p>
-
-                          {/* Requirements list */}
-                          <div className="mt-2 space-y-1">
-                            <p className="text-[11px] font-medium text-gray-600 mb-1">
-                              Password must contain:
-                            </p>
-                            <ul className="text-[11px] space-y-1">
-                              <li
-                                className={
-                                  !passwordStrength.missingRequirements.includes(
-                                    "At least 8 characters",
-                                  )
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }
-                              >
-                                {!passwordStrength.missingRequirements.includes(
-                                  "At least 8 characters",
-                                )
-                                  ? "✅"
-                                  : "❌"}{" "}
-                                At least 8 characters
-                              </li>
-                              <li
-                                className={
-                                  !passwordStrength.missingRequirements.includes(
-                                    "One uppercase letter (A-Z)",
-                                  )
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }
-                              >
-                                {!passwordStrength.missingRequirements.includes(
-                                  "One uppercase letter (A-Z)",
-                                )
-                                  ? "✅"
-                                  : "❌"}{" "}
-                                One uppercase letter (A-Z)
-                              </li>
-                              <li
-                                className={
-                                  !passwordStrength.missingRequirements.includes(
-                                    "One lowercase letter (a-z)",
-                                  )
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }
-                              >
-                                {!passwordStrength.missingRequirements.includes(
-                                  "One lowercase letter (a-z)",
-                                )
-                                  ? "✅"
-                                  : "❌"}{" "}
-                                One lowercase letter (a-z)
-                              </li>
-                              <li
-                                className={
-                                  !passwordStrength.missingRequirements.includes(
-                                    "One number (0-9)",
-                                  )
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }
-                              >
-                                {!passwordStrength.missingRequirements.includes(
-                                  "One number (0-9)",
-                                )
-                                  ? "✅"
-                                  : "❌"}{" "}
-                                One number (0-9)
-                              </li>
-                              <li
-                                className={
-                                  !passwordStrength.missingRequirements.includes(
-                                    "One special character (!@#$%^&* etc.)",
-                                  )
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }
-                              >
-                                {!passwordStrength.missingRequirements.includes(
-                                  "One special character (!@#$%^&* etc.)",
-                                )
-                                  ? "✅"
-                                  : "❌"}{" "}
-                                One special character (!@#$%^&* etc.)
-                              </li>
-                            </ul>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Confirm Password Field for Company */}
-                    <div className="flex items-center mb-[11px]">
-                      <span className="text-[13px] w-full max-w-[124px]">
-                        {translate("confirmYour")}
-                      </span>
-                      <div className="w-full">
-                        <input
-                          type="password"
-                          name="PasswordConfirm"
-                          value={registerForm.PasswordConfirm}
-                          onChange={handleRegisterChange}
-                          required
-                          className="p-[13px] border border-[#c4c4c4] outline-none w-full"
-                          placeholder={translate("confirmYour")}
-                        />
-                        {registerForm.PasswordConfirm &&
-                          registerForm.Password !==
-                            registerForm.PasswordConfirm && (
-                            <p className="text-red-500 text-[11px] mt-1">
-                              Passwords do not match
-                            </p>
-                          )}
-                        {registerForm.PasswordConfirm &&
-                          registerForm.Password ===
-                            registerForm.PasswordConfirm &&
-                          registerForm.Password.length > 0 && (
-                            <p className="text-green-500 text-[11px] mt-1">
-                              ✓ Passwords match
-                            </p>
-                          )}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={
-                    loading ||
-                    (registerForm.Password && !passwordStrength.isValid)
-                  }
-                  className="bg-[#2096D8] text-white text-[16px] mb-[5px] p-[14px] font-bold disabled:opacity-50"
-                >
-                  {loading ? translate("creating") : translate("createAnAcc")}
-                </button>
-              </div>
-              <div className="flex max-sm:flex-col max-sm:gap-6 mb-[30px] justify-between">
-                <p className="text-[11px] pt-[5px]">
-                  {translate("quickRegistration")}
-                </p>
-                <div className="flex items-end gap-2 max-sm:items-center max-sm:pb-3 max-sm:border-b max-sm:border-[#c4c4c4]">
-                  <FcGoogle size={28} />
-                  <p className="text-[11px] text-[#828282]">Google</p>
-                </div>
-                <div className="flex items-end gap-2 max-sm:items-center max-sm:pb-3 max-sm:border-b max-sm:border-[#c4c4c4]">
-                  <FaFacebook size={28} color="#4267B2" />
-                  <p className="text-[11px] text-[#828282]">FaceBook</p>
-                </div>
-                <div className="flex items-end gap-2 max-sm:items-center max-sm:pb-3 max-sm:border-b max-sm:border-[#c4c4c4]">
-                  <FaApple size={28} />
-                  <p className="text-[11px] text-[#828282]">Apple</p>
-                </div>
-              </div>
-              <div className="flex gap-1">
-                <p className="mb-[20px] text-[12px] text-[#828282]">
-                  {translate("weCareAndProcess")}
-                  <a
-                    href="/privacy-policy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline text-[12px] text-[#828282]"
-                  >
-                    {translate("privacyPolicy")}
-                  </a>
-                </p>
-              </div>
-            </form>
-          </>
+      <button type="submit" disabled={loading} className={`${primaryButtonClass} mt-6`}>
+        {loading ? translate("loggingIn") : translate("login")}
+        {!loading && (
+          <FiArrowRight className="text-[#FDC700] transition-transform group-hover:translate-x-0.5" />
         )}
+      </button>
+    </form>
+  );
+}
+
+/* --------------------------------------------------------------- register */
+
+function RegisterForm({ translate, language, register, onRegistered, onPrivacy }) {
+  const [accountType, setAccountType] = useState("natural");
+  const [form, setForm] = useState(EMPTY_REGISTER);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const isCompany = accountType === "company";
+  const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
+  const confirmMismatch =
+    form.PasswordConfirm.length > 0 && form.PasswordConfirm !== form.Password;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (!checkPasswordStrength(form.Password).isValid) {
+      setError(translate("passwordTooWeak"));
+      return;
+    }
+    if (form.Password !== form.PasswordConfirm) {
+      setError(translate("passwordsDontMatch"));
+      return;
+    }
+
+    const base = {
+      user_Email: form.User_Email.trim(),
+      password: form.Password,
+      passwordConfirm: form.PasswordConfirm,
+      language,
+    };
+    const payload = isCompany
+      ? {
+          ...base,
+          user_IsCompany: true,
+          user_Phone: form.Company_Phone || "",
+          company_Name: form.Company_Name,
+          company_Address: form.Company_Address,
+          company_TaxNumber: form.Company_TaxNumber,
+          company_PostCode: form.Company_PostCode,
+          company_City: form.Company_City,
+          company_Country: form.Company_Country,
+          company_Phone: form.Company_Phone,
+        }
+      : {
+          ...base,
+          user_FullName: form.User_FullName.trim(),
+          user_IsCompany: false,
+          user_Phone: "",
+        };
+
+    setLoading(true);
+    try {
+      const response = await register(payload);
+      if (response.status) {
+        onRegistered(response.email || base.user_Email, response.retryAfterSeconds);
+      }
+    } catch (err) {
+      setError(
+        err.status === 409
+          ? translate("authEmailTaken")
+          : errorText(err, translate("authGenericError")),
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <h1 className={`${headingClass} text-[40px] sm:text-5xl`}>
+        {translate("createYourAccount")}
+      </h1>
+      <p className="mt-3 text-[15px] leading-relaxed text-gray-600">
+        {translate("authCreateSubtitle")}
+      </p>
+
+      <fieldset className="mt-7">
+        <legend className="mb-2 text-[13px] font-semibold text-gray-800">
+          {translate("accountType")}
+        </legend>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            ["natural", FiUser, "neutralPerson"],
+            ["company", FiBriefcase, "company"],
+          ].map(([key, icon, label]) => {
+            const Icon = icon;
+            const active = accountType === key;
+            return (
+              <label
+                key={key}
+                className={`relative flex min-h-[56px] cursor-pointer items-center gap-3 rounded-xl px-4 ring-1 transition ${
+                  active
+                    ? "bg-[#FDC700]/[0.14] ring-2 ring-[#141409]"
+                    : "bg-white ring-black/[0.1] hover:ring-black/30"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="accountType"
+                  value={key}
+                  checked={active}
+                  onChange={() => setAccountType(key)}
+                  className="sr-only"
+                />
+                <Icon size={18} className={active ? "text-[#141409]" : "text-gray-500"} />
+                <span className="text-sm font-bold text-gray-900">{translate(label)}</span>
+                {active && (
+                  <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-[#141409] text-[#FDC700]">
+                    <FiCheck size={12} strokeWidth={3} />
+                  </span>
+                )}
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      <div className="mt-6 space-y-4">
+        <Alert>{error}</Alert>
+
+        {isCompany ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={translate("companyName")} htmlFor="reg-company" className="sm:col-span-2">
+              <input id="reg-company" required autoComplete="organization" value={form.Company_Name} onChange={set("Company_Name")} className={inputClass} />
+            </Field>
+            <Field label={translate("taxNumber")} htmlFor="reg-tax">
+              <input id="reg-tax" required value={form.Company_TaxNumber} onChange={set("Company_TaxNumber")} className={inputClass} />
+            </Field>
+            <Field label={translate("phone")} htmlFor="reg-phone">
+              <input id="reg-phone" type="tel" required autoComplete="tel" value={form.Company_Phone} onChange={set("Company_Phone")} className={inputClass} />
+            </Field>
+            <Field label={translate("companyAddress")} htmlFor="reg-address" className="sm:col-span-2">
+              <input id="reg-address" required autoComplete="street-address" value={form.Company_Address} onChange={set("Company_Address")} className={inputClass} />
+            </Field>
+            <Field label={translate("city")} htmlFor="reg-city">
+              <input id="reg-city" required autoComplete="address-level2" value={form.Company_City} onChange={set("Company_City")} className={inputClass} />
+            </Field>
+            <Field label={translate("postCode")} htmlFor="reg-post">
+              <input id="reg-post" required autoComplete="postal-code" value={form.Company_PostCode} onChange={set("Company_PostCode")} className={inputClass} />
+            </Field>
+            <Field label={translate("country")} htmlFor="reg-country" className="sm:col-span-2">
+              <select id="reg-country" required value={form.Company_Country} onChange={set("Company_Country")} className={`${inputClass} appearance-none`}>
+                <option value="">{translate("selectACountry")}</option>
+                {COUNTRIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        ) : (
+          <Field label={translate("nameAndSurname")} htmlFor="reg-name">
+            <input id="reg-name" required autoComplete="name" value={form.User_FullName} onChange={set("User_FullName")} className={inputClass} />
+          </Field>
+        )}
+
+        <Field label={translate("eMail")} htmlFor="reg-email" hint={translate("authEmailCodeHint")}>
+          <input id="reg-email" type="email" required autoComplete="email" value={form.User_Email} onChange={set("User_Email")} className={inputClass} placeholder="name@email.com" />
+        </Field>
+
+        <Field label={translate("password")} htmlFor="reg-password">
+          <PasswordInput
+            id="reg-password"
+            required
+            autoComplete="new-password"
+            value={form.Password}
+            onChange={set("Password")}
+            translate={translate}
+          />
+          {form.Password && <PasswordStrength password={form.Password} translate={translate} />}
+        </Field>
+
+        <Field label={translate("confirmYour")} htmlFor="reg-confirm">
+          <PasswordInput
+            id="reg-confirm"
+            required
+            autoComplete="new-password"
+            value={form.PasswordConfirm}
+            onChange={set("PasswordConfirm")}
+            translate={translate}
+            aria-invalid={confirmMismatch}
+            className={confirmMismatch ? "!ring-[#E3262F]/60" : ""}
+          />
+          {confirmMismatch && (
+            <p className="mt-1.5 text-xs font-medium text-[#a3161d]">
+              {translate("passwordsDontMatch")}
+            </p>
+          )}
+        </Field>
+      </div>
+
+      <button type="submit" disabled={loading} className={`${primaryButtonClass} mt-7`}>
+        {loading ? translate("creating") : translate("createAnAcc")}
+        {!loading && (
+          <FiArrowRight className="text-[#FDC700] transition-transform group-hover:translate-x-0.5" />
+        )}
+      </button>
+
+      <p className="mt-5 text-center text-xs leading-relaxed text-gray-500">
+        {translate("weCareAndProcess")}{" "}
+        <Link to="/privacy-policy" onClick={onPrivacy} className={linkButtonClass}>
+          {translate("privacyPolicy")}
+        </Link>
+      </p>
+    </form>
+  );
+}
+
+/* ---------------------------------------------------------------- forgot */
+
+function ForgotForm({ translate, forgotPassword, onBack }) {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const response = await forgotPassword({ User_Email: email.trim() });
+      if (response.status) setSent(true);
+      else setError(response.message || translate("authGenericError"));
+    } catch (err) {
+      setError(errorText(err, translate("authGenericError")));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <button type="button" onClick={onBack} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-gray-600 transition hover:text-gray-900">
+        <FiArrowLeft /> {translate("authBackToSignIn")}
+      </button>
+
+      <h1 className={`${headingClass} text-[40px] sm:text-5xl`}>
+        {translate("forgotPassword")}
+      </h1>
+
+      {sent ? (
+        <div className="mt-6 space-y-6">
+          <div className="flex items-start gap-4 rounded-2xl bg-[#f6f5f1] p-5">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#141409] text-[#FDC700]">
+              <FiMail size={20} />
+            </span>
+            <div>
+              <p className="font-bold text-gray-900">{translate("authResetSentTitle")}</p>
+              <p className="mt-1 text-sm leading-relaxed text-gray-600">
+                {translate("authResetSent")} <span className="font-semibold text-gray-900">{email}</span>
+              </p>
+            </div>
+          </div>
+          <button type="button" onClick={onBack} className={primaryButtonClass}>
+            {translate("authBackToSignIn")}
+            <FiArrowRight className="text-[#FDC700]" />
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <p className="mt-3 text-[15px] leading-relaxed text-gray-600">
+            {translate("authForgotSubtitle")}
+          </p>
+          <div className="mt-7 space-y-4">
+            <Alert>{error}</Alert>
+            <Field label={translate("eMail")} htmlFor="forgot-email">
+              <input id="forgot-email" type="email" required autoComplete="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="name@email.com" />
+            </Field>
+          </div>
+          <button type="submit" disabled={loading} className={`${primaryButtonClass} mt-6`}>
+            {loading ? translate("authSending") : translate("authSendResetLink")}
+            {!loading && <FiArrowRight className="text-[#FDC700] transition-transform group-hover:translate-x-0.5" />}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- verify */
+
+function VerifyEmailStep({
+  translate,
+  language,
+  pending,
+  notice,
+  verifyEmail,
+  resendVerificationCode,
+  onPendingChange,
+  onVerified,
+  onChangeEmail,
+  onBackToLogin,
+}) {
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState(notice);
+  const [expired, setExpired] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [done, setDone] = useState(false);
+  const secondsLeft = useCountdown(pending.resendAt);
+
+  const submit = async (value = code) => {
+    if (verifying || done) return;
+    if (value.length !== 6) {
+      setError(translate("verifyEnterAll"));
+      return;
+    }
+    setError("");
+    setVerifying(true);
+    try {
+      const response = await verifyEmail({ email: pending.email, code: value });
+      if (response.status) {
+        setDone(true);
+        setTimeout(() => onVerified(response), 700);
+      }
+    } catch (err) {
+      setCode("");
+      if (err.data?.codeExpired) {
+        setExpired(true);
+        setError(translate("verifyCodeExpired"));
+      } else if (typeof err.data?.attemptsLeft === "number") {
+        setError(`${translate("verifyCodeIncorrect")} ${translate("verifyAttemptsLeft")} ${err.data.attemptsLeft}.`);
+      } else {
+        setError(errorText(err, translate("authGenericError")));
+      }
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const resend = async () => {
+    if (secondsLeft > 0 || resending) return;
+    setResending(true);
+    setError("");
+    try {
+      const response = await resendVerificationCode({ email: pending.email, language });
+      onPendingChange({
+        ...pending,
+        resendAt: Date.now() + (response.retryAfterSeconds ?? 60) * 1000,
+      });
+      setExpired(false);
+      setCode("");
+      setInfo(translate("verifyResent"));
+    } catch (err) {
+      setError(errorText(err, translate("authGenericError")));
+    } finally {
+      setResending(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="relative mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#141409] text-[#FDC700] shadow-[4px_4px_0_rgba(253,199,0,0.9)]">
+        {done ? <FiCheck size={28} strokeWidth={3} /> : <FiMail size={28} />}
+      </div>
+
+      <h1 id="verify-title" className={`${headingClass} text-[40px] sm:text-5xl`}>
+        {translate(done ? "verifyDone" : "verifyTitle")}
+      </h1>
+      <p className="mt-3 text-[15px] leading-relaxed text-gray-600">
+        {translate("verifySubtitle")}{" "}
+        <span className="break-all font-semibold text-gray-900">{pending.email}</span>
+      </p>
+
+      <form
+        className="mt-7 space-y-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <Alert tone="info">{!error && info}</Alert>
+        <Alert>{error}</Alert>
+
+        <OtpInput
+          value={code}
+          onChange={(v) => {
+            setCode(v);
+            if (error && !expired) setError("");
+          }}
+          onComplete={submit}
+          disabled={verifying || done || expired}
+          invalid={Boolean(error) && !expired}
+          labelledBy="verify-title"
+        />
+
+        <p className="text-xs leading-relaxed text-gray-500">{translate("verifyCheckSpam")}</p>
+
+        {expired ? (
+          <button
+            type="button"
+            onClick={resend}
+            disabled={secondsLeft > 0 || resending}
+            className={primaryButtonClass}
+          >
+            {resending
+              ? translate("authSending")
+              : secondsLeft > 0
+                ? `${translate("verifyResendIn")} ${secondsLeft}s`
+                : translate("verifyResend")}
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={verifying || done || code.length !== 6}
+            className={primaryButtonClass}
+          >
+            {verifying ? translate("verifyConfirming") : translate("verifyConfirm")}
+            {!verifying && <FiArrowRight className="text-[#FDC700] transition-transform group-hover:translate-x-0.5" />}
+          </button>
+        )}
+      </form>
+
+      {!expired && (
+        <p className="mt-6 text-center text-sm text-gray-600">
+          {translate("verifyNoCode")}{" "}
+          {secondsLeft > 0 ? (
+            <span className="font-semibold tabular-nums text-gray-500">
+              {translate("verifyResendIn")} {secondsLeft}s
+            </span>
+          ) : (
+            <button type="button" onClick={resend} disabled={resending} className={linkButtonClass}>
+              {resending ? translate("authSending") : translate("verifyResend")}
+            </button>
+          )}
+        </p>
+      )}
+
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-black/[0.06] pt-5 text-sm">
+        <button type="button" onClick={onChangeEmail} className="font-semibold text-gray-600 transition hover:text-gray-900">
+          {translate("verifyChangeEmail")}
+        </button>
+        <span aria-hidden="true" className="h-1 w-1 rounded-full bg-gray-300" />
+        <button type="button" onClick={onBackToLogin} className="font-semibold text-gray-600 transition hover:text-gray-900">
+          {translate("authBackToSignIn")}
+        </button>
       </div>
     </div>
   );

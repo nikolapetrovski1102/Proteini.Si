@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../services/api";
 import { useLanguage } from "../translation/LanguageContext";
+import { BrandLoader } from "../Components/Loaders/BrandLoader";
 
 export default function DynamicContentPage({ pageType }) {
   const [sections, setSections] = useState([]);
@@ -143,7 +144,7 @@ export default function DynamicContentPage({ pageType }) {
   if (loading) {
     return (
       <div className="w-full flex justify-center items-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2096D8]"></div>
+        <BrandLoader variant="shaker" size={120} />
       </div>
     );
   }

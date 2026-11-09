@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { api } from "../../services/api";
 import { TfiClose } from "react-icons/tfi";
 import { FiArrowUp, FiArrowDown } from "react-icons/fi";
+import { BrandLoader } from "../Components/Loaders/BrandLoader";
 
 export default function DynamicContentManager() {
   const [activePage, setActivePage] = useState("terms-of-service");
@@ -227,7 +228,7 @@ export default function DynamicContentManager() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2096D8]"></div>
+        <BrandLoader variant="shaker" size={120} />
       </div>
     );
   }

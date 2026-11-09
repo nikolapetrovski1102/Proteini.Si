@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "../../services/api";
 import { clearGuestCart } from "../Hooks/useCart";
+import { BrandLoader } from "../Components/Loaders/BrandLoader";
 
 export default function PaymentSuccess() {
   const [searchParams] = useSearchParams();
@@ -66,7 +67,7 @@ export default function PaymentSuccess() {
       <div className="max-w-md w-full p-8 bg-white rounded-lg shadow-lg text-center">
         {status === "verifying" && (
           <>
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+            <BrandLoader variant="scoop" size={120} />
             <h2 className="mt-4 text-2xl font-bold">Verifying Payment...</h2>
             <p className="mt-2 text-gray-600">
               Please wait while we confirm your payment

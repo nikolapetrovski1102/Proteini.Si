@@ -1,22 +1,11 @@
-import { CgDarkMode } from "react-icons/cg";
 import { useLanguage } from "../translation/LanguageContext";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function Footer() {
   const { translate } = useLanguage();
   const navigate = useNavigate();
   const [openDropdown, setOpenDropdown] = useState(null);
-  const [theme, setTheme] = useState(() => {
-    if (typeof window === "undefined") return "light";
-    return localStorage.getItem("siteTheme") || "light";
-  });
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem("siteTheme", theme);
-  }, [theme]);
-
   const handleNavigation = (route) => {
     window.scrollTo(0, 0);
     navigate(route);
@@ -237,36 +226,6 @@ export default function Footer() {
         </div>
 
         {/* About us navigation part */}
-
-        {/* Theme */}
-        <div className="mb-[13px] max-md:hidden">
-          <span className="text-white mb-[15px] block">
-            {translate("theme")}
-          </span>{" "}
-          <div>
-            <button
-              onClick={() => setTheme("light")}
-              className={`font-bold text-[14px] mr-[10px] p-[10px] min-w-[170px] leading-[17px] transition ${
-                theme === "light"
-                  ? "bg-white text-black"
-                  : "bg-[#FFFFFF69] text-black hover:bg-white hover:opacity-80"
-              }`}
-            >
-              {translate("bright")}
-            </button>
-            <button
-              onClick={() => setTheme("dark")}
-              className={`font-bold text-[14px] p-[10px] min-w-[170px] leading-[17px] transition ${
-                theme === "dark"
-                  ? "bg-[#FDC700] text-black"
-                  : "bg-[#131313] text-white opacity-85 hover:opacity-100"
-              }`}
-            >
-              {translate("dark")}
-            </button>
-          </div>
-        </div>
-        {/* Theme */}
 
         {/* All rights reserved */}
         <p className="text-white text-xs leading-[15px] text-center mt-4">

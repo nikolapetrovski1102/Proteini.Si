@@ -1,5 +1,20 @@
 // Static navigation data for the header (desktop dropdowns and mobile menu).
 // Kept out of Header.jsx so the component only deals with layout and behaviour.
+import {
+  FiActivity,
+  FiAward,
+  FiBox,
+  FiCalendar,
+  FiCoffee,
+  FiGift,
+  FiGrid,
+  FiPercent,
+  FiShield,
+  FiShoppingBag,
+  FiTag,
+  FiTrendingDown,
+  FiZap,
+} from "react-icons/fi";
 
 /** Category trees. `translate` is the LanguageContext translate function. */
 export const buildCategoryNav = (translate) => {
@@ -372,6 +387,7 @@ export const buildCategoryNav = (translate) => {
   return [
     {
       key: "sports-nutrition",
+      icon: FiActivity,
       title: translate("sportsNutrition"),
       link: "/all-products/sports-nutrition",
       columns: [
@@ -382,18 +398,21 @@ export const buildCategoryNav = (translate) => {
     },
     {
       key: "protein",
+      icon: FiZap,
       title: translate("protein"),
       link: "/all-products/proteins",
       columns: [protein.slice(0, 1), protein.slice(1, 2)],
     },
     {
       key: "weightLoss",
+      icon: FiTrendingDown,
       title: translate("weightLoss"),
       link: "/all-products/weight-loss",
       columns: [weightLoss],
     },
     {
       key: "vitamins",
+      icon: FiShield,
       title: translate("vitamins"),
       link: "/all-products/vitamins",
       columns: [
@@ -404,12 +423,14 @@ export const buildCategoryNav = (translate) => {
     },
     {
       key: "snacks",
+      icon: FiCoffee,
       title: translate("snacks"),
       link: "/all-products/snacks",
       columns: [snacks.slice(0, 1), snacks.slice(1, 2)],
     },
     {
       key: "accessories",
+      icon: FiBox,
       title: translate("accessories"),
       link: "/all-products/accessories",
       columns: [
@@ -420,6 +441,7 @@ export const buildCategoryNav = (translate) => {
     },
     {
       key: "clothing",
+      icon: FiShoppingBag,
       title: translate("clothing"),
       link: "/all-products/mens-clothing",
       columns: [
@@ -431,19 +453,92 @@ export const buildCategoryNav = (translate) => {
   ];
 };
 
-/** Offer shortcuts shown under "Offers". */
+/** Offer shortcuts shown under "Offers". `tone` picks the tile accent. */
 export const buildOfferItems = (translate) => [
-  { label: translate("productsOnSale"), link: "/all-products?onSale=true" },
   {
-    label: translate("upcomingPromotions"),
-    link: "/all-products?upcomingPromotions=true",
+    key: "sale",
+    label: translate("productsOnSale"),
+    description: translate("offerDescSale"),
+    link: "/all-products?onSale=true",
+    icon: FiPercent,
+    tone: "red",
   },
-  { label: translate("outlet"), link: "/all-products?outlet=true" },
-  { label: translate("bestSeller"), link: "/all-products?bestSeller=true" },
-  { label: translate("new"), link: "/all-products?newProducts=true" },
-  { label: translate("giftVouchers"), link: "/all-products/gift-voucher" },
-  { label: translate("allProducts"), link: "/all-products" },
+  {
+    key: "upcoming",
+    label: translate("upcomingPromotions"),
+    description: translate("offerDescUpcoming"),
+    link: "/all-products?upcomingPromotions=true",
+    icon: FiCalendar,
+    tone: "yellow",
+  },
+  {
+    key: "outlet",
+    label: translate("outlet"),
+    description: translate("offerDescOutlet"),
+    link: "/all-products?outlet=true",
+    icon: FiTag,
+    tone: "ink",
+  },
+  {
+    key: "best",
+    label: translate("bestSeller"),
+    description: translate("offerDescBest"),
+    link: "/all-products?bestSeller=true",
+    icon: FiAward,
+    tone: "yellow",
+  },
+  {
+    key: "new",
+    label: translate("new"),
+    description: translate("offerDescNew"),
+    link: "/all-products?newProducts=true",
+    icon: FiZap,
+    tone: "green",
+  },
+  {
+    key: "voucher",
+    label: translate("giftVouchers"),
+    description: translate("offerDescVoucher"),
+    link: "/all-products/gift-voucher",
+    icon: FiGift,
+    tone: "red",
+  },
+  {
+    key: "all",
+    label: translate("allProducts"),
+    description: translate("offerDescAll"),
+    link: "/all-products",
+    icon: FiGrid,
+    tone: "ink",
+  },
 ];
+
+const stripAccents = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+/** Letter a brand is filed under: A–Z, or "#" for digits and symbols. */
+export const brandLetter = (label = "") => {
+  const first = stripAccents(label.trim()).charAt(0).toUpperCase();
+  return /[A-Z]/.test(first) ? first : "#";
+};
+
+/** Case- and accent-insensitive brand match. */
+export const brandMatches = (label, query) =>
+  stripAccents(label).toLowerCase().includes(stripAccents(query.trim()).toLowerCase());
+
+/** `[{ letter, brands }]` in A–Z order, with "#" first. */
+export const groupBrandsByLetter = (brands) => {
+  const groups = new Map();
+  brands.forEach((brand) => {
+    const letter = brandLetter(brand.label);
+    if (!groups.has(letter)) groups.set(letter, []);
+    groups.get(letter).push(brand);
+  });
+  return [...groups.entries()]
+    .sort(([a], [b]) => (a === "#" ? -1 : b === "#" ? 1 : a.localeCompare(b)))
+    .map(([letter, list]) => ({ letter, brands: list }));
+};
+
+export const BRAND_LETTERS = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
 
 /** Fallback brand list, used until the live brand list has loaded. */
 export const FALLBACK_BRANDS = [

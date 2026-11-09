@@ -1,26 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { FiArrowRight, FiChevronDown, FiChevronRight } from "react-icons/fi";
 
-const CLOSE_DELAY_MS = 120;
+const CLOSE_DELAY_MS = 140;
 
 /**
- * Desktop navigation item with a hover mega-menu.
+ * Desktop navigation item with a hover/focus mega-menu panel.
  *
- * - `columns`: array of columns, each an array of `{ label, link, subItems? }` groups.
- * - `items`: a flat list of `{ label, link }` rendered as a compact multi-column list
- *   (used for brands and offers).
+ * - `categories`: category trees (`{ key, title, link, columns }`) shown as a plain
+ *   category list on the left and the hovered category's groups on the right.
+ * - `children`: any other panel content (brand directory, offer tiles).
  *
- * The panel is positioned against the nearest `relative` ancestor (the nav bar).
+ * The panel is positioned against the nearest `relative` ancestor (the header).
+ * While a text field inside the panel has focus, moving the mouse away does not
+ * close it; a click outside or Escape does.
  */
 export default function DropdownMenu({
   title,
   link,
-  columns,
-  items,
-  listColumns = 4,
+  categories,
   viewAllLabel,
   onOpen,
   highlight = false,
+  children,
 }) {
   const location = useLocation();
   const routeKey = `${location.pathname}${location.search}`;
@@ -29,8 +31,25 @@ export default function DropdownMenu({
   const isOpen = openOnRoute === routeKey;
   const setIsOpen = (value) => setOpenOnRoute(value ? routeKey : null);
   const closeTimer = useRef(null);
+  const rootRef = useRef(null);
+  const [activeKey, setActiveKey] = useState(categories?.[0]?.key);
+  const activeCategory = categories?.find((c) => c.key === activeKey) || categories?.[0];
 
   useEffect(() => () => clearTimeout(closeTimer.current), []);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onDown = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) setOpenOnRoute(null);
+    };
+    const onKey = (event) => event.key === "Escape" && setOpenOnRoute(null);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [isOpen]);
 
   const open = () => {
     clearTimeout(closeTimer.current);
@@ -40,116 +59,119 @@ export default function DropdownMenu({
 
   const scheduleClose = () => {
     clearTimeout(closeTimer.current);
+    const focused = document.activeElement;
+    if (focused?.tagName === "INPUT" && rootRef.current?.contains(focused)) return;
     closeTimer.current = setTimeout(() => setIsOpen(false), CLOSE_DELAY_MS);
   };
 
-  const titleClass = `flex h-full items-center gap-1 border-b-2 text-[13px] font-semibold uppercase tracking-wide transition-colors ${
-    isOpen ? "border-[#FDC700] text-black" : "border-transparent"
-  } ${highlight ? "text-[#BF243E]" : "text-gray-800 hover:text-black"}`;
+  const titleClass = `site-nav relative flex h-full items-center gap-1.5 px-1 text-[14px] font-bold transition-colors after:absolute after:inset-x-1 after:bottom-0 after:h-[3px] after:rounded-full after:origin-center after:transition-all after:duration-300 active:scale-[0.97] ${
+    isOpen ? "after:scale-x-100 after:bg-[#FDC700]" : "after:scale-x-0 after:bg-[#FDC700]"
+  } ${
+    highlight
+      ? "nav-highlight text-[#BF243E] hover:text-[#9E1C32]"
+      : isOpen
+        ? "text-black"
+        : "text-gray-800 hover:text-black"
+  }`;
 
   const chevron = (
-    <svg
-      className={`h-3.5 w-3.5 transition-transform ${isOpen ? "rotate-180" : ""}`}
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path
-        fillRule="evenodd"
-        d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
-        clipRule="evenodd"
-      />
-    </svg>
+    <FiChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} strokeWidth={2.4} />
   );
 
   return (
     <div
+      ref={rootRef}
       className="h-full"
       onMouseEnter={open}
       onMouseLeave={scheduleClose}
       onFocus={open}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) scheduleClose();
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          clearTimeout(closeTimer.current);
+          closeTimer.current = setTimeout(() => setIsOpen(false), CLOSE_DELAY_MS);
+        }
       }}
     >
       {link ? (
-        <Link to={link} className={titleClass} aria-expanded={isOpen}>
+        <Link to={link} className={titleClass} aria-expanded={isOpen} aria-haspopup="true">
           {title}
           {chevron}
         </Link>
       ) : (
-        <button type="button" className={titleClass} aria-expanded={isOpen}>
+        <button type="button" className={titleClass} aria-expanded={isOpen} aria-haspopup="true" onClick={() => (isOpen ? setIsOpen(false) : open())}>
           {title}
           {chevron}
         </button>
       )}
 
       <div
-        className={`absolute left-0 right-0 top-full z-50 border-t border-gray-100 bg-white shadow-lg transition duration-150 ${
-          isOpen
-            ? "visible opacity-100 translate-y-0"
-            : "invisible opacity-0 -translate-y-1 pointer-events-none"
+        className={`site-nav absolute left-0 right-0 top-full z-50 border-t border-black/[0.06] bg-white shadow-[0_16px_24px_-16px_rgba(20,20,9,0.2)] transition duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          isOpen ? "visible translate-y-0 opacity-100" : "pointer-events-none invisible -translate-y-2 opacity-0"
         }`}
       >
-        <div className="mx-auto max-w-[1240px] px-6 py-8">
-          {columns ? (
-            <div className="grid grid-cols-4 gap-x-10 gap-y-6">
-              {columns.map((column, columnIndex) => (
-                <div key={columnIndex} className="flex flex-col gap-6">
-                  {column.map((group) => (
-                    <div key={group.link || group.label}>
+        <div key={isOpen ? "open" : "closed"} className={`mx-auto max-w-[1240px] px-6 py-7 ${isOpen ? "menu-fade-up" : ""}`}>
+          {categories ? (
+            <div className="grid grid-cols-[200px_1fr] gap-10">
+              <ul className="menu-stagger border-r border-black/[0.06] pr-6">
+                {categories.map((category, index) => {
+                  const active = category.key === activeCategory?.key;
+                  return (
+                    <li key={category.key} style={{ "--i": index }}>
                       <Link
-                        to={group.link || "#"}
-                        className="text-[13px] font-bold uppercase text-black hover:text-[#2096D8]"
+                        to={category.link}
+                        onMouseEnter={() => setActiveKey(category.key)}
+                        onFocus={() => setActiveKey(category.key)}
+                        className={`flex min-h-[38px] items-center justify-between gap-2 text-[14px] transition-all duration-200 active:scale-[0.97] ${
+                          active ? "translate-x-1 font-bold text-gray-900" : "font-medium text-gray-600 hover:text-gray-900"
+                        }`}
                       >
-                        {group.label}
+                        {category.title}
+                        <FiChevronRight
+                          aria-hidden="true"
+                          className={`h-4 w-4 transition-all duration-200 ${active ? "translate-x-0 opacity-100" : "-translate-x-2 opacity-0"}`}
+                        />
                       </Link>
-                      {group.subItems?.length > 0 && (
-                        <ul className="mt-2 space-y-1.5">
-                          {group.subItems.map((subItem) => (
-                            <li key={subItem.link}>
-                              <Link
-                                to={subItem.link}
-                                className="text-[13px] text-gray-600 hover:text-black"
-                              >
-                                {subItem.label}
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  ))}
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {activeCategory && (
+                <div key={activeCategory.key} className="menu-fade-up min-h-[280px]">
+                  <div className="gap-x-8" style={{ columnCount: 4 }}>
+                    {activeCategory.columns.flat().map((group) => (
+                      <div key={group.link || group.label} className="mb-5 break-inside-avoid">
+                        <Link to={group.link || "#"} className="inline-block text-[14px] font-bold text-gray-900 transition hover:underline active:scale-[0.97]">
+                          {group.label}
+                        </Link>
+                        {group.subItems?.length > 0 && (
+                          <ul className="mt-1.5 space-y-1">
+                            {group.subItems.map((subItem) => (
+                              <li key={subItem.link}>
+                                <Link to={subItem.link} className="inline-block text-[13px] text-gray-500 transition hover:translate-x-0.5 hover:text-gray-900 active:scale-[0.97]">
+                                  {subItem.label}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {viewAllLabel && (
+                    <Link
+                      to={activeCategory.link}
+                      className="group mt-1 inline-flex items-center gap-1.5 text-[13px] font-bold text-gray-900 underline decoration-[#FDC700] decoration-2 underline-offset-4 transition active:scale-[0.97]"
+                    >
+                      {viewAllLabel}: {activeCategory.title}
+                      <FiArrowRight aria-hidden="true" className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                    </Link>
+                  )}
                 </div>
-              ))}
+              )}
             </div>
           ) : (
-            <ul
-              className="gap-x-10 space-y-1.5"
-              style={{ columnCount: listColumns }}
-            >
-              {items?.map((item) => (
-                <li key={item.link} className="break-inside-avoid">
-                  <Link
-                    to={item.link}
-                    className="text-[13px] text-gray-700 hover:text-black"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {link && viewAllLabel && (
-            <div className="mt-8 border-t border-gray-100 pt-4">
-              <Link
-                to={link}
-                className="text-[13px] font-semibold text-[#2096D8] hover:underline"
-              >
-                {viewAllLabel} →
-              </Link>
-            </div>
+            children
           )}
         </div>
       </div>

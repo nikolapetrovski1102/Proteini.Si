@@ -4,15 +4,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 import FiltersForProducts from "./FiltersForProducts";
 import MobileFiltersModal from "./MobileFiltersModal";
 import { api } from "../../services/api";
-import { IoIosStarOutline } from "react-icons/io";
-import { FiHeart } from "react-icons/fi";
-import { FaHeart } from "react-icons/fa";
 import { FiFilter } from "react-icons/fi";
-import ProductActionModal from "../Components/ProductActionModal";
-import { useCart } from "../Hooks/useCart";
+import { useQuickPurchase } from "../Hooks/useQuickPurchase";
 import { LargeLoader } from "../Components/Loaders/LargeLoader";
+import { BrandLoader } from "../Components/Loaders/BrandLoader";
+import HomeProductCard from "../HomePages/HomeProductCard";
 import { useLanguage } from "../translation/LanguageContext";
-import { formatSaleEndDate, isSaleActive } from "../../utils/salePricing";
 import { applySeoMetadata } from "../../utils/seo";
 
 export default function ProductsPage() {
@@ -39,8 +36,7 @@ export default function ProductsPage() {
     flavors: [],
     brands: [],
   });
-  const { addToCart } = useCart();
-  const [adding, setAdding] = useState(false);
+  const { quickPurchase, prefetchQuickPurchase, quickPurchaseSheet } = useQuickPurchase();
   const navigate = useNavigate();
 
   const isLoadingMoreRef = useRef(false);
@@ -48,35 +44,9 @@ export default function ProductsPage() {
   const isUpdatingFromUser = useRef(false);
   const isAuthenticated = api.isAuthenticated();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [modalQuantity, setModalQuantity] = useState(1);
   const latestRequestId = useRef(0);
 
-  const handleAddToCart = async (product, quantity) => {
-    setAdding(true);
-    const success = await addToCart(product.product_Id, quantity, product);
-    setAdding(false);
 
-    if (success) {
-      alert(`${quantity} x ${product.name} added to cart!`);
-      setIsModalOpen(false);
-    } else {
-      alert("Failed to add to cart. Please login.");
-    }
-  };
-
-  const handleNavigationToProductDetails = (product) => {
-    const productId = product?.product_Id || product?.id || product?._id;
-
-    if (productId) {
-      navigate(`/product/${productId}`);
-      setIsModalOpen(false);
-      window.scrollTo(0, 0);
-    } else {
-      console.error("No product ID found", product);
-    }
-  };
 
   const handleToggleFavorite = async (productId, e) => {
     e.preventDefault();
@@ -1355,7 +1325,7 @@ export default function ProductsPage() {
             <ProductGridSkeleton />
           ) : (
           <div
-            className={`relative grid grid-cols-2 lg:grid-cols-4 my-[18px] gap-1 transition-opacity duration-200 ${
+            className={`relative grid grid-cols-2 lg:grid-cols-4 my-[18px] gap-3 sm:gap-5 transition-opacity duration-150 ${
               loading ? "opacity-50 pointer-events-none" : ""
             }`}
             aria-busy={loading}
@@ -1369,16 +1339,8 @@ export default function ProductsPage() {
               <ProductCard
                 key={`${product.product_Id}-${product.variant_Id || "base"}`}
                 product={product}
-                onQuickPurchase={() => {
-                  if (product.hasVariants || product.isVariant || product.isGiftVoucher) {
-                    const variant = product.variant_Id ? `?variant=${product.variant_Id}` : "";
-                    navigate(`/product/${product.product_Id}${variant}`);
-                    return;
-                  }
-                  setSelectedProduct(product);
-                  setModalQuantity(1);
-                  setIsModalOpen(true);
-                }}
+                onQuickPurchase={() => quickPurchase(product)}
+                onQuickPurchaseIntent={() => prefetchQuickPurchase(product)}
                 onToggleFavorite={handleToggleFavorite}
                 isFavorite={favorites[product.product_Id] || false}
               />
@@ -1431,25 +1393,7 @@ export default function ProductsPage() {
         navigate={navigate}
       />
 
-      <ProductActionModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setModalQuantity(1);
-        }}
-        product={selectedProduct}
-        onAddToCart={handleAddToCart}
-        onRemoveFromCart={handleNavigationToProductDetails}
-        title={translate("quickPurchase")}
-        addButtonText={translate("addToCart")}
-        addButtonColor="bg-[#F7C201]"
-        addButtonHoverColor="hover:bg-[#e0b401]"
-        addButtonTextColor="text-black"
-        removeButtonText={translate("viewArticle")}
-        removeButtonColor="bg-[#dadada]"
-        removeButtonTextColor="text-black"
-        removeButtonHoverColor="hover:bg-[#c0c0c0]"
-      />
+      {quickPurchaseSheet}
     </div>
   );
 }
@@ -1458,174 +1402,35 @@ export default function ProductsPage() {
 function ProductGridSkeleton({ count = 8 }) {
   return (
     <div
-      className="grid grid-cols-2 lg:grid-cols-4 my-[18px] gap-1"
+      className="grid grid-cols-2 lg:grid-cols-4 my-[18px] gap-3 sm:gap-5"
       aria-busy="true"
       aria-label="Loading products"
     >
+      <BrandLoader size={0} className="hidden" />
       {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          className="flex flex-col p-[10px] pb-[18px] max-md:p-0 bg-white animate-pulse"
-        >
-          <div className="h-[180px] w-full bg-gray-200 sm:h-[300px]" />
-          <div className="mt-[10px] h-2.5 w-1/3 bg-gray-200" />
-          <div className="mt-2 h-4 w-5/6 bg-gray-200" />
-          <div className="mt-2 h-4 w-2/3 bg-gray-200" />
-          <div className="mt-3 h-3 w-1/4 bg-gray-200" />
-          <div className="mt-3 h-5 w-1/3 bg-gray-200" />
+        <div key={i} className="flex flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.06]">
+          <div className="aspect-square w-full bg-gradient-to-b from-[#f8f7f4] to-[#efede7]" />
+          <div className="space-y-2 p-3 sm:p-4">
+            <div className="h-2.5 w-1/3 rounded-full bg-gray-100" />
+            <div className="h-4 w-5/6 rounded-full bg-gray-100" />
+            <div className="h-5 w-1/3 rounded-full bg-gray-100" />
+          </div>
         </div>
       ))}
     </div>
   );
 }
 
-function ProductCard({
-  product,
-  onQuickPurchase,
-  onToggleFavorite,
-  isFavorite,
-}) {
+function ProductCard(props) {
   const { translate, language } = useLanguage();
-  const displayName = language === "al" && product.nameAl ? product.nameAl : product.name;
-  const regularPrice = product.price || 0;
-  const saleActive = isSaleActive(product);
-  const discountedPrice = saleActive ? product.compare_Price || 0 : 0;
-  const hasDiscount = discountedPrice > 0 && discountedPrice < regularPrice;
-  const displayPrice = hasDiscount ? discountedPrice : regularPrice;
-  const saleEndDate = formatSaleEndDate(product, language === "al" ? "sq-AL" : "mk-MK");
-
-  // Determine the link URL - if it's a variant, pass variant parameter
-  const productLink =
-    product.isVariant && product.variant_Id
-      ? `/product/${product.parent_Product_Id || product.product_Id}?variant=${product.variant_Id}`
-      : `/product/${product.product_Id}`;
-
   return (
-    <div className="group relative min-w-0 bg-white">
-      <a
-        href={productLink}
-        className="flex flex-col p-[10px] pb-[18px] max-md:p-0 border border-transparent group-hover:border-gray-400 relative bg-white"
-        style={{ borderBottom: "none" }}
-      >
-        {product.shortExpiry && (
-          <span className="absolute left-2 top-2 z-10 bg-amber-400 px-2 py-1 text-[10px] font-bold text-black">
-            {translate("shortExpiry")}
-            {product.expiryDate
-              ? ` · ${String(product.expiryDate).slice(0, 10)}`
-              : ""}
-          </span>
-        )}
-        {hasDiscount && (
-          <span className="absolute right-2 top-2 z-10 bg-red-600 px-2 py-1 text-[10px] font-bold text-white">
-            {Math.round(((regularPrice - displayPrice) / regularPrice) * 100)}% {translate("promotionBadge")}
-          </span>
-        )}
-        {product.img ? (
-          <img
-            src={`${product.img}`}
-            className="h-[180px] w-full object-contain sm:h-[300px]"
-            alt={displayName}
-          />
-        ) : (
-          <div className="flex h-[180px] w-full items-center justify-center bg-gray-200 text-gray-400 sm:h-[300px]">
-            {translate("noImage")}
-          </div>
-        )}
-        <span className="text-[10px] mt-[10px]">
-          {product.brandName || product.category || "Proteini.si"}
-        </span>
-        <span className="mb-[2px] min-h-[44px] max-h-[44px] overflow-hidden text-[13px] font-semibold leading-[22px] sm:text-[18px]">
-          {displayName}
-        </span>
-        <div className="flex flex-col">
-          <span className="flex text-yellow-400 mb-1">
-            <IoIosStarOutline />
-            <IoIosStarOutline />
-            <IoIosStarOutline />
-            <IoIosStarOutline />
-            <IoIosStarOutline />
-          </span>
-          <span className="text-xs">{translate("moreAboutRatings")}</span>
-        </div>
-
-        <div className="flex flex-col">
-          {hasDiscount ? (
-            <>
-              <span className="text-sm text-gray-400 line-through">
-                MKD {regularPrice.toFixed(2)}
-              </span>
-              <span className="font-semibold sm:text-lg text-[16px] text-red-600">
-                MKD {displayPrice.toFixed(2)}
-              </span>
-              <span className="text-xs text-green-600">
-                Save MKD {(regularPrice - displayPrice).toFixed(2)} (
-                {Math.round(
-                  ((regularPrice - displayPrice) / regularPrice) * 100,
-                )}
-                % off)
-              </span>
-              {saleEndDate && (
-                <span className="mt-1 text-xs font-semibold text-red-600">
-                  {translate("saleEnds")} {saleEndDate}
-                </span>
-              )}
-            </>
-          ) : (
-            <span className="font-semibold sm:text-lg text-[16px]">
-              MKD {displayPrice.toFixed(2)}
-            </span>
-          )}
-        </div>
-
-        <span className="text-[#2096D8] text-[11px] leading-3 font-bold mt-[10px]">
-          {translate("new")}
-        </span>
-      </a>
-
-      <div
-        className="absolute left-0 w-full bg-white border border-gray-400 z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible max-lg:hidden"
-        style={{ borderTop: "none" }}
-      >
-        <div className="p-4 flex flex-col justify-between min-h-[100px]">
-          {product.hasVariants ? (
-            <span className="text-sm">
-              {product.packagingCount || 1} {product.packagingCount === 1 ? "packing" : "packings"}
-              {" | "}
-              {product.flavorCount || 0} {product.flavorCount === 1 ? "taste" : "tastes"}
-            </span>
-          ) : Number(product.gPerServing) > 0 || Number(product.servings) > 0 ? (
-            <span className="text-sm">
-              {Number(product.gPerServing) > 0 ? `${product.gPerServing}g per serving` : ""}
-              {Number(product.gPerServing) > 0 && Number(product.servings) > 0 ? " | " : ""}
-              {Number(product.servings) > 0 ? `${product.servings} servings` : ""}
-            </span>
-          ) : null}
-          <div className="flex justify-between items-center mt-3">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onQuickPurchase();
-              }}
-              className="bg-[#E5E5E5] hover:bg-[#d8d8d8] font-bold py-[13px] px-[16px] cursor-pointer"
-            >
-              {translate("quickPurchase")}
-            </button>
-            <button
-              type="button"
-              onClick={(e) => onToggleFavorite(product.product_Id, e)}
-              className="cursor-pointer"
-            >
-              {isFavorite ? (
-                <FaHeart size={22} color="#1b88c5" />
-              ) : (
-                <FiHeart size={22} color="#1b88c5" strokeWidth={2} />
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <HomeProductCard
+      {...props}
+      fluid
+      showSaleEnd
+      translate={translate}
+      language={language}
+      saleEndLocale={language === "al" ? "sq-AL" : "mk-MK"}
+    />
   );
 }

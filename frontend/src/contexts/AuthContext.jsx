@@ -98,6 +98,19 @@ export const AuthProvider = ({ children }) => {
     return response;
   }, []);
 
+  const verifyEmail = useCallback(async (payload) => {
+    const response = await api.verifyEmail(payload);
+    if (response.status && response.token) {
+      setUser(api.getUser());
+    }
+    return response;
+  }, []);
+
+  const resendVerificationCode = useCallback(
+    (payload) => api.resendVerificationCode(payload),
+    [],
+  );
+
   const forgotPassword = useCallback((data) => api.forgotPassword(data), []);
 
   const resetPassword = useCallback((data) => api.resetPassword(data), []);
@@ -126,9 +139,11 @@ export const AuthProvider = ({ children }) => {
       isAuthenticated,
       forgotPassword,
       resetPassword,
+      verifyEmail,
+      resendVerificationCode,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user, loading, location.pathname, login, register, logout, isAuthenticated, forgotPassword, resetPassword],
+    [user, loading, location.pathname, login, register, logout, isAuthenticated, forgotPassword, resetPassword, verifyEmail, resendVerificationCode],
   );
 
   return (

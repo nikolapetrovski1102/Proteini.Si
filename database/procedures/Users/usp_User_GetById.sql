@@ -30,7 +30,8 @@ BEGIN
            User_Address,
            User_City,
            User_PostCode,
-           User_Country
+           User_Country,
+           EmailConfirmed
     FROM dbo.[User]
     WHERE User_Id = @UserId;
 END

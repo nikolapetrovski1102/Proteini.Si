@@ -199,6 +199,10 @@ public static class StoredProcedures
         public const string GetResetToken = "dbo.usp_User_GetResetToken";
         public const string ResetPassword = "dbo.usp_User_ResetPassword";
         public const string UpdateBillingInfo = "dbo.usp_User_UpdateBillingInfo";
+        public const string SetEmailCode = "dbo.usp_User_SetEmailCode";
+        public const string GetEmailCode = "dbo.usp_User_GetEmailCode";
+        public const string IncrementEmailCodeAttempts = "dbo.usp_User_IncrementEmailCodeAttempts";
+        public const string ConfirmEmail = "dbo.usp_User_ConfirmEmail";
     }
 
     public static class Loyalty

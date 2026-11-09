@@ -1,383 +1,170 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { FiArrowRight, FiCheck, FiLock } from "react-icons/fi";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../Pages/translation/LanguageContext";
+import {
+  Alert,
+  AuthShell,
+  Field,
+  PasswordInput,
+  PasswordStrength,
+  headingClass,
+  linkButtonClass,
+  primaryButtonClass,
+} from "./AuthKit";
+import { checkPasswordStrength } from "./authUtils";
 
 export default function ResetPassword() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [success, setSuccess] = useState(false);
   const [token, setToken] = useState("");
-  const [passwordStrength, setPasswordStrength] = useState({
-    isValid: false,
-    metCount: 0,
-    totalRequired: 5,
-    missingRequirements: [],
-  });
 
   const navigate = useNavigate();
   const location = useLocation();
   const { resetPassword } = useAuth();
   const { translate } = useLanguage();
 
-  // Extract token from URL when component mounts
   useEffect(() => {
-    const queryParams = new URLSearchParams(location.search);
-    const tokenParam = queryParams.get("token");
-
-    if (!tokenParam) {
-      setError(
-        "Invalid or missing reset token. Please request a new password reset.",
-      );
-    } else {
+    const tokenParam = new URLSearchParams(location.search).get("token");
+    if (tokenParam) {
       setToken(tokenParam);
+      setError("");
+    } else {
+      setError(translate("resetMissingToken"));
     }
-  }, [location]);
+  }, [location.search, translate]);
 
-  // Check password strength in real-time
-  const checkPasswordStrength = (pwd) => {
-    const requirements = {
-      minLength: pwd.length >= 8,
-      uppercase: /[A-Z]/.test(pwd),
-      lowercase: /[a-z]/.test(pwd),
-      digit: /[0-9]/.test(pwd),
-      specialChar: /[!@#$%^&*(),.?":{}|<>]/.test(pwd),
-    };
-
-    const missing = [];
-    if (!requirements.minLength) missing.push("At least 8 characters");
-    if (!requirements.uppercase) missing.push("One uppercase letter (A-Z)");
-    if (!requirements.lowercase) missing.push("One lowercase letter (a-z)");
-    if (!requirements.digit) missing.push("One number (0-9)");
-    if (!requirements.specialChar)
-      missing.push("One special character (!@#$%^&* etc.)");
-
-    const metCount = Object.values(requirements).filter(Boolean).length;
-    const isValid = metCount === 5;
-
-    return {
-      isValid,
-      metCount,
-      totalRequired: 5,
-      missingRequirements: missing,
-      strengthPercent: (metCount * 100) / 5,
-    };
-  };
-
-  const handlePasswordChange = (e) => {
-    const newPassword = e.target.value;
-    setPassword(newPassword);
-    setPasswordStrength(checkPasswordStrength(newPassword));
-
-    // Clear errors when user starts typing
-    if (error) setError("");
-    if (success) setSuccess("");
-  };
+  const confirmMismatch =
+    confirmPassword.length > 0 && confirmPassword !== password;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validate passwords match
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
+    if (!checkPasswordStrength(password).isValid) {
+      setError(translate("passwordTooWeak"));
       return;
     }
-
-    // Validate password strength
-    if (!passwordStrength.isValid) {
-      setError(
-        `Password is too weak. ${passwordStrength.missingRequirements.join(", ")}`,
-      );
+    if (password !== confirmPassword) {
+      setError(translate("passwordsDontMatch"));
       return;
     }
 
     setLoading(true);
     setError("");
-    setSuccess("");
-
     try {
       const response = await resetPassword({
-        token: token,
+        token,
         newPassword: password,
-        confirmPassword: confirmPassword,
+        confirmPassword,
       });
-
       if (response.status) {
-        setSuccess("Password reset successful! Redirecting to login...");
-
-        // Redirect to login after 3 seconds
-        setTimeout(() => {
-          navigate("/login");
-        }, 3000);
+        setSuccess(true);
+        setTimeout(() => navigate("/login"), 3000);
       } else {
-        setError(
-          response.message || "Failed to reset password. Please try again.",
-        );
+        setError(response.message || translate("authGenericError"));
       }
     } catch (err) {
-      setError(
-        err.message || "An error occurred. Please request a new reset link.",
-      );
+      setError(err.message || translate("authGenericError"));
     } finally {
       setLoading(false);
     }
   };
 
-  // Get strength color and text
-  const getStrengthInfo = () => {
-    const percent = passwordStrength.strengthPercent;
-    if (percent === 0)
-      return {
-        color: "bg-gray-200",
-        text: "Not started",
-        textColor: "text-gray-500",
-      };
-    if (percent <= 20)
-      return {
-        color: "bg-red-500",
-        text: "Very Weak",
-        textColor: "text-red-500",
-      };
-    if (percent <= 40)
-      return {
-        color: "bg-orange-500",
-        text: "Weak",
-        textColor: "text-orange-500",
-      };
-    if (percent <= 60)
-      return {
-        color: "bg-yellow-500",
-        text: "Fair",
-        textColor: "text-yellow-600",
-      };
-    if (percent <= 80)
-      return {
-        color: "bg-blue-500",
-        text: "Strong",
-        textColor: "text-blue-500",
-      };
-    return {
-      color: "bg-green-500",
-      text: "Very Strong",
-      textColor: "text-green-500",
-    };
-  };
-
-  const strengthInfo = getStrengthInfo();
+  const aside = (
+    <>
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FDC700] text-[#141409]">
+        <FiLock size={24} />
+      </span>
+      <h2 className="mt-8 max-w-[420px] font-display text-5xl font-bold uppercase leading-[0.95] tracking-tight [text-wrap:balance]">
+        {translate("resetAsideTitle")}
+      </h2>
+      <p className="mt-5 max-w-[380px] text-[15px] leading-relaxed text-white/70">
+        {translate("resetAsideText")}
+      </p>
+    </>
+  );
 
   return (
-    <div className="w-full flex justify-center items-center bg-gray-50 py-10">
-      <div className="w-full max-w-[500px] px-4">
-        <form
-          onSubmit={handleSubmit}
-          className="pt-[55px] pb-[65px] px-[38px] border border-[#FDC700] bg-white max-sm:p-2 max-sm:border-none"
-        >
-          <p className="mb-[29px] text-[24px] font-bold leading-[32px] text-center">
-            Reset Your Password
+    <AuthShell aside={aside}>
+      {success ? (
+        <div className="py-4 text-center">
+          <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#8DC658] text-white">
+            <FiCheck size={30} strokeWidth={3} />
+          </span>
+          <h1 className={`${headingClass} mt-6 text-4xl sm:text-5xl`}>
+            {translate("resetSuccessTitle")}
+          </h1>
+          <p className="mx-auto mt-3 max-w-[360px] text-[15px] leading-relaxed text-gray-600">
+            {translate("resetSuccessText")}
+          </p>
+          <button type="button" onClick={() => navigate("/login")} className={`${primaryButtonClass} mt-8`}>
+            {translate("login")}
+            <FiArrowRight className="text-[#FDC700]" />
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <h1 className={`${headingClass} text-[40px] sm:text-5xl`}>
+            {translate("resetTitle")}
+          </h1>
+          <p className="mt-3 text-[15px] leading-relaxed text-gray-600">
+            {translate("resetSubtitle")}
           </p>
 
-          <p className="text-[14px] text-gray-600 mb-[20px] text-center">
-            Please enter your new password below.
-          </p>
+          <div className="mt-7 space-y-4">
+            <Alert>{error}</Alert>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded text-center">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-4 p-3 bg-green-100 text-green-700 rounded text-center">
-              {success}
-            </div>
-          )}
-
-          <div className="flex flex-col mb-[23px]">
-            {/* New Password Field */}
-            <div className="flex flex-col mb-[15px]">
-              <label className="text-[13px] mb-[5px] font-medium text-gray-700">
-                New Password
-              </label>
-              <input
-                type="password"
+            <Field label={translate("resetNewPassword")} htmlFor="reset-password">
+              <PasswordInput
+                id="reset-password"
+                required
+                autoComplete="new-password"
                 value={password}
-                onChange={handlePasswordChange}
-                required
-                disabled={loading || !token}
-                placeholder="Enter your new password"
-                className="p-[13px] border border-[#c4c4c4] outline-none w-full focus:border-[#FDC700] transition rounded"
-              />
-
-              {/* Password Strength Meter */}
-              {password && (
-                <div className="mt-3">
-                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${strengthInfo.color} transition-all duration-300`}
-                      style={{ width: `${passwordStrength.strengthPercent}%` }}
-                    />
-                  </div>
-                  <p
-                    className={`text-[11px] mt-1 ${strengthInfo.textColor} font-medium`}
-                  >
-                    Password strength: {strengthInfo.text}
-                  </p>
-
-                  {/* Requirements list */}
-                  <div className="mt-3 space-y-1">
-                    <p className="text-[11px] font-medium text-gray-600 mb-1">
-                      Password must contain:
-                    </p>
-                    <ul className="text-[11px] space-y-1">
-                      <li
-                        className={
-                          passwordStrength.missingRequirements.includes(
-                            "At least 8 characters",
-                          )
-                            ? "text-red-500"
-                            : "text-green-500"
-                        }
-                      >
-                        ✓{" "}
-                        {passwordStrength.missingRequirements.includes(
-                          "At least 8 characters",
-                        )
-                          ? "❌"
-                          : "✅"}{" "}
-                        At least 8 characters
-                      </li>
-                      <li
-                        className={
-                          passwordStrength.missingRequirements.includes(
-                            "One uppercase letter (A-Z)",
-                          )
-                            ? "text-red-500"
-                            : "text-green-500"
-                        }
-                      >
-                        ✓{" "}
-                        {passwordStrength.missingRequirements.includes(
-                          "One uppercase letter (A-Z)",
-                        )
-                          ? "❌"
-                          : "✅"}{" "}
-                        One uppercase letter (A-Z)
-                      </li>
-                      <li
-                        className={
-                          passwordStrength.missingRequirements.includes(
-                            "One lowercase letter (a-z)",
-                          )
-                            ? "text-red-500"
-                            : "text-green-500"
-                        }
-                      >
-                        ✓{" "}
-                        {passwordStrength.missingRequirements.includes(
-                          "One lowercase letter (a-z)",
-                        )
-                          ? "❌"
-                          : "✅"}{" "}
-                        One lowercase letter (a-z)
-                      </li>
-                      <li
-                        className={
-                          passwordStrength.missingRequirements.includes(
-                            "One number (0-9)",
-                          )
-                            ? "text-red-500"
-                            : "text-green-500"
-                        }
-                      >
-                        ✓{" "}
-                        {passwordStrength.missingRequirements.includes(
-                          "One number (0-9)",
-                        )
-                          ? "❌"
-                          : "✅"}{" "}
-                        One number (0-9)
-                      </li>
-                      <li
-                        className={
-                          passwordStrength.missingRequirements.includes(
-                            "One special character (!@#$%^&* etc.)",
-                          )
-                            ? "text-red-500"
-                            : "text-green-500"
-                        }
-                      >
-                        ✓{" "}
-                        {passwordStrength.missingRequirements.includes(
-                          "One special character (!@#$%^&* etc.)",
-                        )
-                          ? "❌"
-                          : "✅"}{" "}
-                        One special character (!@#$%^&* etc.)
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Confirm Password Field */}
-            <div className="flex flex-col mb-[15px]">
-              <label className="text-[13px] mb-[5px] font-medium text-gray-700">
-                Confirm New Password
-              </label>
-              <input
-                type="password"
-                value={confirmPassword}
                 onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  if (error && error.includes("match")) setError("");
+                  setPassword(e.target.value);
+                  if (error && token) setError("");
                 }}
-                required
-                disabled={loading || !token}
-                placeholder="Confirm your new password"
-                className="p-[13px] border border-[#c4c4c4] outline-none w-full focus:border-[#FDC700] transition rounded"
+                disabled={!token}
+                translate={translate}
               />
+              {password && <PasswordStrength password={password} translate={translate} />}
+            </Field>
 
-              {/* Show match indicator */}
-              {confirmPassword && password !== confirmPassword && (
-                <p className="text-red-500 text-[11px] mt-1">
-                  Passwords do not match
+            <Field label={translate("confirmYour")} htmlFor="reset-confirm">
+              <PasswordInput
+                id="reset-confirm"
+                required
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={!token}
+                translate={translate}
+                aria-invalid={confirmMismatch}
+                className={confirmMismatch ? "!ring-[#E3262F]/60" : ""}
+              />
+              {confirmMismatch && (
+                <p className="mt-1.5 text-xs font-medium text-[#a3161d]">
+                  {translate("passwordsDontMatch")}
                 </p>
               )}
-              {confirmPassword &&
-                password === confirmPassword &&
-                password.length > 0 && (
-                  <p className="text-green-500 text-[11px] mt-1">
-                    ✓ Passwords match
-                  </p>
-                )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={
-                loading ||
-                !token ||
-                !passwordStrength.isValid ||
-                password !== confirmPassword
-              }
-              className="bg-[#FDC700] text-[16px] mb-[15px] p-[14px] font-bold disabled:opacity-50 hover:bg-[#e5b300] transition rounded"
-            >
-              {loading ? "Resetting Password..." : "Reset Password"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigate("/login")}
-              className="text-[14px] text-[#2096D8] underline hover:text-[#167ab3] transition text-center"
-            >
-              Return to login
-            </button>
+            </Field>
           </div>
+
+          <button type="submit" disabled={loading || !token} className={`${primaryButtonClass} mt-7`}>
+            {loading ? translate("resetSaving") : translate("resetSubmit")}
+            {!loading && <FiArrowRight className="text-[#FDC700] transition-transform group-hover:translate-x-0.5" />}
+          </button>
+
+          <p className="mt-6 text-center text-sm text-gray-600">
+            <button type="button" onClick={() => navigate("/login")} className={linkButtonClass}>
+              {translate("authBackToSignIn")}
+            </button>
+          </p>
         </form>
-      </div>
-    </div>
+      )}
+    </AuthShell>
   );
 }

@@ -1,438 +1,334 @@
-import { useState, useEffect } from "react";
-import { api } from "../../services/api";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { GoDotFill } from "react-icons/go";
+import { FiChevronRight, FiCreditCard, FiPackage, FiX } from "react-icons/fi";
+import { api } from "../../services/api";
 import { useLanguage } from "../translation/LanguageContext";
+import { BrandLoader } from "../Components/Loaders/BrandLoader";
+import {
+  Notice,
+  ProfileEmpty,
+  ProfileHeader,
+  ProfileLoading,
+  cardClass,
+  eyebrowClass,
+  ghostButtonClass,
+  headingClass,
+  pillButtonClass,
+} from "./ProfileKit";
+import { formatDate, formatPrice } from "./profileFormat";
+
+const STATUS_STYLES = {
+  pending: "bg-[#FDC700]/25 text-[#5c4800]",
+  paid: "bg-[#8DC658]/20 text-[#2f5e14]",
+  completed: "bg-[#8DC658]/20 text-[#2f5e14]",
+  delivered: "bg-[#8DC658]/20 text-[#2f5e14]",
+  shipped: "bg-[#141409] text-white",
+  cancelled: "bg-[#E3262F]/10 text-[#a3161d]",
+  refunded: "bg-[#E3262F]/10 text-[#a3161d]",
+};
+
+const KNOWN_STATUSES = ["pending", "paid", "cancelled", "shipped", "delivered", "completed", "refunded"];
+
+const canCancelOrder = (order) => {
+  const status = order.Order_Status?.toLowerCase();
+  const hoursPassed = (Date.now() - new Date(order.Order_Date).getTime()) / 3_600_000;
+  return !["cancelled", "shipped", "delivered", "paid"].includes(status) && hoursPassed <= 24;
+};
+
+function StatusChip({ status, translate }) {
+  const key = (status || "pending").toLowerCase();
+  const label = KNOWN_STATUSES.includes(key) ? translate(key) : String(status).toUpperCase();
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.04em] ${
+        STATUS_STYLES[key] || "bg-black/[0.06] text-gray-600"
+      }`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function SummaryRow({ label, value, strong = false }) {
+  return (
+    <div className={`flex justify-between gap-4 ${strong ? "pt-3 text-base font-bold text-gray-900" : "text-sm text-gray-600"}`}>
+      <span>{label}</span>
+      <span className="tabular-nums">{value}</span>
+    </div>
+  );
+}
 
 export default function OrderHistory() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [cancellingOrder, setCancellingOrder] = useState(null);
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [showOrderModal, setShowOrderModal] = useState(false);
-  const [orderDetails, setOrderDetails] = useState(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState({ tone: "success", text: "" });
+  const [cancelling, setCancelling] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [details, setDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const navigate = useNavigate();
-  const { translate } = useLanguage();
+  const { translate, language } = useLanguage();
 
-  // Add these helper functions
-  const translateOrderStatus = (status) => {
-    if (!status) return translate("pending");
-
-    const statusMap = {
-      pending: translate("pending"),
-      paid: translate("paid"),
-      cancelled: translate("cancelled"),
-      shipped: translate("shipped"),
-      delivered: translate("delivered"),
-      completed: translate("completed"),
-    };
-
-    return statusMap[status.toLowerCase()] || status.toUpperCase();
-  };
-
-  const translatePaymentStatus = (status) => {
-    if (!status) return translate("pending");
-
-    const statusMap = {
-      pending: translate("pending"),
-      completed: translate("completed"),
-      refunded: translate("refunded"),
-    };
-
-    return statusMap[status.toLowerCase()] || status.toUpperCase();
-  };
-
-  useEffect(() => {
-    fetchOrderHistory();
-  }, []);
-
-  const fetchOrderHistory = async () => {
+  const fetchOrders = async () => {
     setLoading(true);
     try {
       const response = await api.getOrderHistory();
-      if (response.status && response.orders) {
-        setOrders(response.orders);
-      } else if (response.orders) {
-        setOrders(response.orders);
-      } else {
-        setOrders([]);
-      }
-      setError(null);
-    } catch (error) {
-      console.error("Error fetching order history:", error);
-      setError("Failed to load order history");
+      setOrders(response?.orders || []);
+      setError("");
+    } catch (err) {
+      console.error("Error fetching order history:", err);
+      setError(translate("ordersLoadError"));
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchOrderDetails = async (orderId) => {
+  useEffect(() => {
+    fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const closeDetails = () => {
+    setSelected(null);
+    setDetails(null);
+  };
+
+  useEffect(() => {
+    if (!selected) return undefined;
+    const onKey = (e) => e.key === "Escape" && closeDetails();
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [selected]);
+
+  const openDetails = async (order) => {
+    setSelected(order);
+    setDetails(null);
     setLoadingDetails(true);
     try {
-      const response = await api.getOrderConfirmation(orderId);
-      if (response.status) {
-        setOrderDetails({
-          order: response.order,
-          items: response.items,
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching order details:", error);
-      alert("Failed to load order details");
+      const response = await api.getOrderConfirmation(order.Order_Id);
+      if (response.status) setDetails({ order: response.order, items: response.items || [] });
+    } catch (err) {
+      console.error("Error fetching order details:", err);
     } finally {
       setLoadingDetails(false);
     }
   };
 
-  const handleViewDetails = async (order) => {
-    setSelectedOrder(order);
-    setShowOrderModal(true);
-    await fetchOrderDetails(order.Order_Id);
-  };
-
-  const handleCancelOrder = async (orderId) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to cancel this order? This action cannot be undone.",
-      )
-    ) {
-      return;
-    }
-
-    setCancellingOrder(orderId);
+  const handleCancel = async (orderId) => {
+    if (!window.confirm(translate("ordersCancelConfirm"))) return;
+    setCancelling(orderId);
+    setNotice({ tone: "success", text: "" });
     try {
       const response = await api.cancelOrder(orderId);
       if (response.status) {
-        alert(response.message || "Order cancelled successfully");
-        await fetchOrderHistory();
-        if (showOrderModal) {
-          setShowOrderModal(false);
-          setSelectedOrder(null);
-          setOrderDetails(null);
-        }
+        setNotice({ tone: "success", text: response.message || translate("ordersCancelled") });
+        closeDetails();
+        await fetchOrders();
       } else {
-        alert(response.message || "Failed to cancel order");
+        setNotice({ tone: "error", text: response.message || translate("ordersCancelError") });
       }
-    } catch (error) {
-      console.error("Error cancelling order:", error);
-      alert(error.message || "Failed to cancel order. Please try again.");
+    } catch (err) {
+      setNotice({ tone: "error", text: err.message || translate("ordersCancelError") });
     } finally {
-      setCancellingOrder(null);
+      setCancelling(null);
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case "pending":
-        return "text-yellow-600 bg-yellow-50";
-      case "paid":
-        return "text-green-600 bg-green-50";
-      case "cancelled":
-        return "text-red-600 bg-red-50";
-      case "shipped":
-        return "text-blue-600 bg-blue-50";
-      case "delivered":
-        return "text-purple-600 bg-purple-50";
-      default:
-        return "text-gray-600 bg-gray-50";
-    }
-  };
-
-  const getPaymentStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case "pending":
-        return "text-yellow-600";
-      case "completed":
-        return "text-green-600";
-      case "refunded":
-        return "text-red-600";
-      default:
-        return "text-gray-600";
-    }
-  };
-
-  const canCancelOrder = (order) => {
-    const orderDate = new Date(order.Order_Date);
-    const now = new Date();
-    const hoursPassed = (now - orderDate) / (1000 * 60 * 60);
-
-    return (
-      order.Order_Status?.toLowerCase() !== "cancelled" &&
-      order.Order_Status?.toLowerCase() !== "shipped" &&
-      order.Order_Status?.toLowerCase() !== "delivered" &&
-      order.Order_Status?.toLowerCase() !== "paid" &&
-      hoursPassed <= 24
-    );
-  };
+  const header = (count) => (
+    <ProfileHeader eyebrow={translate("profileMemberArea")} title={translate("orderHistory")} count={count} />
+  );
 
   if (loading) {
     return (
-      <div className="w-full max-w-[740px] pr-[50px] max-lg:pr-0 pb-[70px]">
-        <p className="text-[24px] font-bold mb-[20px] pt-[70px] pr-[50px]">
-          ORDER HISTORY
-        </p>
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2096D8] mx-auto"></div>
-            <p className="text-gray-500 mt-4">Loading orders...</p>
-          </div>
-        </div>
+      <div>
+        {header()}
+        <ProfileLoading />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="w-full max-w-[740px] pr-[50px] max-lg:pr-0 pb-[70px]">
-        <p className="text-[24px] font-bold mb-[20px] pt-[70px] pr-[50px]">
-          ORDER HISTORY
-        </p>
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <div className="text-center py-12">
-            <p className="text-red-500">{error}</p>
-            <button
-              onClick={fetchOrderHistory}
-              className="mt-4 px-4 py-2 bg-[#2096D8] text-white rounded hover:bg-[#1a7ab3] transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
+      <div>
+        {header()}
+        <div className={`${cardClass} px-6 py-12 text-center`}>
+          <p className="text-sm font-medium text-[#a3161d]">{error}</p>
+          <button type="button" onClick={fetchOrders} className={`${ghostButtonClass} mt-5`}>
+            {translate("ordersTryAgain")}
+          </button>
         </div>
       </div>
     );
   }
 
+  const cancelButton = (order, extra = "") =>
+    canCancelOrder(order) && (
+      <button
+        type="button"
+        onClick={() => handleCancel(order.Order_Id)}
+        disabled={cancelling === order.Order_Id}
+        className={`${ghostButtonClass} !text-[#a3161d] hover:!bg-[#E3262F]/[0.06] hover:!ring-[#E3262F]/40 ${extra}`}
+      >
+        {cancelling === order.Order_Id ? translate("cancellingOrder") : translate("cancelOrder")}
+      </button>
+    );
+
   return (
-    <>
-      <div className="w-full max-w-[740px] pr-[50px] max-lg:pr-0 pb-[70px]">
-        <p className="text-[24px] font-bold mb-[20px] pt-[70px] max-sm:pt-0 md:pr-[50px]">
-          {translate("orderHistory")} ({orders.length})
-        </p>
+    <div>
+      {header(orders.length)}
 
-        {orders.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">{translate("noOrdersFound")}</p>
-              <button
-                onClick={() => navigate("/all-products")}
-                className="w-full bg-[#E5E5E5] font-bold p-[14px] hover:bg-[#D8D8D8] transition-all duration-300 ease-in-out"
-              >
-                {translate("startShopping")}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {orders.map((order) => (
-              <div
-                key={order.Order_Id}
-                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <p className="text-sm text-gray-500">
-                      {translate("order")} #{order.Order_Number}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(order.Order_Date).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-[#2096D8]">
-                      MKD {order.Total_Amount?.toFixed(2) || 0}
-                    </p>
-                    <div className="flex gap-2 mt-1 justify-end">
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full uppercase ${getStatusColor(order.Order_Status)}`}
-                      >
-                        {translateOrderStatus(order.Order_Status)}
-                      </span>
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full uppercase ${getPaymentStatusColor(order.Payment_Status)}`}
-                      >
-                        {translatePaymentStatus(order.Payment_Status)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+      {notice.text && (
+        <div className="mb-4">
+          <Notice tone={notice.tone}>{notice.text}</Notice>
+        </div>
+      )}
 
-                <div className="border-t pt-4 mt-2">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-gray-600">
-                        {translate("paymentMethod")}:{" "}
-                        {order.Payment_Method?.toUpperCase() || "Credit Card"}
-                      </p>
-                    </div>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => handleViewDetails(order)}
-                        className="px-4 py-2 text-sm font-medium text-[#2096D8] border border-[#2096D8] rounded hover:bg-[#2096D8] hover:text-white transition-colors min-w-[122px]"
-                      >
-                        {translate("viewDetails")}
-                      </button>
-                      {canCancelOrder(order) && (
-                        <button
-                          onClick={() => handleCancelOrder(order.Order_Id)}
-                          disabled={cancellingOrder === order.Order_Id}
-                          className="px-4 py-2 text-sm font-medium text-red-600 border border-red-600 rounded hover:bg-red-600 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {cancellingOrder === order.Order_Id
-                            ? "Cancelling..."
-                            : "Cancel Order"}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Order Details Modal */}
-      {showOrderModal && selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 max-sm:p-0">
-          <div className="bg-white max-w-2xl w-full max-h-[90vh] max-sm:max-h-[100vh] h-full overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold">{translate("orderDetails")}</h2>
-              <button
-                onClick={() => {
-                  setShowOrderModal(false);
-                  setSelectedOrder(null);
-                  setOrderDetails(null);
-                }}
-                className="text-gray-500 hover:text-gray-700 text-5xl"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="p-6">
-              {loadingDetails ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2096D8] mx-auto"></div>
-                  <p className="text-gray-500 mt-4">
-                    {translate("loadingOrderDetails")}
+      {orders.length === 0 ? (
+        <ProfileEmpty
+          icon={FiPackage}
+          title={translate("noOrdersFound")}
+          text={translate("ordersEmptyText")}
+          actionLabel={translate("startShopping")}
+          onAction={() => navigate("/all-products")}
+        />
+      ) : (
+        <ul className="space-y-3">
+          {orders.map((order) => (
+            <li key={order.Order_Id} className={`${cardClass} p-4 sm:p-5`}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className={eyebrowClass}>
+                    {translate("order")} · {formatDate(order.Order_Date, language, true)}
+                  </p>
+                  <p className="mt-1 font-display text-2xl font-bold uppercase leading-none tracking-tight text-gray-900">
+                    #{order.Order_Number}
                   </p>
                 </div>
-              ) : orderDetails ? (
+                <p className="font-display text-2xl font-bold leading-none tabular-nums text-gray-900">
+                  {formatPrice(order.Total_Amount)}
+                </p>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <StatusChip status={order.Order_Status} translate={translate} />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-gray-600">
+                  <FiCreditCard size={12} />
+                  {order.Payment_Method?.toUpperCase() || "—"}
+                </span>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-black/[0.06] pt-4">
+                <button type="button" onClick={() => openDetails(order)} className={`${ghostButtonClass} flex-1 sm:flex-none`}>
+                  {translate("viewDetails")}
+                  <FiChevronRight />
+                </button>
+                {cancelButton(order, "flex-1 sm:flex-none")}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {selected && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-[#141409]/60 sm:items-center sm:p-4"
+          onClick={closeDetails}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="order-details-title"
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-h-[92vh] w-full max-w-[640px] flex-col overflow-hidden rounded-t-3xl bg-white sm:rounded-3xl"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-black/[0.06] p-5 sm:p-6">
+              <div>
+                <p className={eyebrowClass}>{translate("orderDetails")}</p>
+                <h2 id="order-details-title" className={`${headingClass} mt-1 text-3xl`}>
+                  #{selected.Order_Number}
+                </h2>
+                <p className="mt-1 text-xs text-gray-500">{formatDate(selected.Order_Date, language, true)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeDetails}
+                aria-label={translate("close")}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-gray-700 transition hover:bg-black/[0.1]"
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-5 sm:p-6">
+              {loadingDetails ? (
+                <div className="flex flex-col items-center py-10">
+                  <BrandLoader variant="scoop" size={100} />
+                  <p className="mt-4 text-sm text-gray-500">{translate("loadingOrderDetails")}</p>
+                </div>
+              ) : details ? (
                 <>
-                  <div className="mb-6">
-                    <p className="text-sm text-gray-500">
-                      {translate("order")} #{selectedOrder.Order_Number}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(selectedOrder.Order_Date).toLocaleDateString(
-                        "en-US",
-                        {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        },
-                      )}
-                    </p>
+                  <div className="flex flex-wrap gap-2">
+                    <StatusChip status={selected.Order_Status} translate={translate} />
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-gray-600">
+                      <FiCreditCard size={12} />
+                      {translate("paymentMethod")}: {selected.Payment_Method?.toUpperCase() || "—"}
+                    </span>
                   </div>
 
-                  <div className="mb-6">
-                    <h3 className="font-semibold mb-3">
-                      {translate("orderItems")}
-                    </h3>
-                    <div className="space-y-3">
-                      {orderDetails.items?.map((item, index) => (
-                        <div key={index} className="border-b pb-3">
-                          <div className="flex justify-between">
-                            <div>
-                              <p className="font-medium">{item.Product_Name}</p>
-                              {item.Variant_Name && (
-                                <p className="text-sm text-gray-500">
-                                  {translate("flavor")}: {item.Variant_Name}
-                                </p>
-                              )}
-                              {item.Variant_Packaging && (
-                                <p className="text-sm text-gray-500">
-                                  {translate("size")}: {item.Variant_Packaging}
-                                </p>
-                              )}
-                              <p className="text-sm text-gray-500">
-                                {translate("quantity")}: {item.Quantity}
-                              </p>
-                            </div>
-                            <p className="font-semibold">
-                              MKD{" "}
-                              {(item.Product_Price * item.Quantity).toFixed(2)}
-                            </p>
-                          </div>
+                  <h3 className="mt-6 text-sm font-bold text-gray-900">{translate("orderItems")}</h3>
+                  <ul className="mt-2 divide-y divide-black/[0.06]">
+                    {details.items.map((item, index) => (
+                      <li key={index} className="flex justify-between gap-4 py-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900">{item.Product_Name}</p>
+                          <p className="mt-0.5 text-xs text-gray-500">
+                            {[
+                              item.Variant_Name && `${translate("flavor")}: ${item.Variant_Name}`,
+                              item.Variant_Packaging && `${translate("size")}: ${item.Variant_Packaging}`,
+                              `${translate("quantity")}: ${item.Quantity}`,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                        <p className="shrink-0 text-sm font-bold tabular-nums text-gray-900">
+                          {formatPrice(item.Product_Price * item.Quantity)}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
 
-                  <div className="border-t pt-4">
-                    <div className="flex justify-between mb-2">
-                      <span>{translate("subtotal")}:</span>
-                      <span>
-                        MKD {orderDetails.order?.Subtotal?.toFixed(2) || 0}
-                      </span>
+                  <div className="mt-4 space-y-1.5 rounded-2xl bg-[#f6f5f1] p-4">
+                    <SummaryRow label={translate("subtotal")} value={formatPrice(details.order?.Subtotal)} />
+                    <SummaryRow label={translate("deliveryFee")} value={formatPrice(details.order?.Delivery_Fee)} />
+                    <SummaryRow label="DDV (9.5%)" value={formatPrice(details.order?.VAT_9_5)} />
+                    <SummaryRow label="DDV (22%)" value={formatPrice(details.order?.VAT_22)} />
+                    <div className="border-t border-black/[0.08]">
+                      <SummaryRow strong label={translate("total")} value={formatPrice(selected.Total_Amount)} />
                     </div>
-                    <div className="flex justify-between mb-2">
-                      <span>{translate("deliveryFee")}:</span>
-                      <span>
-                        MKD {orderDetails.order?.Delivery_Fee?.toFixed(2) || 0}
-                      </span>
-                    </div>
-                    <div className="flex justify-between mb-2">
-                      <span>DDV (9.5%):</span>
-                      <span>
-                        MKD {orderDetails.order?.VAT_9_5?.toFixed(2) || 0}
-                      </span>
-                    </div>
-                    <div className="flex justify-between mb-2">
-                      <span>DDV (22%):</span>
-                      <span>
-                        MKD {orderDetails.order?.VAT_22?.toFixed(2) || 0}
-                      </span>
-                    </div>
-                    <div className="flex justify-between font-bold text-lg mt-2 pt-2 border-t">
-                      <span>{translate("total")}:</span>
-                      <span>
-                        MKD {selectedOrder.Total_Amount?.toFixed(2) || 0}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 flex gap-3 justify-end">
-                    {canCancelOrder(selectedOrder) && (
-                      <button
-                        onClick={() =>
-                          handleCancelOrder(selectedOrder.Order_Id)
-                        }
-                        disabled={cancellingOrder === selectedOrder.Order_Id}
-                        className="px-4 py-2 text-sm font-medium text-red-600 border border-red-600 rounded hover:bg-red-600 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {cancellingOrder === selectedOrder.Order_Id
-                          ? `${translate("cancellingOrder")}`
-                          : `${translate("cancelOrder")}`}
-                      </button>
-                    )}
                   </div>
                 </>
-              ) : null}
+              ) : (
+                <p className="py-8 text-center text-sm text-[#a3161d]">{translate("ordersDetailsError")}</p>
+              )}
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-black/[0.06] p-4 sm:flex-row sm:justify-end sm:p-5">
+              {cancelButton(selected)}
+              <button type="button" onClick={closeDetails} className={pillButtonClass}>
+                {translate("close")}
+              </button>
             </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

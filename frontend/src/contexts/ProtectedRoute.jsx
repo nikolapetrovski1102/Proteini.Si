@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { BrandLoader } from "../Pages/Components/Loaders/BrandLoader";
 
 export default function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -8,7 +9,7 @@ export default function ProtectedRoute({ children }) {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FDC700]"></div>
+        <BrandLoader variant="shaker" size={120} />
       </div>
     );
   }

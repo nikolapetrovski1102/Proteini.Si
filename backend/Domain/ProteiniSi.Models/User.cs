@@ -24,6 +24,7 @@ public class User
     public string? User_City { get; set; }
     public string? User_PostCode { get; set; }
     public string? User_Country { get; set; }
+    public bool EmailConfirmed { get; set; }
 }
 
 public class ResetTokenInfo
@@ -31,6 +32,15 @@ public class ResetTokenInfo
     public string? ResetToken { get; init; }
     public DateTime? ResetTokenExpiration { get; init; }
     public bool IsResetTokenUsed { get; init; }
+}
+
+public class EmailCodeInfo
+{
+    public bool EmailConfirmed { get; init; }
+    public byte[]? EmailCode_Hash { get; init; }
+    public DateTime? EmailCode_ExpiresAt { get; init; }
+    public int EmailCode_Attempts { get; init; }
+    public DateTime? EmailCode_SentAt { get; init; }
 }
 
 public record NewUser(

@@ -7,38 +7,96 @@ body {
   margin: 0;
 }
 
+/* Dark theme palette: soft charcoal rather than pure black. */
+html[data-theme="dark"] {
+  --d-bg: #1f2023;
+  --d-surface: #292a2e;
+  --d-raised: #323439;
+  --d-hover: #3b3d43;
+  --d-border: #44464c;
+  --d-text: #ececee;
+  --d-muted: #b9bbc1;
+  color-scheme: dark;
+}
+
 html[data-theme="dark"] body {
-  background: #111111;
-  color: #f4f4f5;
+  background: var(--d-bg);
+  color: var(--d-text);
 }
 
 html[data-theme="dark"] .bg-white {
-  background-color: #171717 !important;
+  background-color: var(--d-surface) !important;
 }
 
 html[data-theme="dark"] .text-gray-900,
 html[data-theme="dark"] .text-gray-800,
 html[data-theme="dark"] .text-gray-700 {
-  color: #f4f4f5 !important;
+  color: var(--d-text) !important;
 }
 
 html[data-theme="dark"] .text-gray-600,
 html[data-theme="dark"] .text-gray-500 {
-  color: #d4d4d8 !important;
+  color: var(--d-muted) !important;
 }
 
+html[data-theme="dark"] .border-gray-300,
 html[data-theme="dark"] .border-gray-100,
 html[data-theme="dark"] .border-gray-200,
 html[data-theme="dark"] .border-\[\#E5E5E5\],
 html[data-theme="dark"] .border-\[\#cacaca\] {
-  border-color: #3f3f46 !important;
+  border-color: var(--d-border) !important;
+}
+
+html[data-theme="dark"] .bg-white\/70 {
+  background-color: rgba(41, 42, 46, 0.7) !important;
+}
+
+/* Monochrome black <img> icons flip to white in dark mode. */
+html[data-theme="dark"] .theme-icon {
+  filter: invert(1);
+}
+
+html[data-theme="dark"] .bg-gray-50,
+html[data-theme="dark"] .bg-gray-100 {
+  background-color: var(--d-raised) !important;
+}
+
+html[data-theme="dark"] .hover\:bg-gray-50:hover,
+html[data-theme="dark"] .hover\:bg-gray-100:hover,
+html[data-theme="dark"] .active\:bg-gray-200:active {
+  background-color: var(--d-hover) !important;
+}
+
+html[data-theme="dark"] .focus-visible\:ring-\[\#141409\]:focus-visible {
+  --tw-ring-color: var(--d-text);
+}
+
+html[data-theme="dark"] .focus-visible\:ring-offset-2:focus-visible,
+html[data-theme="dark"] .focus-visible\:ring-offset-4:focus-visible {
+  --tw-ring-offset-color: var(--d-surface);
+}
+
+/* Header navigation: black text and the dark-red "Offers" link need light tones on dark. */
+html[data-theme="dark"] .site-nav.text-black,
+html[data-theme="dark"] .site-nav.hover\:text-black:hover,
+html[data-theme="dark"] .site-nav .text-black,
+html[data-theme="dark"] .site-nav .hover\:text-black:hover {
+  color: #ffffff !important;
+}
+
+html[data-theme="dark"] .nav-highlight {
+  color: #fdc700 !important;
+}
+
+html[data-theme="dark"] .nav-highlight:hover {
+  color: #ffe066 !important;
 }
 
 html[data-theme="dark"] input,
 html[data-theme="dark"] textarea,
 html[data-theme="dark"] select {
-  background-color: #171717;
-  color: #f4f4f5;
+  background-color: var(--d-raised);
+  color: var(--d-text);
 }
 
 /* For the thumbnails container */
@@ -169,6 +227,29 @@ body {
 .product-description h4 { font-size: 1.1rem; }
 .product-description > :first-child { margin-top: 0; }
 
+/* Dark theme: description HTML often carries pasted inline colours and backgrounds. */
+html[data-theme="dark"] .product-description {
+  color: var(--d-muted);
+}
+html[data-theme="dark"] .product-description * {
+  color: inherit !important;
+  background-color: transparent !important;
+}
+html[data-theme="dark"] .product-description strong,
+html[data-theme="dark"] .product-description b,
+html[data-theme="dark"] .product-description h2,
+html[data-theme="dark"] .product-description h3,
+html[data-theme="dark"] .product-description h4 {
+  color: var(--d-text) !important;
+}
+html[data-theme="dark"] .product-description strong *,
+html[data-theme="dark"] .product-description b * {
+  color: var(--d-text) !important;
+}
+html[data-theme="dark"] .product-description a {
+  color: #fdc700 !important;
+}
+
 .sticky-header {
   position: sticky;
   top: 0;
@@ -186,5 +267,429 @@ body {
   .sticky-header {
     position: -webkit-sticky;
     position: sticky;
+  }
+}
+
+/* ───────────── Home page: full-screen hero, snap scrolling, reveals ───────────── */
+:root {
+  --header-h: 57px;
+}
+@media (min-width: 1025px) {
+  :root {
+    --header-h: 73px;
+  }
+}
+
+html.home-snap {
+  scroll-snap-type: y proximity;
+  scroll-padding-top: var(--header-h);
+  scroll-behavior: smooth;
+}
+
+.home-section {
+  scroll-snap-align: start;
+  scroll-margin-top: var(--header-h);
+}
+
+
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, 48px, 0);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.reveal-left {
+  transform: translate3d(-48px, 0, 0);
+}
+.reveal.reveal-scale {
+  transform: scale(0.94);
+}
+.reveal.is-visible {
+  opacity: 1;
+  /* no transform once shown, so fixed-position modals inside stay viewport-relative */
+  transform: none;
+}
+
+/* Full-screen brand loader overlay (see BrandLoader.jsx). Pale brand yellow over a soft white veil. */
+.brand-overlay {
+  background:
+    linear-gradient(rgba(253, 199, 0, 0.2), rgba(253, 199, 0, 0.2)),
+    rgba(255, 255, 255, 0.78);
+  opacity: 0;
+  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.brand-overlay.is-visible {
+  opacity: 1;
+}
+.brand-overlay-img {
+  transform: scale(0.9) translateY(8px);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+.brand-overlay.is-visible .brand-overlay-img {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-overlay,
+  .brand-overlay-img {
+    transition-duration: 0.01s;
+  }
+}
+
+/* "Added to cart" toast (see CartToaster.jsx). */
+.cart-toast {
+  opacity: 0;
+  transform: translateY(-12px) scale(0.97);
+  transition:
+    opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (max-width: 639px) {
+  .cart-toast {
+    transform: translateY(16px) scale(0.97);
+  }
+}
+.cart-toast.is-visible {
+  opacity: 1;
+  transform: none;
+}
+.cart-toast.is-visible .cart-toast-check {
+  animation: cart-check-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+/* Quick purchase sheet (see Cart/QuickPurchase.jsx): bottom sheet on phones, drawer on desktop. */
+.qp-sheet .qp-backdrop {
+  opacity: 0;
+  transition: opacity 0.26s ease;
+}
+.qp-sheet .qp-panel {
+  transform: translateY(100%);
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+@media (min-width: 640px) {
+  .qp-sheet .qp-panel {
+    transform: translateX(100%);
+  }
+}
+.qp-sheet.is-visible .qp-backdrop {
+  opacity: 1;
+}
+.qp-sheet.is-visible .qp-panel {
+  transform: none;
+}
+
+/* Cart row being removed: fades and collapses before it leaves the list. */
+.cart-row {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.18s ease;
+}
+.cart-row > * {
+  min-height: 0;
+  overflow: hidden;
+}
+.cart-row.is-removing {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .qp-sheet .qp-backdrop,
+  .qp-sheet .qp-panel,
+  .cart-row {
+    transition-duration: 0.01s;
+  }
+}
+
+@keyframes cart-check-pop {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes hero-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes scroll-cue {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.9;
+  }
+  50% {
+    transform: translateY(8px);
+    opacity: 0.4;
+  }
+}
+.scroll-cue {
+  animation: scroll-cue 1.8s ease-in-out infinite;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee-track {
+  animation: marquee 40s linear infinite;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+.marquee-track.marquee-reverse {
+  animation-direction: reverse;
+}
+
+/* Sale band: brand yellow with soft light/amber glows, a halftone texture and a giant outlined watermark. */
+.sale-backdrop {
+  --sale-to-dark: linear-gradient(
+    to top,
+    #3a3a32 0,
+    rgba(58, 58, 50, 0.82) 48px,
+    rgba(58, 58, 50, 0.45) 110px,
+    rgba(58, 58, 50, 0.14) 170px,
+    rgba(58, 58, 50, 0) 220px
+  );
+  background:
+    linear-gradient(to bottom, #f6f5f1, rgba(246, 245, 241, 0) 120px),
+    var(--sale-to-dark);
+}
+html[data-theme="dark"] .sale-backdrop {
+  background:
+    linear-gradient(to bottom, var(--d-bg), transparent 120px),
+    var(--sale-to-dark);
+}
+
+/* Home product cards: lift + deeper shadow on hover (pointer devices only). */
+/* ── Product card: one slow, eased motion for every hover effect ── */
+.home-card {
+  --card-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translate3d(0, 0, 0);
+  box-shadow:
+    0 1px 2px rgba(20, 20, 9, 0.04),
+    0 6px 18px -10px rgba(20, 20, 9, 0.18);
+  transition:
+    transform 0.6s var(--card-ease),
+    box-shadow 0.6s var(--card-ease);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+.home-card-img {
+  transform: translate3d(0, 0, 0) scale(1);
+  transition: transform 0.9s var(--card-ease);
+  will-change: transform;
+}
+.home-card-glow {
+  opacity: 0;
+  background: radial-gradient(60% 55% at 50% 58%, rgba(253, 199, 0, 0.28), rgba(253, 199, 0, 0) 70%);
+  transform: scale(0.85);
+  transition:
+    opacity 0.7s var(--card-ease),
+    transform 0.9s var(--card-ease);
+}
+/* Minimal at first sight: name + price (+ new/sale badges). On mouse devices the card's
+   info block lifts out of the flow and grows upward over the image on hover/focus,
+   revealing the details (.card-more); touch devices keep a compact always-on layout. */
+.card-info-space,
+.card-more {
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .card-info-space {
+    display: block;
+  }
+  .card-info {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 2;
+    transition: box-shadow 0.5s var(--card-ease);
+  }
+  .card-more {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows 0.5s var(--card-ease),
+      opacity 0.35s var(--card-ease);
+  }
+  .card-more > div {
+    min-height: 0;
+    overflow: hidden;
+  }
+  .card-extra {
+    opacity: 0;
+    transition: opacity 0.4s var(--card-ease);
+  }
+  .home-card:hover .card-info,
+  .home-card:focus-within .card-info {
+    box-shadow: 0 -14px 24px -18px rgba(20, 20, 9, 0.35);
+  }
+  .home-card:hover .card-more,
+  .home-card:focus-within .card-more {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .home-card:hover .card-extra,
+  .home-card:focus-within .card-extra {
+    opacity: 1;
+  }
+  .card-touch {
+    display: none !important;
+  }
+}
+@media (hover: hover) {
+  .home-card:hover {
+    transform: translate3d(0, -6px, 0);
+    box-shadow:
+      0 2px 4px rgba(20, 20, 9, 0.04),
+      0 28px 48px -22px rgba(20, 20, 9, 0.36);
+  }
+  .home-card:hover .home-card-img {
+    transform: translate3d(0, -4px, 0) scale(1.05);
+  }
+  .home-card:hover .home-card-glow {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.home-card:active {
+  transform: translate3d(0, -2px, 0) scale(0.99);
+  transition-duration: 0.2s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-card,
+  .home-card:hover,
+  .home-card:active,
+  .home-card:hover .home-card-img {
+    transform: none;
+  }
+  .card-more {
+    transition: none;
+  }
+}
+
+html[data-theme="dark"] .home-tint:not(.home-tint-keep) {
+  background: var(--d-bg) !important;
+}
+/* Light wash gradients over section photos would turn milky grey in dark mode. */
+html[data-theme="dark"] .home-wash {
+  background: linear-gradient(
+    to bottom,
+    rgba(31, 32, 35, 0.55),
+    rgba(31, 32, 35, 0.75) 50%,
+    var(--d-bg)
+  ) !important;
+}
+html[data-theme="dark"] .home-tint-overlay {
+  opacity: 0.08 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.home-snap {
+    scroll-behavior: auto;
+    scroll-snap-type: none;
+  }
+  .reveal,
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .scroll-cue,
+  .marquee-track {
+    animation: none;
+  }
+}
+
+/* ───────────── Mobile tab bar (see MobileTabBar.jsx) ───────────── */
+@media (max-width: 1024px) {
+  html.has-bottom-nav {
+    --bottom-nav-h: calc(58px + env(safe-area-inset-bottom, 0px));
+  }
+  html.has-bottom-nav body {
+    padding-bottom: var(--bottom-nav-h);
+  }
+  html.has-bottom-nav .cart-toast {
+    bottom: calc(var(--bottom-nav-h) + 12px);
+  }
+}
+.mobile-tab-bar {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -8px 24px -18px rgba(20, 20, 9, 0.35);
+}
+html[data-theme="dark"] .mobile-tab-bar .ring-white {
+  --tw-ring-color: var(--d-surface);
+}
+
+/* ---------------------------------------------------------- header menus */
+@keyframes menu-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes menu-from-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes menu-from-left {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes menu-sheet-in {
+  from { transform: translateX(-100%); }
+  to { transform: none; }
+}
+@keyframes menu-sheet-out {
+  from { transform: none; }
+  to { transform: translateX(-100%); }
+}
+@keyframes menu-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes menu-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.menu-fade-up { animation: menu-fade-up 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.menu-from-right { animation: menu-from-right 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.menu-from-left { animation: menu-from-left 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.menu-sheet-in { animation: menu-sheet-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.menu-sheet-out { animation: menu-sheet-out 200ms cubic-bezier(0.4, 0, 1, 1) both; }
+.menu-backdrop-in { animation: menu-backdrop-in 220ms ease-out both; }
+.menu-backdrop-out { animation: menu-backdrop-out 200ms ease-in both; }
+
+/* Staggered rows: set --i on each item (capped so long lists stay quick). */
+.menu-stagger > * {
+  animation: menu-fade-up 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(min(var(--i, 0), 10) * 22ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-fade-up,
+  .menu-from-right,
+  .menu-from-left,
+  .menu-sheet-in,
+  .menu-sheet-out,
+  .menu-backdrop-in,
+  .menu-backdrop-out,
+  .menu-stagger > * {
+    animation: none !important;
   }
 }

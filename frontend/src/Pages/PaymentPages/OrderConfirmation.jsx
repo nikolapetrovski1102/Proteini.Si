@@ -3,6 +3,7 @@ import { api } from "../../services/api";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { GoDotFill } from "react-icons/go";
 import ProfileNav from "../ProfilePages/ProfileNav";
+import { BrandLoader } from "../Components/Loaders/BrandLoader";
 
 export default function OrderHistory() {
   const [orders, setOrders] = useState([]);
@@ -235,16 +236,16 @@ export default function OrderHistory() {
 
   if (loading) {
     return (
-      <div className="w-full flex justify-center px-4 md:px-0">
-        <div className="w-full flex flex-col md:flex-row gap-6 md:gap-24 md:pl-24 md:pr-48">
+      <div className="home-tint min-h-[60vh] bg-[#f6f5f1]">
+        <div className="mx-auto flex max-w-[1240px] flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:items-start lg:gap-8 lg:py-12">
           {!isGuest && <ProfileNav />}
-          <div className="w-full md:max-w-[740px] md:pr-[50px] pb-[70px]">
-            <p className="text-[24px] font-bold mb-[20px] pt-[70px] md:pr-[50px]">
+          <div className="min-w-0 flex-1 pb-[70px]">
+            <p className="font-display text-[34px] sm:text-5xl font-bold uppercase leading-[0.95] tracking-tight mb-6">
               {isOrderConfirmation ? "ORDER DETAILS" : "ORDER HISTORY"}
             </p>
             <div className="bg-white border border-gray-200 rounded-lg p-6">
               <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2096D8] mx-auto"></div>
+                <BrandLoader variant="scoop" size={120} />
                 <p className="text-gray-500 mt-4">
                   {isOrderConfirmation
                     ? "Loading order details..."
@@ -260,11 +261,11 @@ export default function OrderHistory() {
 
   if (error) {
     return (
-      <div className="w-full flex justify-center px-4 md:px-0">
-        <div className="w-full flex flex-col md:flex-row gap-6 md:gap-24 md:pl-24 md:pr-48">
+      <div className="home-tint min-h-[60vh] bg-[#f6f5f1]">
+        <div className="mx-auto flex max-w-[1240px] flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:items-start lg:gap-8 lg:py-12">
           {!isGuest && <ProfileNav />}
-          <div className="w-full md:max-w-[740px] md:pr-[50px] pb-[70px]">
-            <p className="text-[24px] font-bold mb-[20px] pt-[70px] md:pr-[50px]">
+          <div className="min-w-0 flex-1 pb-[70px]">
+            <p className="font-display text-[34px] sm:text-5xl font-bold uppercase leading-[0.95] tracking-tight mb-6">
               {isOrderConfirmation ? "ORDER DETAILS" : "ORDER HISTORY"}
             </p>
             <div className="bg-white border border-gray-200 rounded-lg p-6">
@@ -289,12 +290,12 @@ export default function OrderHistory() {
   }
 
   return (
-    <div className="w-full flex justify-center px-4 md:px-0">
-      <div className="w-full flex flex-col md:flex-row gap-6 md:gap-24 md:pl-24 md:pr-48">
+    <div className="home-tint min-h-[60vh] bg-[#f6f5f1]">
+      <div className="mx-auto flex max-w-[1240px] flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:items-start lg:gap-8 lg:py-12">
         {!isGuest && <ProfileNav />}
 
-        <div className="w-full md:max-w-[740px] md:pr-[50px] pb-[70px]">
-          <p className="text-[24px] font-bold mb-[20px] pt-[70px] md:pr-[50px]">
+        <div className="min-w-0 flex-1 pb-[70px]">
+          <p className="font-display text-[34px] sm:text-5xl font-bold uppercase leading-[0.95] tracking-tight mb-6">
             {isOrderConfirmation
               ? "ORDER DETAILS"
               : `ORDER HISTORY (${orders.length})`}
@@ -424,7 +425,7 @@ export default function OrderHistory() {
               <div className="p-4 sm:p-6">
                 {loadingDetails ? (
                   <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2096D8] mx-auto"></div>
+                    <BrandLoader variant="scoop" size={120} />
                     <p className="text-gray-500 mt-4">
                       Loading order details...
                     </p>

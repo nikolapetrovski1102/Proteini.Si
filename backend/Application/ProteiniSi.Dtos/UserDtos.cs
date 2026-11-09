@@ -15,12 +15,26 @@ public class UserForRegistrationDto
     public string? Company_City { get; set; }
     public string? Company_Country { get; set; }
     public string? Company_Phone { get; set; }
+    public string? Language { get; set; }
 }
 
 public class UserForLoginDto
 {
     public string? User_Email { get; set; }
     public string? Password { get; set; }
+    public string? Language { get; set; }
+}
+
+public class VerifyEmailDto
+{
+    public string? User_Email { get; set; }
+    public string? Code { get; set; }
+}
+
+public class ResendVerificationCodeDto
+{
+    public string? User_Email { get; set; }
+    public string? Language { get; set; }
 }
 
 public class ForgotPasswordDto
@@ -88,3 +102,7 @@ public record UserProfileDto(
 public record BillingUpdateResponseDto(bool Status, string Message, UserProfileDto User);
 
 public record StatusMessageDto(bool Status, string Message);
+
+public record RegistrationResponseDto(bool Status, bool RequiresVerification, string Email, string Message, int RetryAfterSeconds);
+
+public record ResendVerificationResponseDto(bool Status, string Message, int RetryAfterSeconds);

@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { TfiClose } from "react-icons/tfi";
+import { FiArrowRight, FiChevronRight, FiMapPin, FiMoon, FiSearch, FiShoppingBag, FiSun, FiUser } from "react-icons/fi";
 import LanguageModal from "./LanguageModal";
 import DropdownMenu from "./DropdownMenu";
+import { BrandDirectory, MobileMenu, OfferList } from "./HeaderMenus";
+import MobileTabBar from "./MobileTabBar";
 import { buildCategoryNav, buildOfferItems, FALLBACK_BRANDS } from "./headerNav";
 import { useLanguage } from "../translation/LanguageContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../Hooks/useCart";
+import { useTheme } from "../Hooks/useTheme";
 import { api } from "../../services/api";
 
 const IMAGE_BASE_URL = import.meta.env.VITE_IMAGE_BASE_URL || "";
@@ -70,13 +74,14 @@ const normalizeSearchProduct = (product) => {
 
 const formatPrice = (value) => `${Number(value || 0).toFixed(2)} MKD`;
 
-const IconButton = ({ label, onClick, children, className = "" }) => (
+const IconButton = ({ label, onClick, children, className = "", ...rest }) => (
   <button
+    {...rest}
     type="button"
     onClick={onClick}
     aria-label={label}
     title={label}
-    className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-gray-100 ${className}`}
+    className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141409] focus-visible:ring-offset-2 ${className}`}
   >
     {children}
   </button>
@@ -85,12 +90,6 @@ const IconButton = ({ label, onClick, children, className = "" }) => (
 const CloseIcon = () => (
   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-  </svg>
-);
-
-const ChevronRight = () => (
-  <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
   </svg>
 );
 
@@ -213,10 +212,12 @@ export default function Header() {
   const location = useLocation();
   const { user, isAuthenticated } = useAuth();
   const { cart } = useCart();
+  const { theme, toggleTheme } = useTheme();
+  const themeToggleLabel = translate(theme === "dark" ? "bright" : "dark");
 
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [mobileCategory, setMobileCategory] = useState(null);
+  const [mobileSegment, setMobileSegment] = useState("products");
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isOffersOpen, setIsOffersOpen] = useState(false);
   const [offerSections, setOfferSections] = useState(null);
@@ -318,7 +319,6 @@ export default function Header() {
   if (routeKey !== lastRouteKey) {
     setLastRouteKey(routeKey);
     setIsMobileMenuOpen(false);
-    setMobileCategory(null);
     setIsMobileSearchOpen(false);
     setShowDesktopResults(false);
   }
@@ -380,31 +380,17 @@ export default function Header() {
     setMobileSearchTerm("");
   };
 
-  const openMobileCategory = (category) => {
-    if (category.key === "brands") loadBrands();
-    setMobileCategory(category);
+  const changeMobileSegment = (segment) => {
+    if (segment === "brands") loadBrands();
+    setMobileSegment(segment);
   };
 
-  const mobileNavItems = [
-    ...categories.map((category) => ({
-      key: category.key,
-      title: category.title,
-      link: category.link,
-      groups: category.columns.flat(),
-    })),
-    {
-      key: "brands",
-      title: translate("brands"),
-      groups: brandItems,
-      flat: true,
-    },
-    {
-      key: "offers",
-      title: translate("offers"),
-      groups: offerItems,
-      flat: true,
-    },
-  ];
+  const openMobileMenu = (segment) => {
+    setIsMobileSearchOpen(false);
+    setIsOffersOpen(false);
+    changeMobileSegment(segment);
+    setIsMobileMenuOpen(true);
+  };
 
   const renderOfferSection = (section) => {
     switch (section.sectionType) {
@@ -447,42 +433,61 @@ export default function Header() {
 
   return (
     <>
-      {/* Promo bar */}
-      <div className="flex w-full items-center justify-center gap-3 bg-[#FDC700] px-4 py-1.5 text-center">
-        <p className="text-[12px] font-bold">{translate("freeShipping")}</p>
-        <button
-          type="button"
-          onClick={() => setIsOffersOpen(true)}
-          className="whitespace-nowrap text-[12px] font-bold underline underline-offset-2 hover:no-underline"
-        >
+      {/* Promo bar: one line on every screen; the whole bar opens today's offer. */}
+      <button
+        type="button"
+        onClick={() => setIsOffersOpen(true)}
+        className="group flex w-full items-center justify-center gap-1 bg-[#FDC700] px-4 py-2 text-[11px] font-bold leading-none text-[#141409] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#141409] sm:gap-3 sm:py-1.5 sm:text-[12px] sm:leading-normal"
+      >
+        <span className="truncate">{translate("freeShipping")}</span>
+        <span className="hidden whitespace-nowrap underline underline-offset-2 group-hover:no-underline sm:inline">
           {translate("exploreOffers")}
-        </button>
-      </div>
+        </span>
+        <FiChevronRight aria-hidden="true" className="h-3.5 w-3.5 flex-shrink-0 sm:hidden" strokeWidth={3} />
+      </button>
 
       <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white">
-        {/* Main bar */}
-        <div className="mx-auto flex h-16 max-w-[1240px] items-center gap-4 px-4 lg:h-[72px] lg:gap-8">
-          {/* Mobile: menu + search */}
-          <div className="flex items-center lg:hidden">
-            <IconButton label={translate("menu")} onClick={() => setIsMobileMenuOpen(true)}>
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeWidth={2} d="M4 7h16M4 12h16M4 17h16" />
-              </svg>
-            </IconButton>
-            <IconButton label={translate("findAProduct")} onClick={() => setIsMobileSearchOpen(true)}>
-              <img src="/logos/search.svg" className="h-4 w-4" alt="" />
-            </IconButton>
-          </div>
-
-          <Link to="/" className="flex-shrink-0 max-lg:mx-auto" aria-label="Proteini.si">
-            <img src="/logos/proteini.svg" className="w-[150px] lg:w-[220px]" alt="Proteini.si" />
+        {/* Single row: logo · navigation · search · actions */}
+        <div className="mx-auto flex h-14 max-w-[1240px] items-center gap-3 px-4 lg:h-[72px] lg:gap-6">
+          <Link
+            to="/"
+            className="flex-shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141409] focus-visible:ring-offset-4"
+            aria-label="Proteini.si"
+          >
+            <img src={theme === "dark" ? "/logos/proteini-dark.svg" : "/logos/proteini.svg"} className="w-[118px] sm:w-[150px] lg:w-[180px]" alt="Proteini.si" />
           </Link>
 
+          {/* Mobile: search is the one header action; menu, cart and account live in the tab bar. */}
+          <button
+            type="button"
+            onClick={() => setIsMobileSearchOpen(true)}
+            className="flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-full bg-gray-100 px-4 text-left text-[14px] text-gray-500 transition-colors active:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141409] lg:hidden"
+          >
+            <FiSearch aria-hidden="true" className="h-[18px] w-[18px] flex-shrink-0 text-gray-800" strokeWidth={2.4} />
+            <span className="truncate">{translate("findAProduct")}</span>
+          </button>
+
+          {/* Desktop navigation: three entries only */}
+          <nav className="hidden h-full items-stretch gap-5 lg:flex" aria-label={translate("menu")}>
+            <DropdownMenu
+              title={translate("headerShop")}
+              link="/all-products"
+              categories={categories}
+              viewAllLabel={translate("viewAll")}
+            />
+            <DropdownMenu title={translate("brands")} onOpen={loadBrands}>
+              <BrandDirectory brands={brandItems} translate={translate} />
+            </DropdownMenu>
+            <DropdownMenu title={translate("offers")} highlight>
+              <OfferList items={offerItems} translate={translate} />
+            </DropdownMenu>
+          </nav>
+
           {/* Desktop search */}
-          <div ref={searchRef} className="relative hidden flex-1 lg:block">
+          <div ref={searchRef} className="relative ml-auto hidden w-full max-w-[340px] lg:block">
             <img
               src="/logos/search.svg"
-              className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 opacity-60"
+              className="theme-icon pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 opacity-60"
               alt=""
             />
             <input
@@ -499,12 +504,12 @@ export default function Header() {
                   goToSearchPage(searchTerm);
                 }
               }}
-              className="h-11 w-full rounded-full border border-gray-200 bg-gray-50 pl-11 pr-4 text-sm outline-none transition focus:border-gray-400 focus:bg-white [&::-webkit-search-cancel-button]:appearance-none"
+              className="h-10 w-full rounded-full border border-gray-200 bg-gray-50 pl-11 pr-4 text-sm outline-none transition placeholder:text-gray-500 hover:border-gray-300 focus:border-[#141409] focus:bg-white focus:ring-2 focus:ring-[#FDC700]/60 [&::-webkit-search-cancel-button]:appearance-none"
               placeholder={translate("findAProduct")}
               aria-label={translate("findAProduct")}
             />
             {showDesktopResults && desktopSearch.hasTerm && (
-              <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[480px] overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
+              <div className="absolute right-0 top-full z-50 mt-2 max-h-[480px] w-[440px] overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
                 <SearchResultsPanel
                   term={searchTerm}
                   search={desktopSearch}
@@ -517,19 +522,26 @@ export default function Header() {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-1">
+          <div className="hidden items-center gap-0.5 lg:flex">
             <IconButton
               label={translate("language")}
               onClick={() => setIsLanguageModalOpen(true)}
-              className="max-lg:hidden"
             >
-              <img src={flagIcon} className="h-6 w-6" alt="" />
+              <img src={flagIcon} className="h-5 w-5" alt="" />
+            </IconButton>
+
+            <IconButton label={themeToggleLabel} onClick={toggleTheme} aria-pressed={theme === "dark"}>
+              {theme === "dark" ? (
+                <FiSun aria-hidden="true" className="h-5 w-5" strokeWidth={2.2} />
+              ) : (
+                <FiMoon aria-hidden="true" className="h-5 w-5" strokeWidth={2.2} />
+              )}
             </IconButton>
 
             {isSuperAdmin && (
               <Link
                 to="/admin-orders"
-                className="mx-1 hidden rounded-full border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-black hover:text-black lg:inline-block"
+                className="mx-1 rounded-full border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:border-black hover:text-black"
               >
                 {translate("admin")}
               </Link>
@@ -544,12 +556,12 @@ export default function Header() {
                   {userInitials}
                 </span>
               ) : (
-                <img src="/logos/profile.svg" className="h-6 w-6" alt="" />
+                <img src="/logos/profile.svg" className="theme-icon h-6 w-6" alt="" />
               )}
             </IconButton>
 
-            <IconButton label={translate("shoppingCart")} onClick={() => navigate("/cart")}>
-              <img src="/logos/cart.svg" className="h-7 w-7" alt="" />
+            <IconButton label={translate("shoppingCart")} onClick={() => navigate("/cart")} data-cart-target>
+              <FiShoppingBag aria-hidden="true" className="h-[22px] w-[22px]" strokeWidth={2.1} />
               {cartCount > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#FDC700] px-1 text-[11px] font-bold text-black">
                   {cartCount > 99 ? "99+" : cartCount}
@@ -558,38 +570,11 @@ export default function Header() {
             </IconButton>
           </div>
         </div>
-
-        {/* Desktop categories */}
-        <nav className="relative hidden border-t border-gray-100 lg:block">
-          <div className="mx-auto flex h-11 max-w-[1240px] items-stretch justify-center gap-7 px-4">
-            {categories.map((category) => (
-              <DropdownMenu
-                key={category.key}
-                title={category.title}
-                link={category.link}
-                columns={category.columns}
-                viewAllLabel={translate("viewAll")}
-              />
-            ))}
-            <DropdownMenu
-              title={translate("brands")}
-              items={brandItems}
-              listColumns={5}
-              onOpen={loadBrands}
-            />
-            <DropdownMenu
-              title={translate("offers")}
-              items={offerItems}
-              listColumns={3}
-              highlight
-            />
-          </div>
-        </nav>
       </header>
 
       {/* Offers drawer */}
       {isOffersOpen && (
-        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+        <div className="fixed inset-x-0 top-0 bottom-[var(--bottom-nav-h,0px)] z-50" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-black/50" onClick={() => setIsOffersOpen(false)} />
           <div className="absolute right-0 top-0 h-full w-full max-w-[460px] overflow-y-auto bg-white px-8 pb-10 pt-16 shadow-2xl">
             <button
@@ -604,8 +589,8 @@ export default function Header() {
               <h2 className="text-2xl font-bold">{translate("todaysOffer")}</h2>
               <div className="h-1 w-16 bg-[#FDC700]" />
               {offerSections === null ? (
-                <div className="py-10">
-                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#FDC700]" />
+                <div className="py-8">
+                  <img src="/loaders/scoop.svg" alt="" aria-hidden="true" className="h-24 w-auto select-none" draggable={false} />
                 </div>
               ) : offerSections.length > 0 ? (
                 offerSections.map(renderOfferSection)
@@ -633,7 +618,7 @@ export default function Header() {
 
       {/* Mobile search */}
       {isMobileSearchOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-white lg:hidden" role="dialog" aria-modal="true">
+        <div className="fixed inset-x-0 top-0 bottom-[var(--bottom-nav-h,0px)] z-50 flex flex-col bg-white lg:hidden" role="dialog" aria-modal="true">
           <div className="flex items-center gap-2 border-b border-gray-200 p-3">
             <IconButton label={translate("close")} onClick={closeMobileSearch}>
               <CloseIcon />
@@ -641,7 +626,7 @@ export default function Header() {
             <div className="relative flex-1">
               <img
                 src="/logos/search.svg"
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-60"
+                className="theme-icon pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-60"
                 alt=""
               />
               <input
@@ -692,157 +677,79 @@ export default function Header() {
 
       {/* Mobile menu */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="absolute inset-y-0 left-0 flex w-full max-w-[400px] flex-col bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-200 px-3 py-2">
-              {mobileCategory ? (
-                <button
-                  type="button"
-                  onClick={() => setMobileCategory(null)}
-                  className="flex items-center gap-1 rounded-lg px-2 py-2 text-sm font-medium hover:bg-gray-100"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  {translate("back")}
-                </button>
-              ) : (
-                <span className="px-2 font-semibold">{translate("menu")}</span>
-              )}
-              <IconButton label={translate("close")} onClick={() => setIsMobileMenuOpen(false)}>
-                <CloseIcon />
-              </IconButton>
-            </div>
-
-            <div
-              className="flex-1 overflow-y-auto"
-              onClick={(event) => {
-                // Also close when a link to the current page is tapped.
-                if (event.target.closest("a")) setIsMobileMenuOpen(false);
-              }}
-            >
-              {mobileCategory ? (
-                <div className="p-4">
-                  <h2 className="mb-3 text-lg font-bold">{mobileCategory.title}</h2>
-                  {mobileCategory.link && (
-                    <Link
-                      to={mobileCategory.link}
-                      className="mb-4 block text-sm font-semibold text-[#2096D8]"
-                    >
-                      {translate("viewAll")} →
-                    </Link>
-                  )}
-                  {mobileCategory.flat ? (
-                    <ul className="divide-y divide-gray-100">
-                      {mobileCategory.groups.map((item) => (
-                        <li key={item.link}>
-                          <Link to={item.link} className="block py-3 text-sm">
-                            {item.label}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="space-y-5">
-                      {mobileCategory.groups.map((group) => (
-                        <div key={group.link || group.label}>
-                          <Link
-                            to={group.link}
-                            className="block border-b border-gray-100 pb-2 text-sm font-bold uppercase"
-                          >
-                            {group.label}
-                          </Link>
-                          {group.subItems?.length > 0 && (
-                            <ul className="mt-1">
-                              {group.subItems.map((subItem) => (
-                                <li key={subItem.link}>
-                                  <Link to={subItem.link} className="block py-2 pl-3 text-sm text-gray-600">
-                                    {subItem.label}
-                                  </Link>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <div className="border-b border-gray-100 p-4">
-                    {loggedIn ? (
-                      <div className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-800 text-sm font-bold text-white">
-                          {userInitials}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium">{user?.user_FullName}</p>
-                          <div className="flex gap-4 text-sm">
-                            <Link to="/profile" className="text-[#2096D8]">
-                              {translate("myAccount")}
-                            </Link>
-                            {isSuperAdmin && (
-                              <Link to="/admin-orders" className="text-gray-600">
-                                {translate("admin")}
-                              </Link>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <Link
-                        to="/login"
-                        className="block w-full bg-[#2096D8] py-2.5 text-center text-sm font-semibold text-white"
-                      >
-                        {translate("signInRegister")}
-                      </Link>
-                    )}
-                  </div>
-
-                  <ul className="divide-y divide-gray-100 px-2">
-                    {mobileNavItems.map((item) => (
-                      <li key={item.key}>
-                        <button
-                          type="button"
-                          onClick={() => openMobileCategory(item)}
-                          className="flex w-full items-center justify-between px-2 py-3.5 text-left text-sm font-medium"
-                        >
-                          {item.title}
-                          <ChevronRight />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="mt-2 space-y-1 border-t border-gray-100 p-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMobileMenuOpen(false);
-                        setIsLanguageModalOpen(true);
-                      }}
-                      className="flex w-full items-center gap-3 rounded-lg px-2 py-3 text-sm hover:bg-gray-50"
-                    >
-                      <img src={flagIcon} className="h-5 w-5" alt="" />
-                      <span className="flex-1 text-left">{translate("language")}</span>
-                      <span className="text-gray-400">{language.toUpperCase()}</span>
-                    </button>
-                    <Link
-                      to="/sales-points"
-                      className="flex items-center gap-3 rounded-lg px-2 py-3 text-sm hover:bg-gray-50"
-                    >
-                      <img src="/logos/location.svg" className="h-5 w-5" alt="" />
-                      {translate("branches")}
-                    </Link>
-                  </div>
-                </>
+        <MobileMenu
+          segment={mobileSegment}
+          onSegmentChange={changeMobileSegment}
+          categories={categories}
+          brands={brandItems}
+          offers={offerItems}
+          translate={translate}
+          onClose={() => setIsMobileMenuOpen(false)}
+          account={
+            <div className="flex items-center justify-between gap-3 border-b border-black/[0.08] px-4 py-3">
+              <Link
+                to={loggedIn ? "/profile" : "/login"}
+                className="flex min-h-[44px] min-w-0 flex-1 items-center gap-3 text-[15px] font-semibold text-gray-900"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f6f5f1] text-[13px] font-bold text-gray-900 ring-1 ring-black/[0.06]">
+                  {loggedIn ? userInitials : <FiUser aria-hidden="true" className="h-4 w-4" />}
+                </span>
+                <span className="truncate">{loggedIn ? user?.user_FullName || translate("myAccount") : translate("signInRegister")}</span>
+              </Link>
+              {isSuperAdmin && (
+                <Link to="/admin-orders" className="shrink-0 text-xs font-bold text-gray-500 underline underline-offset-4">
+                  {translate("admin")}
+                </Link>
               )}
             </div>
-          </div>
-        </div>
+          }
+          footer={
+            <div className="mx-4 mt-6 divide-y divide-black/[0.05] border-t border-black/[0.05]">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsLanguageModalOpen(true);
+                }}
+                className="flex min-h-[48px] w-full items-center gap-3 text-sm font-medium text-gray-700"
+              >
+                <img src={flagIcon} className="h-5 w-5" alt="" />
+                <span className="flex-1 text-left">{translate("language")}</span>
+                <span className="text-xs font-bold text-gray-500">{language.toUpperCase()}</span>
+              </button>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                aria-pressed={theme === "dark"}
+                className="flex min-h-[48px] w-full items-center gap-3 text-sm font-medium text-gray-700"
+              >
+                {theme === "dark" ? (
+                  <FiSun aria-hidden="true" className="h-5 w-5" strokeWidth={2.2} />
+                ) : (
+                  <FiMoon aria-hidden="true" className="h-5 w-5" strokeWidth={2.2} />
+                )}
+                <span className="flex-1 text-left">{translate("theme")}</span>
+                <span className="text-xs font-bold text-gray-500">{translate(theme === "dark" ? "dark" : "bright")}</span>
+              </button>
+              <Link to="/sales-points" className="flex min-h-[48px] items-center gap-3 text-sm font-medium text-gray-700">
+                <FiMapPin aria-hidden="true" className="h-5 w-5" strokeWidth={2.2} />
+                <span className="flex-1">{translate("branches")}</span>
+                <FiChevronRight aria-hidden="true" className="h-4 w-4 text-gray-400" />
+              </Link>
+            </div>
+          }
+        />
       )}
+
+      <MobileTabBar
+        cartCount={cartCount}
+        loggedIn={loggedIn}
+        isMenuOpen={isMobileMenuOpen}
+        menuSegment={mobileSegment}
+        onOpenMenu={openMobileMenu}
+        onCloseMenu={() => setIsMobileMenuOpen(false)}
+        translate={translate}
+      />
 
       <LanguageModal isOpen={isLanguageModalOpen} setIsOpen={setIsLanguageModalOpen} />
     </>

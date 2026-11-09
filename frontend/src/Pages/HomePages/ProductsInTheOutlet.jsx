@@ -3,10 +3,9 @@ import { IoIosStarOutline } from "react-icons/io";
 import { FiHeart } from "react-icons/fi";
 import { FaHeart } from "react-icons/fa";
 import { api } from "../../services/api";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useLanguage } from "../translation/LanguageContext";
-import ProductActionModal from "../Components/ProductActionModal";
-import { useCart } from "../Hooks/useCart";
+import { useQuickPurchase } from "../Hooks/useQuickPurchase";
 import { LargeLoader } from "../Components/Loaders/LargeLoader";
 
 export default function ProductsInTheOutlet() {
@@ -16,42 +15,14 @@ export default function ProductsInTheOutlet() {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const { translate } = useLanguage();
-  const { addToCart } = useCart();
-  const [adding, setAdding] = useState(false);
+  const { quickPurchase, prefetchQuickPurchase, quickPurchaseSheet } = useQuickPurchase();
   const [favorites, setFavorites] = useState({});
 
-  // Modal states
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [modalQuantity, setModalQuantity] = useState(1);
 
   // Check if user is logged in
   const isAuthenticated = api.isAuthenticated();
 
-  const handleAddToCart = async (product, quantity) => {
-    setAdding(true);
-    const success = await addToCart(product.product_Id, quantity, product);
-    setAdding(false);
 
-    if (success) {
-      alert(`${quantity} x ${product.name} added to cart!`);
-      setIsModalOpen(false);
-    } else {
-      alert("Failed to add to cart. Please login.");
-    }
-  };
-
-  const handleNavigationToProductDetails = (product) => {
-    const productId = product?.product_Id || product?.id || product?._id;
-
-    if (productId) {
-      navigate(`/product/${productId}`);
-      setIsModalOpen(false);
-      window.scrollTo(0, 0);
-    } else {
-      console.error("No product ID found", product);
-    }
-  };
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -216,11 +187,8 @@ export default function ProductsInTheOutlet() {
                   <ProductCard
                     key={product.product_Id}
                     product={product}
-                    onQuickPurchase={() => {
-                      setSelectedProduct(product);
-                      setModalQuantity(1);
-                      setIsModalOpen(true);
-                    }}
+                    onQuickPurchase={() => quickPurchase(product)}
+                    onQuickPurchaseIntent={() => prefetchQuickPurchase(product)}
                     onToggleFavorite={handleToggleFavorite}
                     isFavorite={favorites[product.product_Id] || false}
                     translate={translate}
@@ -251,25 +219,7 @@ export default function ProductsInTheOutlet() {
         </div>
       </div>
 
-      <ProductActionModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setModalQuantity(1);
-        }}
-        product={selectedProduct}
-        onAddToCart={handleAddToCart}
-        onRemoveFromCart={handleNavigationToProductDetails}
-        title={translate("quickPurchase")}
-        addButtonText={translate("addToCart")}
-        removeButtonText={translate("viewArticle")}
-        addButtonColor="bg-[#F7C201]"
-        addButtonHoverColor="hover:bg-[#e0b401]"
-        addButtonTextColor="text-black"
-        removeButtonColor="bg-[#dadada]"
-        removeButtonTextColor="text-black"
-        removeButtonHoverColor="hover:bg-[#c0c0c0]"
-      />
+      {quickPurchaseSheet}
     </>
   );
 }
@@ -278,14 +228,15 @@ export default function ProductsInTheOutlet() {
 function ProductCard({
   product,
   onQuickPurchase,
+  onQuickPurchaseIntent,
   onToggleFavorite,
   isFavorite,
   translate,
 }) {
   return (
     <div className="group relative inline-block bg-white flex-shrink-0 w-[161px] sm:w-[350px]">
-      <a
-        href={`/product/${product.product_Id}`}
+      <Link
+        to={`/product/${product.product_Id}`}
         className="flex flex-col p-[10px] pb-[18px] max-md:p-0 md:border md:border-transparent md:group-hover:border-gray-400 relative bg-white sm:h-[480px]"
         style={{ borderBottom: "none" }}
       >
@@ -318,7 +269,7 @@ function ProductCard({
         <span className="text-[#2096D8] text-[11px] leading-3 font-bold mt-[10px]">
           OUTLET
         </span>
-      </a>
+      </Link>
 
       <div
         className="absolute left-0 w-full bg-white border border-gray-400 z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible max-md:hidden"
@@ -343,6 +294,8 @@ function ProductCard({
                 e.stopPropagation();
                 onQuickPurchase();
               }}
+              onPointerEnter={onQuickPurchaseIntent}
+              onFocus={onQuickPurchaseIntent}
               className="bg-[#E5E5E5] hover:bg-[#d8d8d8] font-bold py-[13px] px-[16px] cursor-pointer"
             >
               {translate("quickPurchase")}

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { FiX, FiFilter, FiTrash2 } from "react-icons/fi";
 import { api } from "../../services/api";
 import PriceRangeFilter from "./PriceRangeFilter";
+import { BrandLoader } from "../Components/Loaders/BrandLoader";
 
 export default function MobileFiltersModal({
   isOpen,
@@ -273,7 +274,7 @@ export default function MobileFiltersModal({
         <div className="flex-1 overflow-y-auto p-4">
           {loading ? (
             <div className="flex justify-center items-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <BrandLoader variant="scoop" size={80} />
             </div>
           ) : (
             filterGroups.map((group, index) => (

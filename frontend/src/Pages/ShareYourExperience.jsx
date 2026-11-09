@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLanguage } from "./translation/LanguageContext";
 import { api } from "../services/api";
+import { BrandLoader } from "./Components/Loaders/BrandLoader";
 
 export default function ShareYourExperience() {
   const { translate } = useLanguage();
@@ -111,16 +112,16 @@ export default function ShareYourExperience() {
 
   if (loading) {
     return (
-      <div className="w-full flex justify-center pb-[60px]">
+      <div id="social" className="home-section home-tint relative w-full flex justify-center pb-12 sm:pb-[80px] bg-gradient-to-b from-white via-[#fdf4f8] to-[#fff8e6]">
         <div className="w-full max-w-[1240px] flex flex-col text-center px-[15px]">
-          <span className="text-[24px] font-bold pt-[80px] mb-[10px] leading-[29px]">
+          <h2 className="pt-12 sm:pt-[80px] mb-2 font-display font-bold uppercase tracking-tight text-[30px] leading-[0.95] text-[#141409] sm:text-5xl">
             #proteinisi
-          </span>
-          <span className="mb-[50px] text-[13px] text-[#828282] leading-[16px] font-extrabold">
+          </h2>
+          <span className="mb-6 sm:mb-[50px] text-[13px] text-[#6b6b6b] leading-[16px] font-bold">
             {translate("shareYourExperience")}
           </span>
           <div className="flex justify-center items-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+            <BrandLoader variant="scoop" size={120} />
           </div>
         </div>
       </div>
@@ -129,16 +130,16 @@ export default function ShareYourExperience() {
 
   if (posts.length === 0) {
     return (
-      <div className="w-full flex justify-center pb-[60px]">
+      <div id="social" className="home-section home-tint relative w-full flex justify-center pb-12 sm:pb-[80px] bg-gradient-to-b from-white via-[#fdf4f8] to-[#fff8e6]">
         <div className="w-full max-w-[1240px] flex flex-col text-center px-[15px]">
-          <span className="text-[24px] font-bold pt-[80px] mb-[10px] leading-[29px]">
+          <h2 className="pt-12 sm:pt-[80px] mb-2 font-display font-bold uppercase tracking-tight text-[30px] leading-[0.95] text-[#141409] sm:text-5xl">
             #proteinisi
-          </span>
-          <span className="mb-[50px] text-[13px] text-[#828282] leading-[16px] font-extrabold">
+          </h2>
+          <span className="mb-6 sm:mb-[50px] text-[13px] text-[#6b6b6b] leading-[16px] font-bold">
             {translate("shareYourExperience")}
           </span>
           <div className="text-center py-20 text-gray-500">
-            No Instagram posts yet. Check back soon!
+            {translate("noInstagramPosts")}
           </div>
         </div>
       </div>
@@ -147,27 +148,27 @@ export default function ShareYourExperience() {
 
   return (
     <>
-      <div className="w-full flex justify-center pb-[60px]">
+      <div id="social" className="home-section home-tint relative w-full flex justify-center pb-12 sm:pb-[80px] bg-gradient-to-b from-white via-[#fdf4f8] to-[#fff8e6]">
         <div className="w-full max-w-[1240px] flex flex-col text-center px-[15px]">
-          <span className="text-[24px] font-bold pt-[80px] mb-[10px] leading-[29px]">
+          <h2 className="pt-12 sm:pt-[80px] mb-2 font-display font-bold uppercase tracking-tight text-[30px] leading-[0.95] text-[#141409] sm:text-5xl">
             #proteinisi
-          </span>
-          <span className="mb-[50px] text-[13px] text-[#828282] leading-[16px] font-extrabold">
+          </h2>
+          <span className="mb-6 sm:mb-[50px] text-[13px] text-[#6b6b6b] leading-[16px] font-bold">
             {translate("shareYourExperience")}
           </span>
 
           {/* Grid Layout - Mobile */}
-          <div className="grid grid-cols-2 gap-[12px] md:hidden">
-            {posts.slice(0, 7).map((post, index) => (
+          <div className="grid grid-cols-2 gap-[10px] md:hidden">
+            {posts.slice(0, 6).map((post, index) => (
               <div
                 key={post.id}
-                className="relative group cursor-pointer"
+                className="relative group cursor-pointer overflow-hidden rounded-xl"
                 onClick={() => openModal(post, index)}
               >
                 <img
                   src={getImageUrl(post.imagePath)}
                   alt={post.description || "Instagram post"}
-                  className="w-full object-cover aspect-square"
+                  className="w-full object-cover aspect-square transition duration-700 group-hover:scale-110"
                   onError={(e) => {
                     e.target.src =
                       "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Crect x='2' y='2' width='20' height='20' rx='2.18'%3E%3C/rect%3E%3Cpath d='M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5'%3E%3C/path%3E%3C/svg%3E";
@@ -193,13 +194,13 @@ export default function ShareYourExperience() {
             {posts.slice(0, 7).map((post, index) => (
               <div
                 key={post.id}
-                className="relative group cursor-pointer overflow-hidden"
+                className="relative group cursor-pointer overflow-hidden rounded-xl"
                 onClick={() => openModal(post, index)}
               >
                 <img
                   src={getImageUrl(post.imagePath)}
                   alt={post.description || "Instagram post"}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition duration-700 group-hover:scale-110"
                   onError={(e) => {
                     e.target.src =
                       "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Crect x='2' y='2' width='20' height='20' rx='2.18'%3E%3C/rect%3E%3Cpath d='M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5'%3E%3C/path%3E%3C/svg%3E";

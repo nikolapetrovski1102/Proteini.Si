@@ -14,4 +14,8 @@ public interface IUserProvider
     Task<ResetTokenInfo?> GetResetTokenAsync(int userId);
     Task<bool> ResetPasswordAsync(int userId, string token, byte[] passwordHash, byte[] passwordSalt);
     Task<int> UpdateBillingInfoAsync(int userId, UserForUpdateDto info);
+    Task SetEmailCodeAsync(int userId, byte[] codeHash, DateTime expiresAt, DateTime sentAt);
+    Task<EmailCodeInfo?> GetEmailCodeAsync(int userId);
+    Task<int> IncrementEmailCodeAttemptsAsync(int userId);
+    Task<bool> ConfirmEmailAsync(int userId, byte[] codeHash, DateTime confirmedAt);
 }

@@ -20,6 +20,16 @@ public class UserController(IUserService service) : ControllerBase
         Ok(await service.LoginAsync(userForLogin));
 
     [AllowAnonymous]
+    [HttpPost("VerifyEmail")]
+    public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailDto verifyEmailDto) =>
+        Ok(await service.VerifyEmailAsync(verifyEmailDto));
+
+    [AllowAnonymous]
+    [HttpPost("ResendVerificationCode")]
+    public async Task<IActionResult> ResendVerificationCode([FromBody] ResendVerificationCodeDto resendDto) =>
+        Ok(await service.ResendVerificationCodeAsync(resendDto));
+
+    [AllowAnonymous]
     [HttpPost("ForgotPassword")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto forgotPasswordDto) =>
         Ok(await service.ForgotPasswordAsync(forgotPasswordDto));

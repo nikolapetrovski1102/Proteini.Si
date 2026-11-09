@@ -1,39 +1,52 @@
-import { useState, useEffect } from "react";
-import { FiShoppingCart } from "react-icons/fi";
-import { api } from "../../services/api";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  FiArrowRight,
+  FiClock,
+  FiShoppingBag,
+  FiShoppingCart,
+  FiStar,
+  FiTrendingUp,
+} from "react-icons/fi";
+import { api } from "../../services/api";
 import { useCart } from "../Hooks/useCart";
 import { useLanguage } from "../translation/LanguageContext";
+import { Sparkle } from "../HomePages/sections/Decor";
+import {
+  ProfileHeader,
+  ProfileLoading,
+  cardClass,
+  eyebrowClass,
+  ghostButtonClass,
+  headingClass,
+  pillButtonClass,
+} from "./ProfileKit";
+import { formatDate } from "./profileFormat";
+
+const PAGE_SIZE = 20;
+
+const TYPE_STYLES = {
+  earned: { icon: FiTrendingUp, chip: "bg-[#8DC658]/15 text-[#2f5e14]", sign: "+", amount: "text-[#2f5e14]" },
+  redeemed: { icon: FiShoppingBag, chip: "bg-[#E3262F]/10 text-[#a3161d]", sign: "−", amount: "text-[#a3161d]" },
+  expired: { icon: FiClock, chip: "bg-black/[0.06] text-gray-500", sign: "−", amount: "text-gray-500" },
+};
+const DEFAULT_STYLE = { icon: FiStar, chip: "bg-black/[0.06] text-gray-600", sign: "", amount: "text-gray-700" };
 
 export default function LoyaltyPoints() {
-  const [loyaltySummary, setLoyaltySummary] = useState({
-    totalPoints: 0,
-    availablePoints: 0,
-    totalEarned: 0,
-    totalRedeemed: 0,
-    totalExpired: 0,
-    transactionCount: 0,
-  });
-  const [pointsHistory, setPointsHistory] = useState([]);
+  const [summary, setSummary] = useState({ availablePoints: 0, totalEarned: 0, totalRedeemed: 0 });
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
   const navigate = useNavigate();
-  const { cart, loading: cartLoading } = useCart();
-  const { translate } = useLanguage();
+  const { cart } = useCart();
+  const { translate, language } = useLanguage();
 
-  useEffect(() => {
-    fetchLoyaltySummary();
-    fetchLoyaltyHistory();
-  }, []);
-
-  const fetchLoyaltySummary = async () => {
+  const fetchSummary = async () => {
     try {
       const response = await api.getLoyaltySummary();
-      if (response.status && response.data) {
-        setLoyaltySummary(response.data);
-      }
+      if (response.status && response.data) setSummary(response.data);
     } catch (error) {
       console.error("Error fetching loyalty summary:", error);
     } finally {
@@ -41,17 +54,13 @@ export default function LoyaltyPoints() {
     }
   };
 
-  const fetchLoyaltyHistory = async (pageNum = 1) => {
+  const fetchHistory = async (pageNum = 1) => {
     setLoadingHistory(true);
     try {
-      const response = await api.getLoyaltyHistory(pageNum, 20);
+      const response = await api.getLoyaltyHistory(pageNum, PAGE_SIZE);
       if (response.status && response.data) {
-        if (pageNum === 1) {
-          setPointsHistory(response.data);
-        } else {
-          setPointsHistory((prev) => [...prev, ...response.data]);
-        }
-        setHasMore(response.data.length === 20);
+        setHistory((prev) => (pageNum === 1 ? response.data : [...prev, ...response.data]));
+        setHasMore(response.data.length === PAGE_SIZE);
       }
     } catch (error) {
       console.error("Error fetching loyalty history:", error);
@@ -60,188 +69,140 @@ export default function LoyaltyPoints() {
     }
   };
 
+  useEffect(() => {
+    fetchSummary();
+    fetchHistory();
+  }, []);
+
   const loadMore = () => {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchLoyaltyHistory(nextPage);
+    const next = page + 1;
+    setPage(next);
+    fetchHistory(next);
   };
 
-  const getPointsIcon = (pointsType, sourceType) => {
-    if (pointsType === "earned") {
-      return "📈";
-    } else if (pointsType === "redeemed") {
-      return "🛍️";
-    } else if (pointsType === "expired") {
-      return "⏰";
-    }
-    return "📝";
+  const describe = (item) => {
+    if (item.description) return item.description;
+    const key =
+      item.pointsType === "earned"
+        ? "loyaltyEarnedPoints"
+        : item.pointsType === "redeemed"
+          ? "loyaltyRedeemedPoints"
+          : item.pointsType === "expired"
+            ? "loyaltyExpiredPoints"
+            : "loyaltyTransaction";
+    return translate(key).replace("{n}", Math.floor(item.points));
   };
 
-  const getPointsDescription = (item) => {
-    if (item.pointsType === "earned") {
-      return item.description || `Earned ${item.points} points`;
-    } else if (item.pointsType === "redeemed") {
-      return item.description || `Redeemed ${item.points} points`;
-    } else if (item.pointsType === "expired") {
-      return item.description || `${item.points} points expired`;
-    }
-    return item.description || "Transaction";
-  };
-
-  const getPointsClass = (pointsType) => {
-    if (pointsType === "earned") {
-      return "text-green-600";
-    } else if (pointsType === "redeemed") {
-      return "text-red-600";
-    } else if (pointsType === "expired") {
-      return "text-orange-600";
-    }
-    return "text-gray-600";
-  };
-
-  const getPointsPrefix = (pointsType) => {
-    if (pointsType === "earned") {
-      return "+";
-    } else if (pointsType === "redeemed" || pointsType === "expired") {
-      return "-";
-    }
-    return "";
-  };
-
-  // Calculate points earned from current cart (2% of subtotal)
   const cartPoints = cart?.total ? Math.floor(cart.total * 0.02) : 0;
+  const header = <ProfileHeader eyebrow={translate("profileMemberArea")} title={translate("loyaltyPoints")} />;
 
   if (loading) {
     return (
-      <div className="w-full max-w-[740px] pr-[50px] max-lg:pr-0 pb-[70px]">
-        <p className="text-[24px] font-bold mb-[20px] pt-[70px] pr-[50px]">
-          {translate("loyaltyPoints")}
-        </p>
-        <div className="bg-white rounded-lg p-6">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2096D8] mx-auto"></div>
-            <p className="text-gray-500 mt-4">Loading loyalty points...</p>
-          </div>
-        </div>
+      <div>
+        {header}
+        <ProfileLoading label={translate("loyaltyLoading")} />
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-[740px] pr-[50px] max-lg:pr-0 pb-[70px]">
-      <p className="text-[24px] font-bold mb-[20px] pt-[70px] pr-[50px] max-sm:pt-0">
-        {translate("loyaltyPoints")}
-      </p>
+    <div>
+      {header}
 
-      <div className="bg-white">
-        {/* Current Points Summary */}
-        <div className="text-center py-8 border-b border-[#E5E5E5] mb-[34px]">
-          <p className="text-[17px] font-extrabold mb-[16px] mx-auto bg-[#FDC700] w-[82px] h-[82px] rounded-full flex justify-center items-center text-2xl">
-            {Math.floor(loyaltySummary.availablePoints || 0)}
+      <div className="space-y-5">
+        {/* balance */}
+        <section className="relative overflow-hidden rounded-3xl bg-[#FDC700] p-6 sm:p-8">
+          <Sparkle color="#141409" className="absolute right-[8%] top-[14%] h-7 w-7 rotate-12" />
+          <Sparkle color="#ffffff" className="absolute right-[20%] top-[38%] h-4 w-4" />
+          <Sparkle color="#E3262F" className="absolute bottom-[14%] right-[12%] h-5 w-5" />
+          <p className="relative text-[11px] font-semibold uppercase tracking-[0.08em] text-[#141409]/70">
+            {translate("availableLoyaltyPoints")}
           </p>
-          <p className="text-gray-600">{translate("availableLoyaltyPoints")}</p>
-          <p className="text-xs text-gray-400 mt-2">
-            {translate("totalEarned")}:{" "}
-            {Math.floor(loyaltySummary.totalEarned || 0)} |{" "}
-            {translate("redeemed")}:{" "}
-            {Math.floor(loyaltySummary.totalRedeemed || 0)}
+          <p className="relative mt-2 font-display text-7xl font-bold leading-none tabular-nums text-[#141409] sm:text-8xl">
+            {Math.floor(summary.availablePoints || 0)}
           </p>
-        </div>
-
-        {/* Cart Points Section */}
-        {cartPoints > 0 && (
-          <div className="bg-white border-b border-[#E5E5E5] pb-8 mb-[16px] flex flex-col gap-4">
-            <div className="flex gap-4 items-center">
-              <FiShoppingCart size={22} color="#828282" />
-              <p className="text-[16px] text-[#828282]">
-                {translate("youWillEarnFromCurrentCart")}
-              </p>
-            </div>
-            <div className="flex gap-4 items-center">
-              <p className="text-[12px] bg-[#FDC700] w-[44px] h-[44px] rounded-full flex justify-center items-center font-bold">
-                {cartPoints}
-              </p>
-              <p className="text-[12px]">
-                {translate("points")} (2% {translate("ofOrderTotal")})
-              </p>
-            </div>
-            <button
-              onClick={() => navigate("/checkout")}
-              className="bg-[#FDC700] text-[16px] font-bold py-3 px-6 hover:bg-[#e0b800] transition-colors w-full"
-            >
-              {translate("completeThePurchase")}
-            </button>
+          <div className="relative mt-6 grid max-w-[420px] grid-cols-2 gap-2">
+            {[
+              ["totalEarned", summary.totalEarned],
+              ["redeemed", summary.totalRedeemed],
+            ].map(([key, value]) => (
+              <div key={key} className="rounded-xl bg-[#141409]/[0.08] px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#141409]/65">{translate(key)}</p>
+                <p className="mt-1 font-display text-2xl font-bold tabular-nums text-[#141409]">{Math.floor(value || 0)}</p>
+              </div>
+            ))}
           </div>
+        </section>
+
+        {/* points from current cart */}
+        {cartPoints > 0 && (
+          <section className={`${cardClass} flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6`}>
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#141409] text-[#FDC700]">
+              <FiShoppingCart size={20} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-gray-600">{translate("youWillEarnFromCurrentCart")}</p>
+              <p className="mt-0.5 text-lg font-bold text-gray-900">
+                <span className="tabular-nums">+{cartPoints}</span> {translate("points")}{" "}
+                <span className="text-sm font-medium text-gray-500">(2% {translate("ofOrderTotal")})</span>
+              </p>
+            </div>
+            <button type="button" onClick={() => navigate("/checkout")} className={pillButtonClass}>
+              {translate("completeThePurchase")}
+              <FiArrowRight className="text-[#FDC700] transition-transform group-hover:translate-x-0.5" />
+            </button>
+          </section>
         )}
 
-        {/* Points History */}
-        <div className="mb-[30px] pt-[10px]">
-          <p className="text-[16px] text-[#828282] mb-[15px] font-semibold">
-            {translate("historyOfLoyaltyPoints")}
-          </p>
+        {/* history */}
+        <section className={`${cardClass} p-5 sm:p-7`}>
+          <h2 className={`${headingClass} text-2xl`}>{translate("historyOfLoyaltyPoints")}</h2>
 
-          {pointsHistory.length === 0 ? (
-            <p className="text-gray-500 text-sm">
+          {history.length === 0 ? (
+            <p className="mt-4 rounded-xl bg-[#f6f5f1] px-4 py-6 text-center text-sm text-gray-500">
               {translate("youHaveNoLoyaltyPointTransactionsYet")}
             </p>
           ) : (
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
-              {pointsHistory.map((item) => (
-                <div
-                  key={item.loyaltyPointId}
-                  className="flex justify-between items-start py-3 border-b border-gray-100"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">
-                        {getPointsIcon(item.pointsType, item.sourceType)}
+            <>
+              <ul className="mt-4 divide-y divide-black/[0.06]">
+                {history.map((item) => {
+                  const style = TYPE_STYLES[item.pointsType] || DEFAULT_STYLE;
+                  const Icon = style.icon;
+                  return (
+                    <li key={item.loyaltyPointId} className="flex items-center gap-4 py-3.5">
+                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${style.chip}`}>
+                        <Icon size={17} />
                       </span>
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">
-                          {getPointsDescription(item)}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          {new Date(item.transactionDate).toLocaleDateString(
-                            "en-US",
-                            {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            },
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-gray-900">{describe(item)}</p>
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          {formatDate(item.transactionDate, language, true)}
+                          {item.expiryDate && item.pointsType === "earned" && (
+                            <span className="ml-2 text-[#9a5b00]">
+                              · {translate("loyaltyExpires")} {formatDate(item.expiryDate, language)}
+                            </span>
                           )}
                         </p>
-                        {item.expiryDate && item.pointsType === "earned" && (
-                          <p className="text-xs text-orange-500 mt-1">
-                            Expires:{" "}
-                            {new Date(item.expiryDate).toLocaleDateString()}
-                          </p>
-                        )}
                       </div>
-                    </div>
-                  </div>
-                  <div
-                    className={`text-right font-semibold ${getPointsClass(item.pointsType)}`}
-                  >
-                    {getPointsPrefix(item.pointsType)}
-                    {Math.floor(item.points)} pts
-                  </div>
-                </div>
-              ))}
-
+                      <span className={`shrink-0 font-display text-xl font-bold tabular-nums ${style.amount}`}>
+                        {style.sign}
+                        {Math.floor(item.points)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
               {hasMore && (
-                <button
-                  onClick={loadMore}
-                  disabled={loadingHistory}
-                  className="w-full text-center text-[#2096D8] text-sm py-2 hover:underline disabled:opacity-50"
-                >
-                  {loadingHistory ? "Loading..." : "Load more"}
-                </button>
+                <div className="mt-4 text-center">
+                  <button type="button" onClick={loadMore} disabled={loadingHistory} className={ghostButtonClass}>
+                    {loadingHistory ? translate("loyaltyLoadingMore") : translate("loyaltyLoadMore")}
+                  </button>
+                </div>
               )}
-            </div>
+            </>
           )}
-        </div>
+          <p className={`${eyebrowClass} mt-5 normal-case tracking-normal`}>{translate("loyaltyHowItWorks")}</p>
+        </section>
       </div>
     </div>
   );

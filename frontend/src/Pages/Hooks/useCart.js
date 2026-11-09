@@ -4,16 +4,27 @@
 // reads the same state, so the cart is fetched once (not once per component),
 // in-flight requests are shared, and the header badge updates instantly after
 // any add/update/remove without polling.
+//
+// Logged-in mutations are optimistic: the cart on screen changes immediately, the
+// request runs in the background, and once every pending mutation has settled the
+// cart is refetched once so it matches the server (which also undoes a failed change).
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { api } from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
+import {
+  celebrateAddToCart,
+  showCartError,
+  showRemovedToast,
+} from "../Components/Cart/cartFeedback";
 
 const GUEST_CART_KEY = "guestCart";
 const DEFAULT_LOYALTY_PERCENTAGE = 2.0;
 const EMPTY_CART = Object.freeze({ items: [], total: 0, totalItems: 0 });
 
 let state = { cart: null, loading: false, mode: null };
-let inflight = null; // { mode, promise }
+let inflight = null; // { mode, gen, promise }
+let pendingMutations = 0;
+let mutationGen = 0; // bumped on every optimistic change; older fetches are discarded
 const listeners = new Set();
 
 const emit = (patch) => {
@@ -68,7 +79,7 @@ const loadCart = (isAuthenticated, { force = false } = {}) => {
   if (!force && state.mode === mode && state.cart) {
     return Promise.resolve(state.cart);
   }
-  if (inflight && inflight.mode === mode) {
+  if (inflight && inflight.mode === mode && inflight.gen === mutationGen) {
     return inflight.promise;
   }
 
@@ -83,11 +94,16 @@ const loadCart = (isAuthenticated, { force = false } = {}) => {
   const hasCartForMode = state.mode === mode && state.cart;
   emit({ loading: !hasCartForMode, mode, cart: hasCartForMode ? state.cart : null });
 
+  const gen = mutationGen;
+  const isFresh = () =>
+    state.mode === mode && gen === mutationGen && pendingMutations === 0;
+
   const promise = api
     .getCart()
     .then((data) => {
       const cart = withLoyalty(data) ?? { ...EMPTY_CART };
-      if (state.mode === mode) emit({ cart, loading: false });
+      // A newer optimistic change happened meanwhile; its own refetch will land later.
+      if (isFresh()) emit({ cart, loading: false });
       return cart;
     })
     .catch((error) => {
@@ -101,8 +117,86 @@ const loadCart = (isAuthenticated, { force = false } = {}) => {
       if (inflight?.promise === promise) inflight = null;
     });
 
-  inflight = { mode, promise };
+  inflight = { mode, gen, promise };
   return promise;
+};
+
+const cloneCart = (cart) => ({
+  ...(cart || EMPTY_CART),
+  items: (cart?.items || []).map((item) => ({ ...item })),
+});
+
+let tempIdSeq = 0;
+const tempCartItemId = () => `tmp-${Date.now()}-${++tempIdSeq}`;
+
+/** True for a row that exists only on screen until the server confirms it. */
+export const isPendingCartItem = (item) =>
+  typeof item?.cartItem_Id === "string" && item.cartItem_Id.startsWith("tmp-");
+
+/**
+ * Shows `nextCart` right away (logged-in cart), runs `request` in the background and
+ * resyncs with the server once nothing else is pending. Resolves to true/false.
+ */
+const runUserMutation = (nextCart, request) => {
+  mutationGen += 1;
+  pendingMutations += 1;
+  emit({ cart: withLoyalty(recalculate(nextCart)), loading: false });
+
+  return Promise.resolve()
+    .then(request)
+    .then(
+      () => true,
+      (error) => {
+        console.error("Cart request failed:", error);
+        return false;
+      },
+    )
+    .finally(() => {
+      pendingMutations -= 1;
+      if (pendingMutations === 0 && state.mode === "user") {
+        loadCart(true, { force: true });
+      }
+    });
+};
+
+const variantPayload = (source) => ({
+  variant_Id: source.variant_Id,
+  variant_Name: source.variant_Name,
+  variant_Packaging: source.variant_Packaging,
+  variant_Weight_Grams: source.variant_Weight_Grams,
+  price: source.price,
+  loyaltyPercentage: source.loyaltyPercentage ?? DEFAULT_LOYALTY_PERCENTAGE,
+});
+
+/** Adds an item to a cart copy, merging with an existing line of the same product/variant. */
+const addLine = (cart, productId, quantity, product) => {
+  const variantId = product?.variant_Id || null;
+  const existing = cart.items.find(
+    (item) =>
+      item.product_Id === productId && (item.variant_Id || null) === variantId,
+  );
+  if (existing) {
+    existing.quantity += quantity;
+    existing.subtotal = existing.price * existing.quantity;
+    return cart;
+  }
+  const price = Number(product?.price) || 0;
+  cart.items.push({
+    cartItem_Id: tempCartItemId(),
+    product_Id: productId,
+    product_Name: product?.name || product?.product_Name || "Product",
+    product_Img: product?.img || product?.product_Img || "/placeholder-image.jpg",
+    price,
+    quantity,
+    subtotal: price * quantity,
+    variant_Id: variantId,
+    variant_Name: product?.variant_Name || null,
+    variant_Packaging: product?.variant_Packaging || null,
+    variant_Weight_Grams: product?.variant_Weight_Grams || null,
+    weight_Grams: product?.weight_Grams || null,
+    loyaltyPercentage: product?.loyaltyPercentage ?? DEFAULT_LOYALTY_PERCENTAGE,
+  });
+  return cart;
 };
 
 /** Clears the locally stored guest cart and updates every subscriber. */
@@ -149,21 +243,14 @@ export const useCart = () => {
     async (productId, quantity, product = null) => {
       try {
         if (isAuthenticated) {
-          const variantData = product
-            ? {
-                variant_Id: product.variant_Id,
-                variant_Name: product.variant_Name,
-                variant_Packaging: product.variant_Packaging,
-                variant_Weight_Grams: product.variant_Weight_Grams,
-                price: product.price,
-                loyaltyPercentage:
-                  product.loyaltyPercentage ?? DEFAULT_LOYALTY_PERCENTAGE,
-              }
-            : null;
+          const variantData = product ? variantPayload(product) : null;
 
-          await api.addToCart(productId, quantity, variantData);
-          await loadCart(true, { force: true });
-          return true;
+          const outcome = runUserMutation(
+            addLine(cloneCart(state.cart), productId, quantity, product),
+            () => api.addToCart(productId, quantity, variantData),
+          );
+          celebrateAddToCart({ product, quantity, outcome });
+          return outcome;
         }
 
         const guestCart = readGuestCart();
@@ -236,6 +323,7 @@ export const useCart = () => {
         }
 
         writeGuestCart(recalculate(guestCart));
+        celebrateAddToCart({ product, quantity });
         return true;
       } catch (error) {
         console.error("Error adding to cart:", error);
@@ -249,8 +337,15 @@ export const useCart = () => {
     async (cartItemId, quantity) => {
       try {
         if (isAuthenticated) {
-          await api.updateCartItem(cartItemId, quantity);
-          await loadCart(true, { force: true });
+          const next = cloneCart(state.cart);
+          const item = next.items.find((i) => i.cartItem_Id === cartItemId);
+          if (!item || isPendingCartItem(item)) return;
+          item.quantity = quantity;
+          item.subtotal = item.price * quantity;
+          const ok = await runUserMutation(next, () =>
+            api.updateCartItem(cartItemId, quantity),
+          );
+          if (!ok) showCartError();
           return;
         }
 
@@ -268,25 +363,65 @@ export const useCart = () => {
     [isAuthenticated],
   );
 
+  /** Puts a removed line back where it was (Undo). */
+  const restoreItem = useCallback(
+    (item, index) => {
+      if (isAuthenticated) {
+        const next = cloneCart(state.cart);
+        const alreadyBack = next.items.some(
+          (i) =>
+            i.product_Id === item.product_Id &&
+            (i.variant_Id || null) === (item.variant_Id || null),
+        );
+        if (alreadyBack) return;
+        next.items.splice(Math.min(index, next.items.length), 0, {
+          ...item,
+          cartItem_Id: tempCartItemId(),
+        });
+        runUserMutation(next, () =>
+          api.addToCart(item.product_Id, item.quantity, variantPayload(item)),
+        ).then((ok) => !ok && showCartError());
+        return;
+      }
+
+      const guestCart = readGuestCart();
+      if (guestCart.items.some((i) => i.cartItem_Id === item.cartItem_Id)) return;
+      guestCart.items.splice(Math.min(index, guestCart.items.length), 0, item);
+      writeGuestCart(recalculate(guestCart));
+    },
+    [isAuthenticated],
+  );
+
   const removeFromCart = useCallback(
-    async (cartItemId) => {
+    async (cartItemId, { undoable = true } = {}) => {
       try {
         if (isAuthenticated) {
-          await api.removeFromCart(cartItemId);
-          await loadCart(true, { force: true });
+          const next = cloneCart(state.cart);
+          const index = next.items.findIndex((i) => i.cartItem_Id === cartItemId);
+          // A row still waiting for the server has no real id to delete yet.
+          if (index === -1 || isPendingCartItem(next.items[index])) return;
+          const [removed] = next.items.splice(index, 1);
+          if (undoable) {
+            showRemovedToast({ item: removed, onUndo: () => restoreItem(removed, index) });
+          }
+          const ok = await runUserMutation(next, () => api.removeFromCart(cartItemId));
+          if (!ok) showCartError();
           return;
         }
 
         const guestCart = readGuestCart();
-        guestCart.items = guestCart.items.filter(
-          (item) => item.cartItem_Id !== cartItemId,
-        );
+        const index = guestCart.items.findIndex((item) => item.cartItem_Id === cartItemId);
+        if (index === -1) return;
+        const [removed] = guestCart.items.splice(index, 1);
         writeGuestCart(recalculate(guestCart));
+        if (undoable) {
+          showRemovedToast({ item: removed, onUndo: () => restoreItem(removed, index) });
+        }
       } catch (error) {
         console.error("Error removing from cart:", error);
       }
     },
-    [isAuthenticated],
+    [isAuthenticated, restoreItem],
   );
 
   const clearCart = useCallback(async () => {
@@ -312,6 +447,7 @@ export const useCart = () => {
     addToCart,
     updateQuantity,
     removeFromCart,
+    restoreItem,
     clearCart,
     refreshCart,
   };

@@ -73,6 +73,29 @@ public class UserProvider(ISqlHelper sql) : IUserProvider
             info.Company_Phone
         });
 
+    public Task SetEmailCodeAsync(int userId, byte[] codeHash, DateTime expiresAt, DateTime sentAt) =>
+        sql.ExecuteAsync(StoredProcedures.Users.SetEmailCode, new
+        {
+            UserId = userId,
+            CodeHash = codeHash,
+            ExpiresAt = expiresAt,
+            SentAt = sentAt
+        });
+
+    public Task<EmailCodeInfo?> GetEmailCodeAsync(int userId) =>
+        sql.QuerySingleOrDefaultAsync<EmailCodeInfo>(StoredProcedures.Users.GetEmailCode, new { UserId = userId });
+
+    public async Task<int> IncrementEmailCodeAttemptsAsync(int userId) =>
+        await sql.ExecuteScalarAsync<int?>(StoredProcedures.Users.IncrementEmailCodeAttempts, new { UserId = userId }) ?? int.MaxValue;
+
+    public async Task<bool> ConfirmEmailAsync(int userId, byte[] codeHash, DateTime confirmedAt) =>
+        await sql.ExecuteScalarAsync<int>(StoredProcedures.Users.ConfirmEmail, new
+        {
+            UserId = userId,
+            CodeHash = codeHash,
+            ConfirmedAt = confirmedAt
+        }) > 0;
+
     private sealed class RegisterResultRow
     {
         public int Result { get; init; }

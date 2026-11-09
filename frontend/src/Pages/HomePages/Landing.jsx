@@ -4,10 +4,10 @@ import { FiHeart } from "react-icons/fi";
 import { FaHeart } from "react-icons/fa";
 import { useState, useEffect } from "react";
 import { api } from "../../services/api";
-import { useNavigate } from "react-router-dom";
-import ProductActionModal from "../Components/ProductActionModal";
-import { useCart } from "../Hooks/useCart";
+import { Link, useNavigate } from "react-router-dom";
+import { useQuickPurchase } from "../Hooks/useQuickPurchase";
 import { useLanguage } from "../translation/LanguageContext";
+import { BrandLoader } from "../Components/Loaders/BrandLoader";
 
 export default function Landing() {
   const [sections, setSections] = useState([]);
@@ -16,13 +16,8 @@ export default function Landing() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [favorites, setFavorites] = useState({});
   const navigate = useNavigate();
-  const { addToCart } = useCart();
-  const [adding, setAdding] = useState(false);
+  const { quickPurchase, quickPurchaseSheet } = useQuickPurchase();
   const { translate } = useLanguage();
-  // Modal states
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [modalQuantity, setModalQuantity] = useState(1);
 
   // Check if user is logged in
   const isAuthenticated = api.isAuthenticated();
@@ -77,30 +72,7 @@ export default function Landing() {
     setFavorites((prev) => ({ ...prev, ...favoriteStatus }));
   };
 
-  const handleAddToCart = async (product, quantity) => {
-    setAdding(true);
-    const success = await addToCart(product.product_Id, quantity, product);
-    setAdding(false);
 
-    if (success) {
-      alert(`${quantity} x ${product.name} added to cart!`);
-      setIsModalOpen(false);
-    } else {
-      alert("Failed to add to cart. Please login.");
-    }
-  };
-
-  const handleNavigationToProductDetails = (product) => {
-    const productId = product?.product_Id || product?.id || product?._id;
-
-    if (productId) {
-      navigate(`/product/${productId}`);
-      setIsModalOpen(false);
-      window.scrollTo(0, 0);
-    } else {
-      console.error("No product ID found", product);
-    }
-  };
 
   const handleToggleFavorite = async (productId, e) => {
     e.preventDefault();
@@ -195,7 +167,7 @@ export default function Landing() {
   if (loading) {
     return (
       <div className="w-full flex flex-col justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1F497D]"></div>
+        <BrandLoader variant="shaker" size={120} />
       </div>
     );
   }
@@ -305,7 +277,7 @@ export default function Landing() {
 
         {productsLoading ? (
           <div className="flex justify-center items-center py-10">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1F497D]"></div>
+            <BrandLoader variant="shaker" size={120} />
           </div>
         ) : recommendedProducts.length === 0 ? (
           <p className="text-gray-500 py-10">
@@ -318,8 +290,8 @@ export default function Landing() {
                 key={product.product_Id}
                 className="group relative bg-white"
               >
-                <a
-                  href={`/product/${product.product_Id}`}
+                <Link
+                  to={`/product/${product.product_Id}`}
                   className="flex flex-col p-[10px] pb-[18px] max-md:p-0 border border-transparent group-hover:border-gray-400 relative bg-white"
                   style={{ borderBottom: "none" }}
                 >
@@ -358,7 +330,7 @@ export default function Landing() {
                   <span className="text-[#2096D8] text-[11px] leading-3 font-bold mt-[10px]">
                     {translate("recommended")}
                   </span>
-                </a>
+                </Link>
 
                 <div
                   className="absolute left-0 w-full bg-white border border-gray-400 z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible max-lg:hidden"
@@ -381,9 +353,7 @@ export default function Landing() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          setSelectedProduct(product);
-                          setModalQuantity(1);
-                          setIsModalOpen(true);
+                          quickPurchase(product);
                         }}
                         className="bg-[#E5E5E5] hover:bg-[#d8d8d8] font-bold py-[13px] px-[16px] cursor-pointer"
                       >
@@ -410,27 +380,7 @@ export default function Landing() {
           </div>
         )}
       </div>
-
-      {/* Product Action Modal */}
-      <ProductActionModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setModalQuantity(1);
-        }}
-        product={selectedProduct}
-        onAddToCart={handleAddToCart}
-        onRemoveFromCart={handleNavigationToProductDetails}
-        title="Quick Purchase"
-        addButtonText="Add to Cart"
-        addButtonColor="bg-[#F7C201]"
-        addButtonHoverColor="hover:bg-[#e0b401]"
-        addButtonTextColor="text-black"
-        removeButtonText="View article"
-        removeButtonColor="bg-[#dadada]"
-        removeButtonTextColor="text-black"
-        removeButtonHoverColor="hover:bg-[#c0c0c0]"
-      />
+      {quickPurchaseSheet}
     </div>
   );
 }

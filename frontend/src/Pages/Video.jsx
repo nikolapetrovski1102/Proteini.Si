@@ -4,6 +4,7 @@ import { IoIosArrowDown } from "react-icons/io";
 import { IoIosArrowUp } from "react-icons/io";
 import { useLanguage } from "./translation/LanguageContext";
 import { api } from "../services/api";
+import { BrandLoader } from "./Components/Loaders/BrandLoader";
 
 export default function Video() {
   const { translate } = useLanguage();
@@ -134,7 +135,7 @@ export default function Video() {
     return (
       <div className="w-full flex justify-center sm:pt-[80px] sm:pb-[94px] bg-black">
         <div className="w-full max-w-[1240px] flex flex-col items-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+          <BrandLoader variant="shaker" size={120} />
         </div>
       </div>
     );

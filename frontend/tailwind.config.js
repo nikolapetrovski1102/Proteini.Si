@@ -4,6 +4,8 @@ export default {
     extend: {
       fontFamily: {
         montserrat: ["Montserrat", "sans-serif"],
+        // Condensed display face for big uppercase headings (has Cyrillic).
+        display: ["Oswald", "Montserrat", "sans-serif"],
       },
     },
     screens: {

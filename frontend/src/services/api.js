@@ -23,80 +23,75 @@ const normalizeDynamicRows = (rows) =>
   Array.isArray(rows) ? rows.map(normalizeDynamicRecord) : rows;
 
 export const api = {
-  // src/services/api.js
-  async register(userData) {
+  // POSTs to an auth endpoint. Failed responses throw an Error carrying the
+  // response body as `error.data` and the HTTP status as `error.status`, so the
+  // UI can read `errors[]`, `requiresVerification`, `retryAfterSeconds`, etc.
+  async postAuth(path, body, fallbackMessage) {
+    const response = await fetch(`${API_BASE_URL}/User/${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    let data = {};
     try {
-      const response = await fetch(`${API_BASE_URL}/User/Register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userData),
-      });
+      data = await response.json();
+    } catch {
+      data = {};
+    }
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || data.title || "Registration failed");
-      }
-
-      // Store token if returned
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-      }
-
-      // Store user data if returned from registration
-      if (data.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-      } else if (data.token) {
-        try {
-          await this.fetchCurrentUser();
-        } catch (err) {
-          console.warn("Could not fetch user after registration:", err);
-        }
-      }
-
-      return data;
-    } catch (error) {
-      console.error("Register error:", error);
+    if (!response.ok) {
+      const error = new Error(
+        data.errors?.[0] || data.message || data.title || fallbackMessage,
+      );
+      error.data = data;
+      error.status = response.status;
       throw error;
     }
+
+    return data;
   },
 
+  storeSession(data) {
+    if (data?.token) localStorage.setItem("token", data.token);
+    if (data?.user) localStorage.setItem("user", JSON.stringify(data.user));
+  },
+
+  // Registration no longer signs the user in: the backend emails a 6-digit
+  // code and answers { status, requiresVerification, email, retryAfterSeconds }.
+  async register(userData) {
+    const data = await this.postAuth("Register", userData, "Registration failed");
+    this.storeSession(data);
+    return data;
+  },
+
+  // An unconfirmed account rejects with 403 and error.data.requiresVerification.
   async login(credentials) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/User/Login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(credentials),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || data.title || "Login failed");
-      }
-
-      // Store token
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-      }
-
-      // Store user data if returned
-      if (data.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-      } else if (data.status && data.token) {
-        // If user data not returned in login response, fetch it
-        await api.fetchCurrentUser();
-      }
-
-      return data;
-    } catch (error) {
-      console.error("Login error:", error);
-      throw error;
+    const data = await this.postAuth("Login", credentials, "Login failed");
+    this.storeSession(data);
+    if (data.status && data.token && !data.user) {
+      await api.fetchCurrentUser();
     }
+    return data;
+  },
+
+  // Confirms the email with the code and signs the user in.
+  async verifyEmail({ email, code }) {
+    const data = await this.postAuth(
+      "VerifyEmail",
+      { user_Email: email, code },
+      "Verification failed",
+    );
+    this.storeSession(data);
+    return data;
+  },
+
+  async resendVerificationCode({ email, language }) {
+    return this.postAuth(
+      "ResendVerificationCode",
+      { user_Email: email, language },
+      "Could not send a new code",
+    );
   },
 
   // Add this new method to fetch current user

@@ -1,275 +1,135 @@
-import { useState, useEffect } from "react";
+import { createElement, useEffect, useState } from "react";
+import {
+  FiBriefcase,
+  FiCheck,
+  FiMail,
+  FiShield,
+  FiUser,
+  FiUserX,
+} from "react-icons/fi";
 import { useLanguage } from "../translation/LanguageContext";
 import { api } from "../../services/api";
+import { COUNTRIES } from "../Components/countries";
+import {
+  Notice,
+  ProfileHeader,
+  ProfileLoading,
+  cardClass,
+  eyebrowClass,
+  ghostButtonClass,
+  headingClass,
+  pillButtonClass,
+} from "./ProfileKit";
+
+const inputClass =
+  "block w-full min-h-[48px] rounded-xl bg-[#f6f5f1] px-4 text-[15px] text-gray-900 ring-1 ring-black/[0.08] placeholder:text-gray-400 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#141409]";
+
+const EMPTY_NATURAL = {
+  User_Address: "",
+  User_PostCode: "",
+  User_City: "",
+  User_Country: "",
+  User_Phone: "",
+};
+
+const EMPTY_COMPANY = {
+  Company_Name: "",
+  Company_Address: "",
+  Company_TaxNumber: "",
+  Company_PostCode: "",
+  Company_City: "",
+  Company_Country: "",
+  Company_Phone: "",
+};
+
+function Input({ label, id, className = "", ...props }) {
+  return (
+    <div className={className}>
+      <label htmlFor={id} className="mb-1.5 block text-[13px] font-semibold text-gray-800">
+        {label}
+      </label>
+      <input id={id} className={inputClass} {...props} />
+    </div>
+  );
+}
+
+function CountrySelect({ label, id, translate, className = "", ...props }) {
+  return (
+    <div className={className}>
+      <label htmlFor={id} className="mb-1.5 block text-[13px] font-semibold text-gray-800">
+        {label}
+      </label>
+      <select id={id} className={`${inputClass} appearance-none`} {...props}>
+        <option value="">{translate("selectACountry")}</option>
+        {COUNTRIES.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function SectionCard({ icon, title, children, className = "" }) {
+  const Icon = icon;
+  return (
+    <section className={`${cardClass} p-5 sm:p-7 ${className}`}>
+      <div className="mb-5 flex items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FDC700]/25 text-[#141409]">
+          <Icon size={18} />
+        </span>
+        <h2 className={`${headingClass} text-2xl`}>{title}</h2>
+      </div>
+      {children}
+    </section>
+  );
+}
 
 export default function ProfileDefault() {
-  const [userEmail, setUserEmail] = useState("");
-  const [userName, setUserName] = useState("");
-  const [userData, setUserData] = useState(null);
   const { translate } = useLanguage();
+  const [user, setUser] = useState(null);
   const [accountType, setAccountType] = useState("natural");
+  const [naturalForm, setNaturalForm] = useState(EMPTY_NATURAL);
+  const [companyForm, setCompanyForm] = useState(EMPTY_COMPANY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [notice, setNotice] = useState({ tone: "success", text: "" });
+  const [newsState, setNewsState] = useState("idle");
 
-  // Natural person billing form state
-  const [naturalForm, setNaturalForm] = useState({
-    User_Address: "",
-    User_PostCode: "",
-    User_City: "",
-    User_Country: "",
-    User_Phone: "",
-  });
+  const applyUser = (data) => {
+    setUser(data);
+    if (data.user_IsCompany === true) {
+      const c = data.company || {};
+      setAccountType("company");
+      setCompanyForm({
+        Company_Name: c.company_Name || "",
+        Company_Address: c.company_Address || "",
+        Company_TaxNumber: c.company_TaxNumber || "",
+        Company_PostCode: c.company_PostCode || "",
+        Company_City: c.company_City || "",
+        Company_Country: c.company_Country || "",
+        Company_Phone: c.company_Phone || "",
+      });
+    } else {
+      setAccountType("natural");
+      setNaturalForm({
+        User_Address: data.user_Address || "",
+        User_PostCode: data.user_PostCode || "",
+        User_City: data.user_City || "",
+        User_Country: data.user_Country || "",
+        User_Phone: data.user_Phone || "",
+      });
+    }
+  };
 
-  // Company billing form state
-  const [companyForm, setCompanyForm] = useState({
-    Company_Name: "",
-    Company_Address: "",
-    Company_TaxNumber: "",
-    Company_PostCode: "",
-    Company_City: "",
-    Company_Country: "",
-    Company_Phone: "",
-  });
-
-  // List of countries
-  const countries = [
-    "Afghanistan",
-    "Albania",
-    "Algeria",
-    "Andorra",
-    "Angola",
-    "Antigua and Barbuda",
-    "Argentina",
-    "Armenia",
-    "Australia",
-    "Austria",
-    "Azerbaijan",
-    "Bahamas",
-    "Bahrain",
-    "Bangladesh",
-    "Barbados",
-    "Belarus",
-    "Belgium",
-    "Belize",
-    "Benin",
-    "Bhutan",
-    "Bolivia",
-    "Bosnia and Herzegovina",
-    "Botswana",
-    "Brazil",
-    "Brunei",
-    "Bulgaria",
-    "Burkina Faso",
-    "Burundi",
-    "Cabo Verde",
-    "Cambodia",
-    "Cameroon",
-    "Canada",
-    "Central African Republic",
-    "Chad",
-    "Chile",
-    "China",
-    "Colombia",
-    "Comoros",
-    "Congo",
-    "Costa Rica",
-    "Croatia",
-    "Cuba",
-    "Cyprus",
-    "Czech Republic",
-    "Denmark",
-    "Djibouti",
-    "Dominica",
-    "Dominican Republic",
-    "Ecuador",
-    "Egypt",
-    "El Salvador",
-    "Equatorial Guinea",
-    "Eritrea",
-    "Estonia",
-    "Eswatini",
-    "Ethiopia",
-    "Fiji",
-    "Finland",
-    "France",
-    "Gabon",
-    "Gambia",
-    "Georgia",
-    "Germany",
-    "Ghana",
-    "Greece",
-    "Grenada",
-    "Guatemala",
-    "Guinea",
-    "Guinea-Bissau",
-    "Guyana",
-    "Haiti",
-    "Honduras",
-    "Hungary",
-    "Iceland",
-    "India",
-    "Indonesia",
-    "Iran",
-    "Iraq",
-    "Ireland",
-    "Israel",
-    "Italy",
-    "Jamaica",
-    "Japan",
-    "Jordan",
-    "Kazakhstan",
-    "Kenya",
-    "Kiribati",
-    "Korea, North",
-    "Korea, South",
-    "Kosovo",
-    "Kuwait",
-    "Kyrgyzstan",
-    "Laos",
-    "Latvia",
-    "Lebanon",
-    "Lesotho",
-    "Liberia",
-    "Libya",
-    "Liechtenstein",
-    "Lithuania",
-    "Luxembourg",
-    "Madagascar",
-    "Malawi",
-    "Malaysia",
-    "Maldives",
-    "Mali",
-    "Malta",
-    "Marshall Islands",
-    "Mauritania",
-    "Mauritius",
-    "Mexico",
-    "Micronesia",
-    "Moldova",
-    "Monaco",
-    "Mongolia",
-    "Montenegro",
-    "Morocco",
-    "Mozambique",
-    "Myanmar",
-    "Namibia",
-    "Nauru",
-    "Nepal",
-    "Netherlands",
-    "New Zealand",
-    "Nicaragua",
-    "Niger",
-    "Nigeria",
-    "North Macedonia",
-    "Norway",
-    "Oman",
-    "Pakistan",
-    "Palau",
-    "Palestine",
-    "Panama",
-    "Papua New Guinea",
-    "Paraguay",
-    "Peru",
-    "Philippines",
-    "Poland",
-    "Portugal",
-    "Qatar",
-    "Romania",
-    "Russia",
-    "Rwanda",
-    "Saint Kitts and Nevis",
-    "Saint Lucia",
-    "Saint Vincent and the Grenadines",
-    "Samoa",
-    "San Marino",
-    "Sao Tome and Principe",
-    "Saudi Arabia",
-    "Senegal",
-    "Serbia",
-    "Seychelles",
-    "Sierra Leone",
-    "Singapore",
-    "Slovakia",
-    "Slovenia",
-    "Solomon Islands",
-    "Somalia",
-    "South Africa",
-    "South Sudan",
-    "Spain",
-    "Sri Lanka",
-    "Sudan",
-    "Suriname",
-    "Sweden",
-    "Switzerland",
-    "Syria",
-    "Taiwan",
-    "Tajikistan",
-    "Tanzania",
-    "Thailand",
-    "Timor-Leste",
-    "Togo",
-    "Tonga",
-    "Trinidad and Tobago",
-    "Tunisia",
-    "Turkey",
-    "Turkmenistan",
-    "Tuvalu",
-    "Uganda",
-    "Ukraine",
-    "United Arab Emirates",
-    "United Kingdom",
-    "United States",
-    "Uruguay",
-    "Uzbekistan",
-    "Vanuatu",
-    "Vatican City",
-    "Venezuela",
-    "Vietnam",
-    "Yemen",
-    "Zambia",
-    "Zimbabwe",
-  ];
-
-  // Fetch current user data
   const fetchUserData = async () => {
-    setLoading(true);
     try {
-      const user = await api.fetchCurrentUser();
-
-      if (user) {
-        setUserData(user);
-        setUserEmail(user.user_Email || "");
-        setUserName(user.user_FullName || "");
-
-        // Check if user is company
-        if (user.user_IsCompany === true) {
-          setAccountType("company");
-          const companyData = user.company || {};
-          setCompanyForm({
-            Company_Name: companyData.company_Name || "",
-            Company_Address: companyData.company_Address || "",
-            Company_TaxNumber: companyData.company_TaxNumber || "",
-            Company_PostCode: companyData.company_PostCode || "",
-            Company_City: companyData.company_City || "",
-            Company_Country: companyData.company_Country || "",
-            Company_Phone: companyData.company_Phone || "",
-          });
-        } else {
-          setAccountType("natural");
-          setNaturalForm({
-            User_Address: user.user_Address || "",
-            User_PostCode: user.user_PostCode || "",
-            User_City: user.user_City || "",
-            User_Country: user.user_Country || "",
-            User_Phone: user.user_Phone || "",
-          });
-        }
-      }
+      const data = await api.fetchCurrentUser();
+      if (data) applyUser(data);
     } catch (error) {
       console.error("Error fetching user data:", error);
-      setError("Failed to load user data");
+      setNotice({ tone: "error", text: translate("profileLoadError") });
     } finally {
       setLoading(false);
     }
@@ -277,357 +137,179 @@ export default function ProfileDefault() {
 
   useEffect(() => {
     fetchUserData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleNaturalFormChange = (e) => {
-    setNaturalForm({
-      ...naturalForm,
-      [e.target.name]: e.target.value,
-    });
+  const flash = (tone, text) => {
+    setNotice({ tone, text });
+    setTimeout(() => setNotice((n) => (n.text === text ? { ...n, text: "" } : n)), 4000);
   };
 
-  const handleCompanyFormChange = (e) => {
-    setCompanyForm({
-      ...companyForm,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleSaveBillingInfo = async () => {
+  const handleSave = async (e) => {
+    e.preventDefault();
     setSaving(true);
-    setError("");
-    setSuccess("");
-
     try {
-      let billingData;
-
-      if (accountType === "company") {
-        billingData = {
-          company_Name: companyForm.Company_Name,
-          company_Address: companyForm.Company_Address,
-          company_TaxNumber: companyForm.Company_TaxNumber,
-          company_PostCode: companyForm.Company_PostCode,
-          company_City: companyForm.Company_City,
-          company_Country: companyForm.Company_Country,
-          company_Phone: companyForm.Company_Phone,
-        };
-      } else {
-        billingData = {
-          user_Address: naturalForm.User_Address,
-          user_PostCode: naturalForm.User_PostCode,
-          user_City: naturalForm.User_City,
-          user_Country: naturalForm.User_Country,
-          user_Phone: naturalForm.User_Phone,
-        };
-      }
+      const billingData =
+        accountType === "company"
+          ? {
+              company_Name: companyForm.Company_Name,
+              company_Address: companyForm.Company_Address,
+              company_TaxNumber: companyForm.Company_TaxNumber,
+              company_PostCode: companyForm.Company_PostCode,
+              company_City: companyForm.Company_City,
+              company_Country: companyForm.Company_Country,
+              company_Phone: companyForm.Company_Phone,
+            }
+          : {
+              user_Address: naturalForm.User_Address,
+              user_PostCode: naturalForm.User_PostCode,
+              user_City: naturalForm.User_City,
+              user_Country: naturalForm.User_Country,
+              user_Phone: naturalForm.User_Phone,
+            };
 
       const response = await api.updateBillingInfo(billingData);
       if (response.status) {
-        setSuccess("Billing information saved successfully!");
+        flash("success", translate("profileSaved"));
         await fetchUserData();
-        setTimeout(() => setSuccess(""), 3000);
       }
     } catch (error) {
-      setError(error.message || "Failed to save billing information");
-      setTimeout(() => setError(""), 3000);
+      flash("error", error.message || translate("profileSaveError"));
     } finally {
       setSaving(false);
     }
   };
 
+  const handleNewsletter = async () => {
+    if (!user?.user_Email || newsState === "sending") return;
+    setNewsState("sending");
+    try {
+      await api.subscribeNewsletter(user.user_Email, "profile");
+      setNewsState("done");
+    } catch {
+      setNewsState("error");
+    }
+  };
+
   if (loading) {
     return (
-      <div className="w-full flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      <div>
+        <ProfileHeader eyebrow={translate("profileMemberArea")} title={translate("myProfile")} />
+        <ProfileLoading />
       </div>
     );
   }
 
+  const setNatural = (name) => (e) => setNaturalForm((f) => ({ ...f, [name]: e.target.value }));
+  const setCompany = (name) => (e) => setCompanyForm((f) => ({ ...f, [name]: e.target.value }));
+  const cancelHref = `mailto:info@proteini.mk?subject=${encodeURIComponent(
+    translate("userAccountCancellation"),
+  )}&body=${encodeURIComponent(`${translate("iWouldLikeToCancelMyAccount")}\n\n${user?.user_Email || ""}`)}`;
+
   return (
-    <div className="w-full">
-      <div className="w-full max-w-[740px] pr-[50px] max-lg:pr-0 pb-[70px]">
-        <p className="text-[24px] font-bold mb-[20px] pt-[70px] pr-[50px] max-sm:pt-0">
-          {translate("myProfile")}
-        </p>
-        <div>
-          <p className="text-[18px] mb-[20px] font-bold">
-            {translate("accessDetails")}
-          </p>
-          <div className="mt-[30px] mb-[35px]">
-            <p className="mb-[13px] text-[13px]">{translate("username")}</p>
-            <p className="text-[16px] text-[#828282] font-bold">{userEmail}</p>
-          </div>
-          <div className="mt-[30px] mb-[35px]">
-            <p className="mb-[13px] text-[13px]">{translate("status")}</p>
-            <p className="text-[16px] text-[#828282] font-bold">
-              {translate("noStatus")}
-            </p>
-          </div>
+    <div>
+      <ProfileHeader eyebrow={translate("profileMemberArea")} title={translate("myProfile")} />
 
-          {/* Billing Information Section */}
-          <p className="text-[18px] mb-[20px] font-bold leading-[22px]">
-            {translate("billingInformation")}
-          </p>
-
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
-              {error}
+      <div className="space-y-5">
+        <SectionCard icon={FiShield} title={translate("accessDetails")}>
+          <dl className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-[#f6f5f1] px-4 py-3">
+              <dt className={eyebrowClass}>{translate("username")}</dt>
+              <dd className="mt-1 break-all text-[15px] font-bold text-gray-900">{user?.user_Email}</dd>
             </div>
-          )}
-
-          {success && (
-            <div className="mb-4 p-3 bg-green-100 text-green-700 rounded">
-              {success}
+            <div className="rounded-xl bg-[#f6f5f1] px-4 py-3">
+              <dt className={eyebrowClass}>{translate("status")}</dt>
+              <dd className="mt-1 flex items-center gap-2 text-[15px] font-bold text-gray-900">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#8DC658] text-white">
+                  <FiCheck size={12} strokeWidth={3} />
+                </span>
+                {translate("profileEmailVerified")}
+              </dd>
             </div>
-          )}
+          </dl>
+        </SectionCard>
 
-          <div className="py-[35px] px-[25px] border border-[#2096D8] max-w-[643px] w-full">
-            <div className="flex flex-col mb-[23px]">
-              <div className="flex gap-6 mb-[30px]">
-                <div
-                  onClick={() => setAccountType("natural")}
-                  className={`flex items-center justify-center px-8 max-sm:px-2 py-1 gap-2 border cursor-pointer transition-all duration-200 ${
-                    accountType === "natural"
-                      ? "border-[#2096D8] bg-[#2096D8]/5"
-                      : "border-gray-300 hover:border-[#2096D8]"
+        <SectionCard icon={FiUser} title={translate("billingInformation")}>
+          <form onSubmit={handleSave}>
+            <div role="radiogroup" aria-label={translate("accountType")} className="mb-6 inline-grid grid-cols-2 rounded-full bg-[#f6f5f1] p-1 ring-1 ring-black/[0.05]">
+              {[
+                ["natural", FiUser, "naturalPerson"],
+                ["company", FiBriefcase, "company"],
+              ].map(([key, icon, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  aria-checked={accountType === key}
+                  onClick={() => setAccountType(key)}
+                  className={`inline-flex min-h-[40px] items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition sm:px-5 ${
+                    accountType === key ? "bg-[#141409] text-white" : "text-gray-600 hover:text-gray-900"
                   }`}
                 >
-                  <span
-                    className={`text-[14px]  ${accountType === "natural" ? "" : "text-gray-600"}`}
-                  >
-                    {translate("naturalPerson")}
-                  </span>
-                </div>
+                  {createElement(icon, { size: 15, className: accountType === key ? "text-[#FDC700]" : "" })}
+                  {translate(label)}
+                </button>
+              ))}
+            </div>
 
-                <div
-                  onClick={() => setAccountType("company")}
-                  className={`flex items-center justify-center gap-2 px-8 py-1 border cursor-pointer transition-all duration-200 ${
-                    accountType === "company"
-                      ? "border-[#2096D8] bg-[#2096D8]/5"
-                      : "border-gray-300 hover:border-[#2096D8]"
-                  }`}
-                >
-                  <span
-                    className={`text-[14px] ${accountType === "company" ? "" : "text-gray-600"}`}
-                  >
-                    {translate("company")}
-                  </span>
-                </div>
+            {accountType === "natural" ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input id="bill-address" label={translate("address")} className="sm:col-span-2" autoComplete="street-address" value={naturalForm.User_Address} onChange={setNatural("User_Address")} placeholder={translate("enterAddress")} />
+                <Input id="bill-city" label={translate("city")} autoComplete="address-level2" value={naturalForm.User_City} onChange={setNatural("User_City")} placeholder={translate("enterCity")} />
+                <Input id="bill-post" label={translate("postCode")} autoComplete="postal-code" value={naturalForm.User_PostCode} onChange={setNatural("User_PostCode")} placeholder={translate("enterPostCode")} />
+                <CountrySelect id="bill-country" label={translate("country")} translate={translate} value={naturalForm.User_Country} onChange={setNatural("User_Country")} />
+                <Input id="bill-phone" type="tel" label={translate("phone")} autoComplete="tel" value={naturalForm.User_Phone} onChange={setNatural("User_Phone")} placeholder={translate("enterPhoneNumber")} />
               </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input id="co-name" label={translate("companyName")} className="sm:col-span-2" autoComplete="organization" value={companyForm.Company_Name} onChange={setCompany("Company_Name")} />
+                <Input id="co-tax" label={translate("taxNumber")} value={companyForm.Company_TaxNumber} onChange={setCompany("Company_TaxNumber")} placeholder="123456789" />
+                <Input id="co-phone" type="tel" label={translate("phone")} autoComplete="tel" value={companyForm.Company_Phone} onChange={setCompany("Company_Phone")} />
+                <Input id="co-address" label={translate("companyAddress")} className="sm:col-span-2" autoComplete="street-address" value={companyForm.Company_Address} onChange={setCompany("Company_Address")} placeholder={translate("enterAddress")} />
+                <Input id="co-city" label={translate("city")} autoComplete="address-level2" value={companyForm.Company_City} onChange={setCompany("Company_City")} placeholder="Skopje" />
+                <Input id="co-post" label={translate("postCode")} autoComplete="postal-code" value={companyForm.Company_PostCode} onChange={setCompany("Company_PostCode")} placeholder="1000" />
+                <CountrySelect id="co-country" label={translate("country")} translate={translate} className="sm:col-span-2" value={companyForm.Company_Country} onChange={setCompany("Company_Country")} />
+              </div>
+            )}
 
-              {accountType === "natural" && (
-                <>
-                  <div className="flex flex-col items-start gap-1 mb-[11px]">
-                    <span className="text-[13px] w-full">
-                      {translate("address")}
-                    </span>
-                    <input
-                      type="text"
-                      name="User_Address"
-                      value={naturalForm.User_Address}
-                      onChange={handleNaturalFormChange}
-                      placeholder={translate("enterYourEmailAddress")}
-                      className="p-[11px] border border-[#c4c4c4] outline-none w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col items-start gap-1 mb-[11px]">
-                    <span className="text-[13px] w-full">
-                      {translate("postCode")}
-                    </span>
-                    <input
-                      type="text"
-                      name="User_PostCode"
-                      value={naturalForm.User_PostCode}
-                      onChange={handleNaturalFormChange}
-                      placeholder={translate("enterPostCode")}
-                      className="p-[11px] border border-[#c4c4c4] outline-none w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col items-start gap-1 mb-[11px]">
-                    <span className="text-[13px] w-full">
-                      {translate("city")}
-                    </span>
-                    <input
-                      type="text"
-                      name="User_City"
-                      value={naturalForm.User_City}
-                      onChange={handleNaturalFormChange}
-                      placeholder={translate("enterCity")}
-                      className="p-[11px] border border-[#c4c4c4] outline-none w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col items-start gap-1 mb-[11px]">
-                    <span className="text-[13px] w-full">
-                      {translate("country")}
-                    </span>
-                    <select
-                      name="User_Country"
-                      value={naturalForm.User_Country}
-                      onChange={handleNaturalFormChange}
-                      className="p-[11px] border border-[#c4c4c4] outline-none w-full bg-white"
-                    >
-                      <option value="">{translate("selectACountry")}</option>
-                      {countries.map((country) => (
-                        <option key={country} value={country}>
-                          {country}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex flex-col items-start gap-1 mb-[11px]">
-                    <span className="text-[13px] w-full">
-                      {translate("phone")}
-                    </span>
-                    <input
-                      type="text"
-                      name="User_Phone"
-                      value={naturalForm.User_Phone}
-                      onChange={handleNaturalFormChange}
-                      placeholder={translate("enterPhoneNumber")}
-                      className="p-[11px] border border-[#c4c4c4] outline-none w-full"
-                    />
-                  </div>
-                </>
-              )}
-
-              {accountType === "company" && (
-                <>
-                  <div className="flex flex-col items-start gap-1 mb-[11px]">
-                    <span className="text-[13px] w-full">
-                      {translate("companyName")}
-                    </span>
-                    <input
-                      type="text"
-                      name="Company_Name"
-                      value={companyForm.Company_Name}
-                      onChange={handleCompanyFormChange}
-                      className="p-[11px] border border-[#c4c4c4] outline-none w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col items-start gap-1 mb-[11px]">
-                    <span className="text-[13px] w-full">
-                      {translate("companyAddress")}
-                    </span>
-                    <input
-                      type="text"
-                      name="Company_Address"
-                      value={companyForm.Company_Address}
-                      onChange={handleCompanyFormChange}
-                      placeholder={translate("enterAddress")}
-                      className="p-[11px] border border-[#c4c4c4] outline-none w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col items-start gap-1 mb-[11px]">
-                    <span className="text-[13px] w-full">
-                      {translate("taxNumber")}
-                    </span>
-                    <input
-                      type="text"
-                      name="Company_TaxNumber"
-                      value={companyForm.Company_TaxNumber}
-                      onChange={handleCompanyFormChange}
-                      placeholder="123456789"
-                      className="p-[11px] border border-[#c4c4c4] outline-none w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col items-start gap-1 mb-[11px]">
-                    <span className="text-[13px] w-full">
-                      {translate("postCode")}
-                    </span>
-                    <input
-                      type="text"
-                      name="Company_PostCode"
-                      value={companyForm.Company_PostCode}
-                      onChange={handleCompanyFormChange}
-                      placeholder="1000"
-                      className="p-[11px] border border-[#c4c4c4] outline-none w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col items-start gap-1 mb-[11px]">
-                    <span className="text-[13px] w-full">
-                      {translate("city")}
-                    </span>
-                    <input
-                      type="text"
-                      name="Company_City"
-                      value={companyForm.Company_City}
-                      onChange={handleCompanyFormChange}
-                      placeholder="Skopje"
-                      className="p-[11px] border border-[#c4c4c4] outline-none w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col items-start gap-1 mb-[11px]">
-                    <span className="text-[13px] w-full">
-                      {translate("country")}
-                    </span>
-                    <select
-                      name="Company_Country"
-                      value={companyForm.Company_Country}
-                      onChange={handleCompanyFormChange}
-                      className="p-[11px] border border-[#c4c4c4] outline-none w-full bg-white"
-                    >
-                      <option value="">{translate("selectACountry")}</option>
-                      {countries.map((country) => (
-                        <option key={country} value={country}>
-                          {country}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex flex-col items-start gap-1 mb-[11px]">
-                    <span className="text-[13px] w-full">
-                      {translate("phone")}
-                    </span>
-                    <input
-                      type="tel"
-                      name="Company_Phone"
-                      value={companyForm.Company_Phone}
-                      onChange={handleCompanyFormChange}
-                      placeholder="+1234567890"
-                      className="p-[11px] border border-[#c4c4c4] outline-none w-full"
-                    />
-                  </div>
-                </>
-              )}
-
-              <button
-                onClick={handleSaveBillingInfo}
-                disabled={saving}
-                className="bg-[#2096D8] max-w-[80px] text-white text-[16px] mb-[5px] mt-[4px] py-2 font-bold disabled:opacity-50"
-              >
-                {saving ? `${translate("saving")}` : `${translate("save")}`}
+            <div className="mt-6 flex flex-col-reverse gap-4 sm:flex-row sm:items-center">
+              <button type="submit" disabled={saving} className={pillButtonClass}>
+                {saving ? translate("saving") : translate("save")}
               </button>
+              <div className="flex-1">
+                <Notice tone={notice.tone}>{notice.text}</Notice>
+              </div>
             </div>
-          </div>
-        </div>
+          </form>
+        </SectionCard>
 
-        <div className="mb-[50px]">
-          <p className="text-[18px] mb-[20px] font-bold mt-[50px]">
-            {translate("enotifications")}
-          </p>
-          <p className="text-[13px] mb-[1px]">{translate("signUpForENews")} </p>
-          <div className="flex flex-col items-start gap-1 mb-[11px]">
-            <input
-              type="text"
-              value={userEmail}
-              disabled
-              className="p-[11px] border border-[#c4c4c4] outline-none w-full bg-gray-50 text-black"
-            />
-          </div>
-          <button className="bg-[#2096D8] text-white text-[16px] py-2 px-4 font-bold disabled:opacity-50">
-            {translate("signUpToRecieve")}
-          </button>
-        </div>
+        <div className="grid gap-5 md:grid-cols-2">
+          <SectionCard icon={FiMail} title={translate("enotifications")}>
+            <p className="text-sm leading-relaxed text-gray-600">{translate("signUpForENews")}</p>
+            <p className="mt-3 truncate rounded-xl bg-[#f6f5f1] px-4 py-3 text-sm font-semibold text-gray-900">
+              {user?.user_Email}
+            </p>
+            {newsState === "done" ? (
+              <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-[#2f5e14]">
+                <FiCheck /> {translate("profileNewsDone")}
+              </p>
+            ) : (
+              <button type="button" onClick={handleNewsletter} disabled={newsState === "sending"} className={`${ghostButtonClass} mt-4`}>
+                {translate("signUpToRecieve")}
+              </button>
+            )}
+            {newsState === "error" && (
+              <p className="mt-2 text-xs font-medium text-[#a3161d]">{translate("authGenericError")}</p>
+            )}
+          </SectionCard>
 
-        <p className="text-[18px] mb-[20px] font-bold">
-          {translate("userAccountCancellation")}
-        </p>
-        <p className="text-[16px] mb-[16px]">
-          {translate("userAccountCancDesc")}
-        </p>
-        <button className="bg-[#2096D8] text-white text-[16px] py-2 px-4 font-bold disabled:opacity-50">
-          {translate("iWouldLikeToCancelMyAccount")}
-        </button>
+          <SectionCard icon={FiUserX} title={translate("userAccountCancellation")}>
+            <p className="text-sm leading-relaxed text-gray-600">{translate("userAccountCancDesc")}</p>
+            <a href={cancelHref} className={`${ghostButtonClass} mt-4 !text-[#a3161d] hover:!bg-[#E3262F]/[0.06] hover:!ring-[#E3262F]/40`}>
+              {translate("iWouldLikeToCancelMyAccount")}
+            </a>
+          </SectionCard>
+        </div>
       </div>
     </div>
   );

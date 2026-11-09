@@ -80,9 +80,9 @@ export default function CookieConsent() {
       <button
         type="button"
         onClick={() => setVisible(true)}
-        className="fixed bottom-3 left-3 z-40 rounded-full border border-gray-300 bg-white px-3 py-2 text-xs font-semibold shadow-md hover:border-[#2096D8]"
+        className="fixed bottom-[calc(var(--bottom-nav-h,0px)+12px)] left-3 z-40 rounded-full border border-gray-300 bg-white px-3 py-2 text-xs font-semibold shadow-md hover:border-[#2096D8]"
       >
-        {text.reopen}
+        <img src="/cookies-icon.png" alt="" className="inline h-8 w-8" />
       </button>
     );
   }
