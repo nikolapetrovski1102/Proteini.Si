@@ -13,11 +13,16 @@ public class ProductFilterDto
     public List<int> FlavorIds { get; set; } = new List<int>();
     public List<int> BrandIds { get; set; } = new List<int>();
     public List<int> TagIds { get; set; } = new List<int>();
+    /// <summary>Clothing sizes (packaging names such as "M" or "XL").</summary>
+    public List<string> Sizes { get; set; } = new List<string>();
+    /// <summary>Only these products (used by the home page showcase).</summary>
+    public List<int> ProductIds { get; set; } = new List<int>();
     public decimal? MinPrice { get; set; }
     public decimal? MaxPrice { get; set; }
     public bool? InStock { get; set; }
     public bool? OnSale { get; set; }
     public bool? NewProducts { get; set; }
+    public bool? BestSellers { get; set; }
     public bool? Outlet { get; set; }
     public bool? JustForMe { get; set; }
     public bool? UpcomingPromotions { get; set; }
@@ -263,6 +268,8 @@ public class ProductFilterOptionsDto
     public List<Flavor> Flavors { get; set; } = new();
     public List<Brand> Brands { get; set; } = new();
     public List<ProductTag> Tags { get; set; } = new();
+    /// <summary>Clothing sizes on sale, smallest first.</summary>
+    public List<string> Sizes { get; set; } = new();
     public PriceBoundsDto PriceBounds { get; set; } = new();
     public List<PriceRangeDto> PriceRanges { get; set; } = new();
 }
@@ -287,4 +294,24 @@ public class ProductSaveResultDto
     public decimal PriceWithoutDDV { get; set; }
     public decimal PriceWithDDV { get; set; }
     public decimal DDVAmount { get; set; }
+}
+
+/// <summary>One buyable item (a variant, or a product without variants) for the ads catalog feed.</summary>
+public class ProductFeedItemDto
+{
+    public int ProductId { get; set; }
+    public int? VariantId { get; set; }
+    public string Name { get; set; } = "";
+    public string? Description { get; set; }
+    public string? Img { get; set; }
+    public string? BrandName { get; set; }
+    public string? PackagingName { get; set; }
+    public string? FlavorName { get; set; }
+    public string? OptionType { get; set; }
+    public bool IsApparel { get; set; }
+    public string? CategoryPath { get; set; }
+    public decimal Price { get; set; }
+    public decimal? SalePrice { get; set; }
+    public DateTime? SaleEndDate { get; set; }
+    public int Quantity { get; set; }
 }

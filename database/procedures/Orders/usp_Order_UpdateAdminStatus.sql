@@ -30,6 +30,8 @@ BEGIN
     IF @ReleaseVoucher = 1
         EXEC dbo.usp_Order_ReleaseVoucher @OrderId = @OrderId;
 
+    EXEC dbo.usp_LoyaltyPoints_SyncOrder @OrderId = @OrderId;
+
     COMMIT TRANSACTION;
 END
 GO

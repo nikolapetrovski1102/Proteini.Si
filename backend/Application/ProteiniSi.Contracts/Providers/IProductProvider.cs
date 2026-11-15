@@ -9,6 +9,8 @@ public interface IProductProvider
 
     Task<List<Product>> GetAllAsync();
 
+    Task<List<ProductFeedItemDto>> GetAdFeedAsync();
+
     Task<(ProductFilterOptionsDto Options, decimal MaximumPrice)> GetFilterOptionsAsync();
 
     Task<List<ProductCategory>> GetCategoryTreeAsync();

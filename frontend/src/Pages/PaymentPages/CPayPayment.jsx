@@ -1,6 +1,7 @@
 // src/Pages/PaymentPages/CPayPayment.jsx
 import { useState } from "react";
 import { api } from "../../services/api";
+import { formatMkd } from "../../utils/formatPrice";
 
 export default function CPayPayment({
   orderId,
@@ -85,7 +86,7 @@ export default function CPayPayment({
             Processing...
           </div>
         ) : (
-          `Pay with Credit Card - MKD ${amount.toFixed(2)}`
+          `Pay with Credit Card - ${formatMkd(amount)}`
         )}
       </button>
     </div>

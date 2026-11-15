@@ -1,12 +1,31 @@
+import { Fragment } from "react";
 import { useLanguage } from "../../translation/LanguageContext";
-import { Sparkle } from "./Decor";
+
+const WAVE_PATH =
+  "M0 0H1440V20C1380 34 1320 40 1240 30S1080 6 1000 14 860 42 760 36 600 8 520 12 380 40 280 36 120 14 0 24Z";
+
+/** Wavy edge in the band's own colour, sticking out above or below the band. */
+function BandWave({ position, fill }) {
+  const isTop = position === "top";
+  return (
+    <svg
+      viewBox="0 0 1440 48"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      className={`pointer-events-none absolute inset-x-0 h-4 w-full sm:h-6 ${
+        isTop ? "bottom-full -mb-px rotate-180" : "top-full -mt-px"
+      }`}
+    >
+      <path d={WAVE_PATH} fill={fill} />
+    </svg>
+  );
+}
 
 /**
- * Endless scrolling band of brand slogans separated by sparkles.
+ * Static band of shop facts (delivery, payment) separated by dots, with wavy edges.
  *  variant – "ink" (dark band, yellow text) or "yellow" (yellow band, dark text)
- *  reverse – scroll the other way
  */
-export default function BrandTicker({ variant = "ink", reverse = false, className = "" }) {
+export default function BrandTicker({ variant = "ink", className = "" }) {
   const { translate } = useLanguage();
   const words = String(translate("tickerWords") || "")
     .split("|")
@@ -15,26 +34,25 @@ export default function BrandTicker({ variant = "ink", reverse = false, classNam
   if (words.length === 0) return null;
 
   const ink = variant === "ink";
+  const color = ink ? "#141409" : "#FDC700";
   const bg = ink ? "bg-[#141409]" : "bg-[#FDC700]";
   const text = ink ? "text-[#FDC700]" : "text-[#141409]";
-  const star = ink ? "#FDC700" : "#141409";
-
-  // The track moves by -50%, so it holds two identical halves wide enough to fill the screen.
-  const half = [...words, ...words];
-  const items = [...half, ...half];
+  const dot = ink ? "bg-[#FDC700]" : "bg-[#141409]";
 
   return (
-    <div className={`marquee relative z-[2] w-full overflow-hidden ${bg} py-3 sm:py-4 ${className}`} aria-hidden="true">
-      <div className={`flex w-max items-center ${reverse ? "marquee-track marquee-reverse" : "marquee-track"}`}>
-        {items.map((word, i) => (
-          <span key={i} className="flex flex-shrink-0 items-center">
-            <span className={`whitespace-nowrap px-5 font-display text-lg font-semibold uppercase tracking-wide sm:px-8 sm:text-2xl ${text}`}>
+    <div className={`relative z-[2] w-full ${bg} py-3 sm:py-4 ${className}`}>
+      <BandWave position="top" fill={color} />
+      <ul className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 sm:gap-x-8">
+        {words.map((word, i) => (
+          <Fragment key={i}>
+            {i > 0 && <li aria-hidden="true" className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${dot}`} />}
+            <li className={`whitespace-nowrap text-center font-display text-sm font-semibold uppercase tracking-wide sm:text-xl ${text}`}>
               {word}
-            </span>
-            <Sparkle color={star} className={`h-4 w-4 flex-shrink-0 sm:h-5 sm:w-5 ${i % 2 ? "rotate-45" : ""}`} />
-          </span>
+            </li>
+          </Fragment>
         ))}
-      </div>
+      </ul>
+      <BandWave position="bottom" fill={color} />
     </div>
   );
 }

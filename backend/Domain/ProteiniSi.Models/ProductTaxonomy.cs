@@ -38,7 +38,15 @@ public class Brand
     public string? Brand_Name { get; set; }
     public string? Brand_Slug { get; set; }
     public string? Logo_Url { get; set; }
+    public string? Header_Image_Url { get; set; }
+    public bool Is_Featured { get; set; }
     public int Display_Order { get; set; }
+}
+
+/** Admin brand row: a brand plus how many products use it. */
+public class BrandAdmin : Brand
+{
+    public int Product_Count { get; set; }
 }
 
 public class ProductTag

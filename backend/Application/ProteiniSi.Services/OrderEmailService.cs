@@ -13,11 +13,12 @@ namespace ProteiniSi.Services
         IOrderProvider orderProvider,
         IEmailSender emailSender,
         IConfiguration config,
-        ILogger<OrderEmailService> logger) : IOrderEmailService
+        ILogger<OrderEmailService> logger,
+        ICommerceSettingsService commerceSettings) : IOrderEmailService
     {
         private static readonly string[] DefaultOrderCopyRecipients =
         {
-            "gtsport8@yahoo.com",
+            "proteini@yahoo.com",
             "vladimir.proteinisi@gmail.com"
         };
 
@@ -30,8 +31,9 @@ namespace ProteiniSi.Services
                 if (orderData.Count == 0) return false;
 
                 var firstItem = orderData.First();
+                OrderEmailCopy copy = OrderEmailCopy.For(ReadLanguage((object)firstItem));
                 string userEmail = Convert.ToString(overrideRecipient ?? firstItem.Customer_Email) ?? string.Empty;
-                string userFullName = Convert.ToString(firstItem.Customer_FullName) ?? "Customer";
+                string userFullName = Convert.ToString(firstItem.Customer_FullName) ?? copy.DefaultCustomerName;
                 string orderNumber = Convert.ToString(firstItem.Order_Number) ?? orderId.ToString();
                 decimal totalAmount = firstItem.Total_Amount;
                 decimal deliveryFee = firstItem.Delivery_Fee;
@@ -63,16 +65,7 @@ namespace ProteiniSi.Services
                 string orderNote = Convert.ToString(firstItem.Order_Note) ?? "";
 
                 // Build email-safe products table
-                StringBuilder productsHtml = new StringBuilder();
-                productsHtml.AppendLine("<table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; border-collapse: collapse; margin: 0;'>");
-                productsHtml.AppendLine("<thead><tr style='background-color: #f4f7fa;'>");
-                productsHtml.AppendLine("<th style='padding: 12px; border-bottom: 1px solid #dde5ed; color:#4a5565; font-size:12px; line-height:16px; text-transform:uppercase; text-align:left;'>SKU</th>");
-                productsHtml.AppendLine("<th style='padding: 12px; border-bottom: 1px solid #dde5ed; color:#4a5565; font-size:12px; line-height:16px; text-transform:uppercase; text-align:left;'>Product</th>");
-                productsHtml.AppendLine("<th style='padding: 12px; border-bottom: 1px solid #dde5ed; color:#4a5565; font-size:12px; line-height:16px; text-transform:uppercase; text-align: center;'>Qty</th>");
-                productsHtml.AppendLine("<th style='padding: 12px; border-bottom: 1px solid #dde5ed; color:#4a5565; font-size:12px; line-height:16px; text-transform:uppercase; text-align: right;'>Price</th>");
-                productsHtml.AppendLine("<th style='padding: 12px; border-bottom: 1px solid #dde5ed; color:#4a5565; font-size:12px; line-height:16px; text-transform:uppercase; text-align: right;'>Total</th>");
-                productsHtml.AppendLine("</tr></thead><tbody>");
-
+                var itemRows = new List<string[]>();
                 foreach (var item in orderData)
                 {
                     string sku = Convert.ToString(item.Variant_SKU) ?? $"#{item.Variant_Id ?? item.Product_Id}";
@@ -82,32 +75,29 @@ namespace ProteiniSi.Services
                     if (!string.IsNullOrEmpty(item.Variant_Packaging))
                         displayName += $" ({item.Variant_Packaging})";
 
-                    sku = HtmlEncode(sku);
-                    displayName = System.Net.WebUtility.HtmlEncode(displayName);
-
-                    productsHtml.AppendLine($@"
-            <tr>
-                <td style='padding: 14px 12px; border-bottom: 1px solid #edf1f5; color:#111827; font-size:14px; line-height:20px;'>{sku}</td>
-                <td style='padding: 14px 12px; border-bottom: 1px solid #edf1f5; color:#111827; font-size:14px; line-height:20px;'>{displayName}</td>
-                <td style='padding: 14px 12px; border-bottom: 1px solid #edf1f5; color:#111827; font-size:14px; line-height:20px; text-align:center;'>{item.Quantity}</td>
-                <td style='padding: 14px 12px; border-bottom: 1px solid #edf1f5; color:#111827; font-size:14px; line-height:20px; text-align:right;'>MKD {item.Product_Price:F2}</td>
-                <td style='padding: 14px 12px; border-bottom: 1px solid #edf1f5; color:#111827; font-size:14px; line-height:20px; text-align:right; font-weight:700;'>MKD {item.Item_Subtotal:F2}</td>
-            </tr>");
-                }
-                productsHtml.AppendLine("</tbody></table>");
-
-                var issuedVouchers = await orderProvider.GetIssuedVouchersAsync(orderId);
-                var voucherHtml = new StringBuilder();
-                if (issuedVouchers.Count > 0)
-                {
-                    voucherHtml.Append("<tr><td style='padding:0 28px 24px 28px;'><div style='border:2px solid #FDC700; background:#fffbea; padding:18px;'><h2 style='margin:0 0 10px;font-size:18px;'>Your gift voucher codes</h2>");
-                    foreach (var voucher in issuedVouchers)
+                    itemRows.Add(new string[]
                     {
-                        var expiry = voucher.ExpiresAt == null ? "No expiry configured" : $"Expires {Convert.ToDateTime(voucher.ExpiresAt):yyyy-MM-dd}";
-                        voucherHtml.Append($"<p style='margin:8px 0;font-size:15px;'><strong>{HtmlEncode(Convert.ToString(voucher.Code) ?? string.Empty)}</strong> — MKD {Convert.ToDecimal(voucher.InitialValue):F2}<br><span style='color:#667085;font-size:12px;'>{expiry}</span></p>");
-                    }
-                    voucherHtml.Append("<p style='margin:12px 0 0;color:#536173;font-size:12px;'>Keep these codes private. They can be partially redeemed until their balance reaches zero.</p></div></td></tr>");
+                        HtmlEncode(sku),
+                        HtmlEncode(displayName),
+                        Convert.ToString(item.Quantity) ?? "",
+                        $"{PriceFormat.Mkd(item.Product_Price)}",
+                        $"{PriceFormat.Mkd(item.Item_Subtotal)}"
+                    });
                 }
+                var productsHtml = EmailLayout.ItemsTable(new[]
+                {
+                    (copy.ColSku, "left", true, true),
+                    (copy.ColProduct, "left", false, false),
+                    (copy.ColQty, "center", false, false),
+                    (copy.ColPrice, "right", true, false),
+                    (copy.ColTotal, "right", false, false)
+                }, itemRows);
+
+                // Voucher codes go out in their own buyer / gift recipient emails (GiftVoucherEmailService).
+                var issuedVouchers = await orderProvider.GetIssuedVouchersAsync(orderId);
+                var voucherHtml = issuedVouchers.Count > 0
+                    ? EmailLayout.Row(EmailLayout.Callout(EmailLayout.Note(HtmlEncode(copy.VoucherSentSeparately))))
+                    : "";
 
                 // Different email content based on payment method
                 string statusTitle;
@@ -118,152 +108,68 @@ namespace ProteiniSi.Services
 
                 if (isPaymentConfirmed)
                 {
-                    statusTitle = "Payment confirmed";
-                    statusLabel = "Paid online";
-                    statusDescription = $"Your payment for order #{HtmlEncode(orderNumber)} was accepted. We are preparing your products and will update you when the order moves forward.";
-                    paymentLine = "Paid online";
-                    emailSubject = $"Payment Confirmed - #{orderNumber} | Proteini.mk";
+                    statusTitle = copy.PaidTitle;
+                    statusLabel = copy.PaidLabel;
+                    statusDescription = string.Format(copy.PaidDescription, orderNumber);
+                    paymentLine = copy.PaidOnline;
+                    emailSubject = string.Format(copy.PaidSubject, orderNumber);
                 }
                 else
                 {
-                    statusTitle = "Order received";
-                    statusLabel = "Pay on delivery";
-                    statusDescription = "Your order has been received and will be prepared shortly. Payment will be collected when ELS - Eko Logistic Service MK delivers your package.";
-                    paymentLine = "Cash on delivery";
-                    emailSubject = $"Order Received - #{orderNumber} | Proteini.mk";
+                    statusTitle = copy.CodTitle;
+                    statusLabel = copy.CodLabel;
+                    statusDescription = copy.CodDescription;
+                    paymentLine = copy.CashOnDelivery;
+                    emailSubject = string.Format(copy.CodSubject, orderNumber);
                 }
 
-                string emailBody = $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset='utf-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1'>
-    <title>{HtmlEncode(emailSubject)}</title>
-</head>
-<body style='margin:0; padding:0; background:#f3f6f8; font-family:Arial, Helvetica, sans-serif; color:#111827;'>
-    <div style='display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;'>{HtmlEncode(statusTitle)} for order #{HtmlEncode(orderNumber)} from Proteini.mk.</div>
-    <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; background:#f3f6f8; padding:24px 12px;'>
-        <tr>
-            <td align='center'>
-                <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; max-width:680px; border-collapse:collapse; background:#ffffff; border:1px solid #dde5ed;'>
-                    <tr>
-                        <td style='background:#ffffff; padding:24px 28px; border-bottom:4px solid #FDC700;'>
-                            <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%;'>
-                                <tr>
-                                    <td>{GetEmailLogoHtml()}</td>
-                                    <td align='right'>
-                                        <span style='display:inline-block; padding:7px 12px; background:#2096D8; color:#ffffff; font-size:12px; line-height:14px; font-weight:700; text-transform:uppercase;'>{HtmlEncode(statusLabel)}</span>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='padding:32px 28px 18px 28px;'>
-                            <h1 style='margin:0 0 10px 0; color:#111827; font-size:28px; line-height:34px; font-weight:800;'>{HtmlEncode(statusTitle)}</h1>
-                            <p style='margin:0; color:#536173; font-size:15px; line-height:24px;'>Hi {HtmlEncode(userFullName)}, {HtmlEncode(statusDescription)}</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='padding:0 28px 22px 28px;'>
-                            <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; border-collapse:collapse; background:#ffffff; border:1px solid #e3e9ef;'>
-                                <tr>
-                                    <td style='padding:16px; width:33.33%; vertical-align:top; border-right:1px solid #e3e9ef;'>
-                                        <div style='color:#111827; font-size:13px; line-height:18px; font-weight:800; text-transform:uppercase; margin-bottom:12px;'>Order details</div>
-                                        <div style='color:#667085; font-size:12px; line-height:16px;'>Order number</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700; margin-bottom:10px;'>#{HtmlEncode(orderNumber)}</div>
-                                        <div style='color:#667085; font-size:12px; line-height:16px;'>Order date</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700; margin-bottom:10px;'>{orderDate:MMMM dd, yyyy HH:mm}</div>
-                                        <div style='color:#667085; font-size:12px; line-height:16px;'>Payment</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700;'>{HtmlEncode(paymentLine)}</div>
-                                    </td>
-                                    <td style='padding:16px; width:33.33%; vertical-align:top; border-right:1px solid #e3e9ef;'>
-                                        <div style='color:#111827; font-size:13px; line-height:18px; font-weight:800; text-transform:uppercase; margin-bottom:12px;'>Buyer</div>
-                                        <div style='color:#667085; font-size:12px; line-height:16px;'>Name</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700; margin-bottom:10px;'>{HtmlEncode(userFullName)}</div>
-                                        <div style='color:#667085; font-size:12px; line-height:16px;'>Phone</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700; margin-bottom:10px;'>{HtmlEncode(customerPhone)}</div>
-                                        <div style='color:#667085; font-size:12px; line-height:16px;'>Email</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700;'>{HtmlEncode(userEmail)}</div>
-                                    </td>
-                                    <td style='padding:16px; width:33.33%; vertical-align:top;'>
-                                        <div style='color:#111827; font-size:13px; line-height:18px; font-weight:800; text-transform:uppercase; margin-bottom:12px;'>Delivery address</div>
-                                        <div style='color:#667085; font-size:12px; line-height:16px;'>Name</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700; margin-bottom:10px;'>{HtmlEncode(shippingName)}</div>
-                                        <div style='color:#667085; font-size:12px; line-height:16px;'>Address</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700; margin-bottom:10px;'>{HtmlEncode(shippingAddress)}</div>
-                                        <div style='color:#667085; font-size:12px; line-height:16px;'>City</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700; margin-bottom:10px;'>{HtmlEncode(shippingCity)}</div>
-                                        <div style='color:#667085; font-size:12px; line-height:16px;'>Postal code</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700;'>{HtmlEncode(shippingPostCode)}</div>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='padding:0 28px 24px 28px;'>
-                            <h2 style='margin:0 0 12px 0; color:#111827; font-size:18px; line-height:24px;'>Items ordered</h2>
-                            {productsHtml}
-                        </td>
-                    </tr>
-                    {voucherHtml}
-                    <tr>
-                        <td style='padding:0 28px 26px 28px;'>
-                            <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; border-collapse:collapse;'>
-                                <tr>
-                                    <td style='padding:7px 0; color:#536173; font-size:14px; line-height:20px;'>Subtotal</td>
-                                    <td align='right' style='padding:7px 0; color:#111827; font-size:14px; line-height:20px;'>MKD {subtotal:F2}</td>
-                                </tr>
-                                <tr>
-                                    <td style='padding:7px 0; color:#536173; font-size:14px; line-height:20px;'>Delivery</td>
-                                    <td align='right' style='padding:7px 0; color:#111827; font-size:14px; line-height:20px;'>MKD {deliveryFee:F2}</td>
-                                </tr>
-                                <tr>
-                                    <td colspan='2' style='padding:3px 0 8px 0; color:#667085; font-size:12px; line-height:18px;'>Delivery is handled by ELS - Eko Logistic Service MK.</td>
-                                </tr>
-                                {(promoDiscount > 0 ? $"<tr><td style='padding:7px 0; color:#536173; font-size:14px; line-height:20px;'>Promotion {HtmlEncode(promoCode)}</td><td align='right' style='padding:7px 0; color:#111827; font-size:14px; line-height:20px;'>- MKD {promoDiscount:F2}</td></tr>" : "")}
-                                {(giftVoucherAmount > 0 ? $"<tr><td style='padding:7px 0; color:#536173; font-size:14px; line-height:20px;'>Gift voucher</td><td align='right' style='padding:7px 0; color:#111827; font-size:14px; line-height:20px;'>- MKD {giftVoucherAmount:F2}</td></tr>" : "")}
-                                {(pointsDiscount > 0 ? $"<tr><td style='padding:7px 0; color:#536173; font-size:14px; line-height:20px;'>Points discount</td><td align='right' style='padding:7px 0; color:#111827; font-size:14px; line-height:20px;'>- MKD {pointsDiscount:F2}</td></tr>" : "")}
-                                {(!string.IsNullOrWhiteSpace(freeGiftName) ? $"<tr><td style='padding:7px 0; color:#536173; font-size:14px; line-height:20px;'>Free gift</td><td align='right' style='padding:7px 0; color:#111827; font-size:14px; line-height:20px;'>{HtmlEncode(freeGiftName)}</td></tr>" : "")}
-                                <tr>
-                                    <td style='padding:14px 0 0 0; border-top:1px solid #dde5ed; color:#111827; font-size:16px; line-height:22px; font-weight:800;'>Total amount</td>
-                                    <td align='right' style='padding:14px 0 0 0; border-top:1px solid #dde5ed; color:#111827; font-size:18px; line-height:24px; font-weight:800;'>MKD {totalAmount:F2}</td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='padding:0 28px 34px 28px;'>
-                            <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; border-collapse:collapse; margin:0 0 20px 0;'>
-                                <tr>
-                                    <td style='width:50%; vertical-align:top; padding:0 14px 0 0;'>
-                                        <h3 style='margin:0 0 8px 0; color:#111827; font-size:15px; line-height:21px; font-weight:800;'>Note</h3>
-                                        <div style='min-height:44px; padding:12px; border:1px dashed #d6dde5; color:#536173; font-size:13px; line-height:20px;'>{(string.IsNullOrWhiteSpace(orderNote) ? "-" : HtmlEncode(orderNote))}</div>
-                                    </td>
-                                    <td style='width:50%; vertical-align:top; padding:0 0 0 14px;'>
-                                        <h3 style='margin:0 0 8px 0; color:#111827; font-size:15px; line-height:21px; font-weight:800;'>Delivery method</h3>
-                                        <div style='min-height:44px; padding:12px; border:1px dashed #d6dde5; color:#536173; font-size:13px; line-height:20px;'>ELS - Eko Logistic Service MK</div>
-                                    </td>
-                                </tr>
-                            </table>
-                            <a href='https://proteini.mk/order-confirmation/{orderId}' target='_blank' style='display:inline-block; background:#2096D8; color:#ffffff; padding:13px 20px; text-decoration:none; font-size:14px; line-height:18px; font-weight:700;'>View order details</a>
-                            <p style='margin:20px 0 0 0; color:#536173; font-size:14px; line-height:22px;'>Thank you for choosing Proteini.mk. We appreciate your order and will handle it with care.</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='background:#f8fafc; padding:20px 28px; color:#667085; font-size:12px; line-height:18px; text-align:center; border-top:1px solid #e3e9ef;'>
-                            Proteini.mk &copy; {DateTime.Now.Year}. This is an automated order email.
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>";
+                var totalLines = new List<(string, string, string?)>
+                {
+                    (copy.Subtotal, $"{PriceFormat.Mkd(subtotal)}", null),
+                    (copy.Delivery, $"{PriceFormat.Mkd(deliveryFee)}", copy.DeliveredBy)
+                };
+                if (promoDiscount > 0) totalLines.Add(($"{copy.Promotion} {HtmlEncode(promoCode)}", $"- {PriceFormat.Mkd(promoDiscount)}", null));
+                if (giftVoucherAmount > 0) totalLines.Add((copy.GiftVoucher, $"- {PriceFormat.Mkd(giftVoucherAmount)}", null));
+                if (pointsDiscount > 0) totalLines.Add((copy.PointsDiscount, $"- {PriceFormat.Mkd(pointsDiscount)}", null));
+                // Each row is shown in whole denars; any leftover from rounding gets its own row so the email adds up.
+                var rounding = PriceFormat.Round(totalAmount) - (PriceFormat.Round(subtotal) + PriceFormat.Round(deliveryFee)
+                    - PriceFormat.Round(promoDiscount) - PriceFormat.Round(giftVoucherAmount) - PriceFormat.Round(pointsDiscount));
+                if (rounding != 0) totalLines.Add((copy.Rounding, $"{(rounding > 0 ? "+" : "-")} {PriceFormat.Mkd(Math.Abs(rounding))}", null));
+                if (!string.IsNullOrWhiteSpace(freeGiftName)) totalLines.Add((copy.FreeGift, HtmlEncode(freeGiftName), null));
 
+                var courierCommissionHtml = isPaymentConfirmed
+                    ? ""
+                    : await CourierCommissionNoteAsync(totalAmount, copy);
+
+                var rows =
+                    EmailLayout.Hero(statusTitle, statusLabel, EmailLayout.Tone.Yellow,
+                        HtmlEncode(string.Format(copy.Greeting, userFullName)), HtmlEncode(statusDescription)) +
+                    EmailLayout.Row(EmailLayout.Panel(
+                        EmailLayout.SectionTitle(copy.SectionOrder) +
+                            EmailLayout.Field(copy.OrderNumber, $"#{HtmlEncode(orderNumber)}") +
+                            EmailLayout.Field(copy.OrderDate, $"{orderDate:dd.MM.yyyy HH:mm}") +
+                            EmailLayout.Field(copy.Payment, HtmlEncode(paymentLine), last: true),
+                        EmailLayout.SectionTitle(copy.SectionBuyer) +
+                            EmailLayout.Field(copy.Name, HtmlEncode(userFullName)) +
+                            EmailLayout.Field(copy.Phone, HtmlEncode(customerPhone)) +
+                            EmailLayout.Field(copy.Email, HtmlEncode(userEmail), last: true),
+                        EmailLayout.SectionTitle(copy.SectionDelivery) +
+                            EmailLayout.Field(copy.Name, HtmlEncode(shippingName)) +
+                            EmailLayout.Field(copy.Address, HtmlEncode(shippingAddress)) +
+                            EmailLayout.Field(copy.City, $"{HtmlEncode(shippingPostCode)} {HtmlEncode(shippingCity)}", last: true))) +
+                    EmailLayout.Row(EmailLayout.SectionTitle(copy.ItemsOrdered) + productsHtml, "8px 36px 8px 36px") +
+                    voucherHtml +
+                    EmailLayout.Row(EmailLayout.Totals(totalLines, copy.Total, $"{PriceFormat.Mkd(totalAmount)}"), "8px 36px 26px 36px") +
+                    courierCommissionHtml +
+                    (string.IsNullOrWhiteSpace(orderNote)
+                        ? ""
+                        : EmailLayout.Row(EmailLayout.Field(copy.YourNote, $"<span style='font-weight:400; color:{EmailLayout.Body};'>{HtmlEncode(orderNote)}</span>", last: true))) +
+                    EmailLayout.Row(
+                        EmailLayout.Button($"{EmailLayout.SiteUrl}/order-confirmation/{orderId}", copy.ViewOrder) +
+                        EmailLayout.Note(copy.ThankYou, "20px 0 0 0"),
+                        "4px 36px 34px 36px");
+
+                string emailBody = EmailLayout.Page(emailSubject, string.Format(copy.ConfirmationPreheader, statusTitle, orderNumber), rows, copy.AutomatedFooter, copy.Location, language: copy.Language);
                 var customerEmailSent = false;
                 if (hasCustomerEmail)
                 {
@@ -306,19 +212,36 @@ namespace ProteiniSi.Services
             }
         }
 
+        // Cash on delivery: the courier charges the buyer its own commission for collecting the payment.
+        private async Task<string> CourierCommissionNoteAsync(decimal totalAmount, OrderEmailCopy copy)
+        {
+            ShippingSettings settings;
+            try
+            {
+                settings = await commerceSettings.GetShippingAsync();
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Could not load shipping settings for the courier commission note.");
+                settings = new ShippingSettings();
+            }
+
+            var commission = settings.CourierCodCommission(totalAmount);
+            var text = string.Format(copy.CourierText,
+                $"{PriceFormat.Mkd(settings.CourierCodThreshold)}",
+                $"{PriceFormat.Mkd(settings.CourierCodFixedFee)}",
+                settings.CourierCodPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ','));
+            var thisOrder = string.Format(copy.CourierThisOrder, $"{PriceFormat.Mkd(commission)}");
+            return EmailLayout.Row(EmailLayout.Callout(
+                $"<p style='margin:0 0 6px 0; font-size:15px; line-height:22px; font-weight:700; color:{EmailLayout.Ink};'>{HtmlEncode(copy.CourierTitle)}</p>" +
+                $"<p style='margin:0; font-size:14px; line-height:22px; color:{EmailLayout.Body};'>{HtmlEncode(text)}<br><strong>{HtmlEncode(thisOrder)}</strong></p>"));
+        }
+
         private async Task<bool> SendSellerNotificationAsync(int orderId, string customerName, string customerEmail, string orderNumber, decimal totalAmount, decimal deliveryFee, decimal subtotal, DateTime orderDate, List<dynamic> orderData, bool isPaymentConfirmed)
         {
             try
             {
-                StringBuilder productsHtml = new StringBuilder();
-                productsHtml.AppendLine("<table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; border-collapse: collapse;'>");
-                productsHtml.AppendLine("<thead><tr style='background-color: #f4f7fa;'>");
-                productsHtml.AppendLine("<th style='padding: 12px; border-bottom: 1px solid #dde5ed; color:#4a5565; font-size:12px; line-height:16px; text-transform:uppercase; text-align: left;'>Product</th>");
-                productsHtml.AppendLine("<th style='padding: 12px; border-bottom: 1px solid #dde5ed; color:#4a5565; font-size:12px; line-height:16px; text-transform:uppercase; text-align: center;'>Qty</th>");
-                productsHtml.AppendLine("<th style='padding: 12px; border-bottom: 1px solid #dde5ed; color:#4a5565; font-size:12px; line-height:16px; text-transform:uppercase; text-align: right;'>Price</th>");
-                productsHtml.AppendLine("<th style='padding: 12px; border-bottom: 1px solid #dde5ed; color:#4a5565; font-size:12px; line-height:16px; text-transform:uppercase; text-align: right;'>Total</th>");
-                productsHtml.AppendLine("</tr></thead><tbody>");
-
+                var itemRows = new List<string[]>();
                 foreach (var item in orderData)
                 {
                     string displayName = item.Product_Name;
@@ -327,129 +250,47 @@ namespace ProteiniSi.Services
                     if (!string.IsNullOrEmpty(item.Variant_Packaging))
                         displayName += $" ({item.Variant_Packaging})";
 
-                    displayName = HtmlEncode(displayName);
-
-                    productsHtml.AppendLine($@"
-            <tr>
-                <td style='padding: 14px 12px; border-bottom: 1px solid #edf1f5; color:#111827; font-size:14px; line-height:20px;'>{displayName}</td>
-                <td style='padding: 14px 12px; border-bottom: 1px solid #edf1f5; color:#111827; font-size:14px; line-height:20px; text-align:center;'>{item.Quantity}</td>
-                <td style='padding: 14px 12px; border-bottom: 1px solid #edf1f5; color:#111827; font-size:14px; line-height:20px; text-align:right;'>MKD {item.Product_Price:F2}</td>
-                <td style='padding: 14px 12px; border-bottom: 1px solid #edf1f5; color:#111827; font-size:14px; line-height:20px; text-align:right; font-weight:700;'>MKD {item.Item_Subtotal:F2}</td>
-            </tr>");
+                    string sku = Convert.ToString(item.Variant_SKU) ?? "";
+                    itemRows.Add(new string[]
+                    {
+                        HtmlEncode(displayName) + (string.IsNullOrWhiteSpace(sku) ? "" : $"<div style='font-size:12px; color:{EmailLayout.Muted};'>{HtmlEncode(sku)}</div>"),
+                        Convert.ToString(item.Quantity) ?? "",
+                        $"{PriceFormat.Mkd(item.Product_Price)}",
+                        $"{PriceFormat.Mkd(item.Item_Subtotal)}"
+                    });
                 }
-                productsHtml.AppendLine("</tbody></table>");
+                var productsHtml = EmailLayout.ItemsTable(new[]
+                {
+                    ("Product", "left", false, false),
+                    ("Qty", "center", false, false),
+                    ("Price", "right", true, false),
+                    ("Total", "right", false, false)
+                }, itemRows);
 
                 // Get phone from order
                 var phone = await orderProvider.GetBillingPhoneAsync(orderId);
                 var notificationTitle = isPaymentConfirmed ? "Paid order received" : "Cash on delivery order received";
                 var paymentStatusText = isPaymentConfirmed ? "Paid online" : "Cash on delivery";
                 var subjectPrefix = isPaymentConfirmed ? "PAID ORDER" : "COD ORDER";
-                var badgeColor = isPaymentConfirmed ? "#16a34a" : "#2096D8";
 
-                string emailBody = $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset='utf-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1'>
-    <title>{HtmlEncode(subjectPrefix)} #{HtmlEncode(orderNumber)}</title>
-</head>
-<body style='margin:0; padding:0; background:#eef3f7; font-family:Arial, Helvetica, sans-serif; color:#111827;'>
-    <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; background:#eef3f7; padding:24px 12px;'>
-        <tr>
-            <td align='center'>
-                <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; max-width:760px; border-collapse:collapse; background:#ffffff; border:1px solid #dde5ed;'>
-                    <tr>
-                        <td style='background:#ffffff; padding:24px 28px; border-bottom:4px solid #FDC700;'>
-                            <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%;'>
-                                <tr>
-                                    <td>
-                                        {GetEmailLogoHtml()}
-                                        <div style='margin-top:8px; color:#536173; font-size:13px; line-height:18px;'>Automated order notification</div>
-                                    </td>
-                                    <td align='right'>
-                                        <span style='display:inline-block; padding:8px 12px; background:{badgeColor}; color:#ffffff; font-size:12px; line-height:14px; font-weight:800; text-transform:uppercase;'>{HtmlEncode(subjectPrefix)}</span>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='padding:28px;'>
-                            <h1 style='margin:0 0 8px 0; color:#111827; font-size:24px; line-height:30px; font-weight:800;'>{HtmlEncode(notificationTitle)}</h1>
-                            <p style='margin:0; color:#536173; font-size:14px; line-height:22px;'>Order #{HtmlEncode(orderNumber)} needs review and fulfillment.</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='padding:0 28px 22px 28px;'>
-                            <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; border-collapse:collapse; background:#f8fafc; border:1px solid #e3e9ef;'>
-                                <tr>
-                                    <td style='padding:16px; width:33.33%; border-bottom:1px solid #e3e9ef;'>
-                                        <div style='color:#667085; font-size:12px; line-height:16px; text-transform:uppercase;'>Customer</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700;'>{HtmlEncode(customerName)}</div>
-                                    </td>
-                                    <td style='padding:16px; width:33.33%; border-bottom:1px solid #e3e9ef;'>
-                                        <div style='color:#667085; font-size:12px; line-height:16px; text-transform:uppercase;'>Email</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700;'>{HtmlEncode(customerEmail)}</div>
-                                    </td>
-                                    <td style='padding:16px; width:33.33%; border-bottom:1px solid #e3e9ef;'>
-                                        <div style='color:#667085; font-size:12px; line-height:16px; text-transform:uppercase;'>Phone</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700;'>{HtmlEncode(phone ?? "N/A")}</div>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style='padding:16px; width:33.33%;'>
-                                        <div style='color:#667085; font-size:12px; line-height:16px; text-transform:uppercase;'>Order date</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700;'>{orderDate:MMMM dd, yyyy HH:mm}</div>
-                                    </td>
-                                    <td style='padding:16px; width:33.33%;'>
-                                        <div style='color:#667085; font-size:12px; line-height:16px; text-transform:uppercase;'>Payment</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700;'>{HtmlEncode(paymentStatusText)}</div>
-                                    </td>
-                                    <td style='padding:16px; width:33.33%;'>
-                                        <div style='color:#667085; font-size:12px; line-height:16px; text-transform:uppercase;'>Total</div>
-                                        <div style='color:#2096D8; font-size:18px; line-height:24px; font-weight:800;'>MKD {totalAmount:F2}</div>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='padding:0 28px 24px 28px;'>
-                            <h2 style='margin:0 0 12px 0; color:#111827; font-size:18px; line-height:24px;'>Order items</h2>
-                            {productsHtml}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='padding:0 28px 30px 28px;'>
-                            <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; border-collapse:collapse;'>
-                                <tr>
-                                    <td style='padding:7px 0; color:#536173; font-size:14px; line-height:20px;'>Subtotal</td>
-                                    <td align='right' style='padding:7px 0; color:#111827; font-size:14px; line-height:20px;'>MKD {subtotal:F2}</td>
-                                </tr>
-                                <tr>
-                                    <td style='padding:7px 0; color:#536173; font-size:14px; line-height:20px;'>Delivery fee</td>
-                                    <td align='right' style='padding:7px 0; color:#111827; font-size:14px; line-height:20px;'>MKD {deliveryFee:F2}</td>
-                                </tr>
-                                <tr>
-                                    <td style='padding:14px 0 0 0; border-top:1px solid #dde5ed; color:#111827; font-size:16px; line-height:22px; font-weight:800;'>Total amount</td>
-                                    <td align='right' style='padding:14px 0 0 0; border-top:1px solid #dde5ed; color:#111827; font-size:18px; line-height:24px; font-weight:800;'>MKD {totalAmount:F2}</td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='background:#f8fafc; padding:18px 28px; color:#667085; font-size:12px; line-height:18px; text-align:center; border-top:1px solid #e3e9ef;'>
-                            Proteini.mk automated order notification &copy; {DateTime.Now.Year}
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>";
+                var rows =
+                    EmailLayout.Hero(notificationTitle, subjectPrefix, EmailLayout.Tone.Yellow,
+                        $"Order <strong>#{HtmlEncode(orderNumber)}</strong> needs review and fulfillment.") +
+                    EmailLayout.Row(EmailLayout.Panel(
+                        EmailLayout.Field("Customer", HtmlEncode(customerName)) +
+                            EmailLayout.Field("Email", HtmlEncode(customerEmail)) +
+                            EmailLayout.Field("Phone", HtmlEncode(phone ?? "N/A"), last: true),
+                        EmailLayout.Field("Order date", $"{orderDate:MMMM dd, yyyy HH:mm}") +
+                            EmailLayout.Field("Payment", HtmlEncode(paymentStatusText)) +
+                            EmailLayout.Field("Total", $"{PriceFormat.Mkd(totalAmount)}", last: true))) +
+                    EmailLayout.Row(EmailLayout.SectionTitle("Order items") + productsHtml, "8px 36px 8px 36px") +
+                    EmailLayout.Row(EmailLayout.Totals(new List<(string, string, string?)>
+                    {
+                        ("Subtotal", $"{PriceFormat.Mkd(subtotal)}", null),
+                        ("Delivery fee", $"{PriceFormat.Mkd(deliveryFee)}", null)
+                    }, "Total", $"{PriceFormat.Mkd(totalAmount)}"), "8px 36px 34px 36px");
 
+                string emailBody = EmailLayout.Page($"{subjectPrefix} #{orderNumber}", $"{notificationTitle} - #{orderNumber}", rows, "Automated order notification for the Proteini.si team.");
                 var sellerRecipients = GetSellerNotificationRecipients();
                 var sellerEmailSent = await SendAsync(sellerRecipients, $"{subjectPrefix} #{orderNumber} - {customerName}", emailBody);
                 if (sellerEmailSent)
@@ -472,117 +313,38 @@ namespace ProteiniSi.Services
                 return false;
 
             var orderNumber = Convert.ToString(order.Order_Number) ?? order.Order_Id.ToString();
-            var customerName = Convert.ToString(order.Billing_FullName) ?? "customer";
+            var copy = OrderEmailCopy.For(order.Language);
+            var customerName = Convert.ToString(order.Billing_FullName) ?? copy.DefaultCustomerName;
             decimal totalAmount = Convert.ToDecimal(order.Total_Amount ?? 0);
-            var (statusTitle, emailSubject, badgeColor) = orderStatus switch
-            {
-                "confirmed" => ("Нарачката е потврдена", $"Нарачката #{orderNumber} е потврдена | Proteini.mk", "#2096D8"),
-                "shipped" => ("Нарачката е испратена", $"Нарачката #{orderNumber} е испратена | Proteini.mk", "#16a34a"),
-                "rejected" => ("Нарачката е одбиена", $"Нарачката #{orderNumber} е одбиена | Proteini.mk", "#dc2626"),
-                _ => ("Статус на нарачка", $"Статус на нарачка #{orderNumber} | Proteini.mk", "#2096D8")
-            };
-            var statusMessage = orderStatus switch
-            {
-                "confirmed" => "Вашата нарачка е потврдена и наскоро ќе биде подготвена за испорака.",
-                "processing" => "Вашата нарачка е во обработка.",
-                "shipped" => "Вашата нарачка е испратена и е на пат кон вас.",
-                "delivered" => "Вашата нарачка е доставена.",
-                "rejected" => "За жал, вашата нарачка е одбиена. Доколку веќе сте платиле, износот ќе ви биде вратен.",
-                "cancelled" => "Вашата нарачка е откажана.",
-                "refunded" => "Повратот за вашата нарачка е означен како обработен.",
-                _ => "Статусот на вашата нарачка е ажуриран."
-            };
+            var statusTitle = copy.StatusTitles.GetValueOrDefault(orderStatus, copy.StatusTitleFallback);
+            var tone = copy.StatusTitles.ContainsKey(orderStatus) ? EmailLayout.Tone.Yellow : EmailLayout.Tone.Ink;
+            var emailSubject = $"{statusTitle} - #{orderNumber} | Proteini.mk";
+            var statusLabel = copy.StatusLabels.GetValueOrDefault(orderStatus, orderStatus);
+            var paymentLabel = copy.PaymentLabels.GetValueOrDefault(paymentStatus, paymentStatus);
+            var statusMessage = copy.StatusMessages.GetValueOrDefault(orderStatus, copy.StatusMessageFallback);
             var safeTrackingUrl = !string.IsNullOrWhiteSpace(trackingUrl)
                 && Uri.TryCreate(trackingUrl, UriKind.Absolute, out var parsedTrackingUrl)
                 && parsedTrackingUrl.Scheme is "https" or "http"
                     ? parsedTrackingUrl.AbsoluteUri
                     : null;
             var trackingHtml = string.IsNullOrWhiteSpace(trackingNumber) && safeTrackingUrl == null
-                                ? string.Empty
-                                : $@"
-                                <tr>
-                                    <td colspan='2' style='padding:16px; border-top:1px solid #e3e9ef;'>
-                                        <div style='color:#667085; font-size:12px; line-height:16px; text-transform:uppercase;'>Број за следење</div>
-                                        <div style='color:#111827; font-size:16px; line-height:22px; font-weight:800;'>{HtmlEncode(trackingNumber ?? "-")}</div>
-                                        {(safeTrackingUrl == null ? string.Empty : $"<a href='{HtmlEncode(safeTrackingUrl)}' style='display:inline-block; margin-top:12px; padding:10px 18px; background:#FDC700; color:#111827; font-size:14px; font-weight:800; text-decoration:none;'>Следи ја пратката</a>")}
-                                    </td>
-                                </tr>";
+                ? string.Empty
+                : EmailLayout.Row(EmailLayout.Callout(
+                    EmailLayout.Field(copy.TrackingNumber, $"<span style='font-family:\"Courier New\", Courier, monospace; font-size:17px; letter-spacing:1px;'>{HtmlEncode(trackingNumber ?? "-")}</span>", last: safeTrackingUrl == null) +
+                    (safeTrackingUrl == null ? string.Empty : $"<div style='margin-top:4px;'>{EmailLayout.Button(safeTrackingUrl, copy.TrackShipment)}</div>")));
 
-            var emailBody = $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset='utf-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1'>
-    <title>{HtmlEncode(statusTitle)} - #{HtmlEncode(orderNumber)}</title>
-</head>
-<body style='margin:0; padding:0; background:#f3f6f8; font-family:Arial, Helvetica, sans-serif; color:#111827;'>
-    <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; background:#f3f6f8; padding:24px 12px;'>
-        <tr>
-            <td align='center'>
-                <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; max-width:680px; border-collapse:collapse; background:#ffffff; border:1px solid #dde5ed;'>
-                    <tr>
-                        <td style='background:#ffffff; padding:24px 28px; border-bottom:4px solid #FDC700;'>
-                            <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%;'>
-                                <tr>
-                                    <td>{GetEmailLogoHtml()}</td>
-                                    <td align='right'>
-                                        <span style='display:inline-block; padding:7px 12px; background:{badgeColor}; color:#ffffff; font-size:12px; line-height:14px; font-weight:700; text-transform:uppercase;'>{HtmlEncode(orderStatus)}</span>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='padding:32px 28px 18px 28px;'>
-                            <h1 style='margin:0 0 10px 0; color:#111827; font-size:28px; line-height:34px; font-weight:800;'>{HtmlEncode(statusTitle)}</h1>
-                            <p style='margin:0; color:#536173; font-size:15px; line-height:24px;'>Почитувани {HtmlEncode(customerName)}, {HtmlEncode(statusMessage)}</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='padding:0 28px 24px 28px;'>
-                            <table role='presentation' cellpadding='0' cellspacing='0' style='width:100%; border-collapse:collapse; background:#f8fafc; border:1px solid #e3e9ef;'>
-                                <tr>
-                                    <td style='padding:16px; width:50%;'>
-                                        <div style='color:#667085; font-size:12px; line-height:16px; text-transform:uppercase;'>Order number</div>
-                                        <div style='color:#111827; font-size:16px; line-height:22px; font-weight:800;'>#{HtmlEncode(orderNumber)}</div>
-                                    </td>
-                                    <td style='padding:16px; width:50%;'>
-                                        <div style='color:#667085; font-size:12px; line-height:16px; text-transform:uppercase;'>Total</div>
-                                        <div style='color:#2096D8; font-size:18px; line-height:24px; font-weight:800;'>MKD {totalAmount:F2}</div>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style='padding:16px; width:50%; border-top:1px solid #e3e9ef;'>
-                                        <div style='color:#667085; font-size:12px; line-height:16px; text-transform:uppercase;'>Order status</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700;'>{HtmlEncode(orderStatus)}</div>
-                                    </td>
-                                    <td style='padding:16px; width:50%; border-top:1px solid #e3e9ef;'>
-                                        <div style='color:#667085; font-size:12px; line-height:16px; text-transform:uppercase;'>Payment status</div>
-                                        <div style='color:#111827; font-size:15px; line-height:21px; font-weight:700;'>{HtmlEncode(paymentStatus)}</div>
-                                    </td>
-                                </tr>
-                                {trackingHtml}
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='padding:0 28px 34px 28px;'>
-                            <p style='margin:0; color:#536173; font-size:14px; line-height:22px;'>Доколку имате прашања, контактирајте не на makedonija@proteini.si.</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='background:#f8fafc; padding:20px 28px; color:#667085; font-size:12px; line-height:18px; text-align:center; border-top:1px solid #e3e9ef;'>
-                            Proteini.mk &copy; {DateTime.Now.Year}. This is an automated order email.
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>";
+            var rows =
+                EmailLayout.Hero(statusTitle, statusLabel, tone,
+                    HtmlEncode(string.Format(copy.Dear, customerName)), HtmlEncode(statusMessage)) +
+                EmailLayout.Row(EmailLayout.Panel(
+                    EmailLayout.Field(copy.OrderNumber, $"#{HtmlEncode(orderNumber)}") +
+                        EmailLayout.Field(copy.Total, $"{PriceFormat.Mkd(totalAmount)}", last: true),
+                    EmailLayout.Field(copy.OrderStatus, HtmlEncode(statusLabel)) +
+                        EmailLayout.Field(copy.PaymentStatus, HtmlEncode(paymentLabel), last: true))) +
+                trackingHtml +
+                EmailLayout.Row(EmailLayout.Note(copy.ContactNote), "4px 36px 34px 36px");
 
+            var emailBody = EmailLayout.Page(emailSubject, $"{statusTitle} · #{orderNumber}", rows, copy.AutomatedFooter, copy.Location, language: copy.Language);
             try
             {
                 return await SendAsync(
@@ -602,42 +364,22 @@ namespace ProteiniSi.Services
         {
             try
             {
-                string emailBody = $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body {{ font-family: Arial, sans-serif; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background-color: #dc3545; color: white; padding: 20px; text-align: center; }}
-        .content {{ padding: 20px; }}
-        .footer {{ text-align: center; padding: 20px; font-size: 12px; color: #666; }}
-    </style>
-</head>
-<body>
-    <div class='container'>
-        <div class='header'>
-            <h2>Order Cancelled</h2>
-        </div>
-        <div class='content'>
-            <p>Dear {HtmlEncode(order.User_FullName)},</p>
-            <p>Your order has been successfully cancelled.</p>
-            
-            {(order.Points_Redeemed > 0 ? $"<p>Your {order.Points_Redeemed} loyalty points have been refunded to your account.</p>" : "")}            
-            <p>If you did not request this cancellation, please contact our customer support immediately.</p>
-            
-            <p>We hope to see you again soon!</p>
-            
-            <p>Best regards,<br/>Your Proteini.mk Team</p>
-        </div>
-        <div class='footer'>
-            <p>&copy; {DateTime.Now.Year} Proteini.mk. All rights reserved.</p>
-        </div>
-    </div>
-</body>
-</html>";
+                var copy = OrderEmailCopy.For(order.Language);
+                var subject = string.Format(copy.CancelledSubject, order.Order_Number);
+                var rows =
+                    EmailLayout.Hero(copy.CancelledTitle, copy.CancelledLabel, EmailLayout.Tone.Yellow,
+                        string.Format(copy.CancelledIntro, HtmlEncode(order.User_FullName), HtmlEncode(order.Order_Number))) +
+                    (order.Points_Redeemed > 0
+                        ? EmailLayout.Row(EmailLayout.Callout($"<p style='margin:0; font-size:15px; line-height:22px; color:{EmailLayout.Ink};'>{string.Format(copy.PointsRefunded, order.Points_Redeemed)}</p>"))
+                        : "") +
+                    EmailLayout.Row(
+                        EmailLayout.Note(copy.NotRequested) +
+                        $"<p style='margin:18px 0 22px 0; font-size:15px; line-height:24px; color:{EmailLayout.Body};'>{copy.SeeYouSoon}</p>" +
+                        EmailLayout.Button(EmailLayout.SiteUrl, copy.ContinueShopping),
+                        "0 36px 34px 36px");
 
-                await SendAsync(new[] { order.User_Email }, $"Order Cancelled - #{order.Order_Number}", emailBody);
+                string emailBody = EmailLayout.Page(subject, $"{copy.CancelledTitle} · #{order.Order_Number}", rows, copy.AutomatedFooter, copy.Location, language: copy.Language);
+                await SendAsync(new[] { order.User_Email }, subject, emailBody);
                 logger.LogInformation("Cancellation email sent to {Email}", EmailMask.Mask(order.User_Email));
             }
             catch (Exception ex)
@@ -649,51 +391,27 @@ namespace ProteiniSi.Services
         public async Task<(bool Sent, string OrderNumber)> SendSampleOrderConfirmationAsync(string email)
         {
             var orderNumber = $"TEST-{DateTime.Now:yyyyMMdd-HHmmss}";
-            var emailBody = $@"
-<!DOCTYPE html>
-<html>
-<body style='font-family: Arial, sans-serif;'>
-    <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
-        <div style='background-color: #28a745; color: white; padding: 20px; text-align: center;'>
-            <h2>Order Received!</h2>
-        </div>
-        <div style='padding: 20px;'>
-            <p>Dear Test Customer,</p>
-            <p>This is a development test of the Proteini.mk order confirmation email.</p>
-            <div style='background-color: #f5f5f5; padding: 15px; margin: 15px 0;'>
-                <h3>Order Details:</h3>
-                <p><strong>Order Number:</strong> {orderNumber}</p>
-                <p><strong>Order Date:</strong> {DateTime.Now:MMMM dd, yyyy HH:mm}</p>
-                <p><strong>Subtotal:</strong> MKD 1000.00</p>
-                <p><strong>Delivery Fee:</strong> MKD 150.00</p>
-                <p><strong>Total Amount:</strong> MKD 1150.00</p>
-                <p><strong>Payment Method:</strong> Cash on Delivery</p>
-            </div>
-            <table style='width:100%; border-collapse: collapse; margin: 15px 0;'>
-                <thead>
-                    <tr style='background-color: #f5f5f5;'>
-                        <th style='padding: 10px; border: 1px solid #ddd;'>Product</th>
-                        <th style='padding: 10px; border: 1px solid #ddd; text-align: center;'>Qty</th>
-                        <th style='padding: 10px; border: 1px solid #ddd; text-align: right;'>Price</th>
-                        <th style='padding: 10px; border: 1px solid #ddd; text-align: right;'>Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style='padding: 10px; border: 1px solid #ddd;'>Sample Protein Product</td>
-                        <td style='padding: 10px; border: 1px solid #ddd; text-align: center;'>1</td>
-                        <td style='padding: 10px; border: 1px solid #ddd; text-align: right;'>MKD 1000.00</td>
-                        <td style='padding: 10px; border: 1px solid #ddd; text-align: right;'>MKD 1000.00</td>
-                    </tr>
-                </tbody>
-            </table>
-            <p>Thank you for shopping with us!</p>
-            <p>Best regards,<br/>Your Proteini.mk Team</p>
-        </div>
-    </div>
-</body>
-</html>";
+            var rows =
+                EmailLayout.Hero("Order received", "Test email", EmailLayout.Tone.Ink,
+                    "Hi Test Customer, this is a development test of the Proteini.si order confirmation email.") +
+                EmailLayout.Row(EmailLayout.Panel(
+                    EmailLayout.Field("Order number", $"#{HtmlEncode(orderNumber)}") +
+                        EmailLayout.Field("Order date", $"{DateTime.Now:MMMM dd, yyyy HH:mm}", last: true),
+                    EmailLayout.Field("Payment", "Cash on delivery", last: true))) +
+                EmailLayout.Row(EmailLayout.SectionTitle("Items ordered") + EmailLayout.ItemsTable(new[]
+                {
+                    ("Product", "left", false, false),
+                    ("Qty", "center", false, false),
+                    ("Price", "right", true, false),
+                    ("Total", "right", false, false)
+                }, new[] { new[] { "Sample Protein Product", "1", "1.000 MKD", "1.000 MKD" } }), "8px 36px 8px 36px") +
+                EmailLayout.Row(EmailLayout.Totals(new List<(string, string, string?)>
+                {
+                    ("Subtotal", "1.000 MKD", null),
+                    ("Delivery", "150 MKD", null)
+                }, "Total", "1.150 MKD"), "8px 36px 34px 36px");
 
+            var emailBody = EmailLayout.Page($"Test Order Received - #{orderNumber}", "Test order confirmation", rows, "Development test email.");
             var sent = await SendAsync(new[] { email }, $"Test Order Received - #{orderNumber}", emailBody, includeOrderCopyRecipients: false);
             return (sent, orderNumber);
         }
@@ -701,23 +419,23 @@ namespace ProteiniSi.Services
         public async Task<(string SampleNumber, EmailSendResult Result)> SendSmtpSampleAsync(string email)
         {
             var sampleNumber = $"SMTP-{DateTime.Now:yyyyMMdd-HHmmss}";
-            var emailBody = $@"
-<!DOCTYPE html>
-<html>
-<body style='font-family: Arial, sans-serif;'>
-    <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
-        <h2>Proteini.mk SMTP diagnostic</h2>
-        <p>This email confirms the backend reached the SMTP provider.</p>
-        <p><strong>Test ID:</strong> {sampleNumber}</p>
-        <p><strong>Sent at:</strong> {DateTime.Now:yyyy-MM-dd HH:mm:ss}</p>
-    </div>
-</body>
-</html>";
+            var rows =
+                EmailLayout.Hero("SMTP diagnostic", "Test email", EmailLayout.Tone.Ink,
+                    "This email confirms the backend reached the SMTP provider.") +
+                EmailLayout.Row(EmailLayout.Panel(
+                    EmailLayout.Field("Test ID", HtmlEncode(sampleNumber)) +
+                    EmailLayout.Field("Sent at", $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}", last: true)), "0 36px 34px 36px");
 
-
+            var emailBody = EmailLayout.Page($"Proteini.mk SMTP Diagnostic - {sampleNumber}", "SMTP diagnostic", rows);
             var result = await SendDetailedAsync(new[] { email }, $"Proteini.mk SMTP Diagnostic - {sampleNumber}", emailBody, includeOrderCopyRecipients: false);
             return (sampleNumber, result);
         }
+
+        // Order rows come back as dynamic Dapper rows; older procs may not return Language yet.
+        private static string? ReadLanguage(object row) =>
+            row is IDictionary<string, object?> values && values.TryGetValue("Language", out var value)
+                ? Convert.ToString(value)
+                : null;
 
         public List<string> GetSellerNotificationRecipients()
         {
@@ -733,8 +451,8 @@ namespace ProteiniSi.Services
             if (configuredRecipients.Any())
                 return configuredRecipients;
 
-            logger.LogWarning("No order notification email configured. Falling back to gtsport8@yahoo.com");
-            return new List<string> { "gtsport8@yahoo.com" };
+            logger.LogWarning("No order notification email configured. Falling back to proteini@yahoo.com");
+            return new List<string> { "proteini@yahoo.com" };
         }
 
         private List<string> GetOrderCopyRecipients(IEnumerable<string> toRecipients)
@@ -771,11 +489,6 @@ namespace ProteiniSi.Services
             return recipients
                 .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Where(recipient => !string.IsNullOrWhiteSpace(recipient));
-        }
-
-        private static string GetEmailLogoHtml()
-        {
-            return "<img src='https://proteini.mk/logos/proteini-invoice-logo.png' alt='Proteini.mk' width='220' style='display:block; width:220px; max-width:100%; height:auto; border:0;' />";
         }
 
         private async Task<bool> SendAsync(IEnumerable<string?> recipients, string subject, string body, bool includeOrderCopyRecipients = true) =>

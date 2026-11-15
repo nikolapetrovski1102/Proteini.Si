@@ -34,6 +34,10 @@ public class CreateOrderDto
 
     public string? Order_Note { get; set; }
     public string? Gift_Voucher_Code { get; set; }
+    /// <summary>Who a gift voucher in this order is for. Empty = the buyer keeps it.</summary>
+    public string? Gift_Recipient_Name { get; set; }
+    public string? Gift_Recipient_Email { get; set; }
+    public string? Gift_Message { get; set; }
     public string? Promo_Code { get; set; }
     public int? Selected_Free_Gift_Id { get; set; }
     public string Payment_Method { get; set; } = string.Empty;
@@ -43,7 +47,37 @@ public class CreateOrderDto
     public decimal? PointsToRedeem { get; set; }
 
     public List<GuestCartItemDto>? CartItems { get; set; }
+
+    /// <summary>Proof that a guest confirmed Billing_Email with a code (required for guest cash on delivery).</summary>
+    public string? Guest_Verification_Token { get; set; }
+
+    /// <summary>Site language ("mk" or "al"); the customer's emails for this order use it.</summary>
+    public string? Language { get; set; }
+
+    /// <summary>The guest's cookie-banner "Marketing" choice (true = may receive offers by email).</summary>
+    public bool? MarketingConsent { get; set; }
+    /// <summary>When the guest made that choice in the banner (ISO time).</summary>
+    public DateTime? MarketingConsentGivenAt { get; set; }
 }
+
+public class GuestCheckoutCodeRequestDto
+{
+    public string? Email { get; set; }
+    public string? Name { get; set; }
+    public string? Language { get; set; }
+    /// <summary>The visitor's cookie-banner "Marketing" choice (true = may receive offers by email).</summary>
+    public bool? MarketingConsent { get; set; }
+}
+
+public class GuestCheckoutCodeConfirmDto
+{
+    public string? Email { get; set; }
+    public string? Code { get; set; }
+}
+
+public record GuestCheckoutCodeSentDto(bool Status, string Message, int RetryAfterSeconds);
+
+public record GuestCheckoutVerifiedDto(bool Status, string Message, string VerificationToken);
 
 public class OrderItemDto
 {
@@ -104,6 +138,10 @@ public class OrderCreateRequest
     public decimal PointsEarned { get; set; }
     public int? CartId { get; set; }
     public List<OrderItemDto> Items { get; set; } = [];
+    public string? Language { get; set; }
+    public string? GiftRecipientName { get; set; }
+    public string? GiftRecipientEmail { get; set; }
+    public string? GiftMessage { get; set; }
 }
 
 public class OrderAdminFilter

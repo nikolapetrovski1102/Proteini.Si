@@ -8,11 +8,12 @@
 #   <old-wwwroot-dir>   copy of the old API's wwwroot (uploaded product/variant/slider images).
 #
 # Steps (prod only; stage is not touched):
-#   1. uploads the .bak plus the repo's migrations 0009/0010 and all procedures
+#   1. uploads the .bak plus the repo's migrations 0009 and later, and all procedures
 #   2. stops proteinisi-api-prod and backs up the current prod DB (rollback point)
 #   3. restores the old prod DB over proteinimkdb, so all old data is kept as is
 #   4. re-maps the proteinisi_prod login (read/write + EXECUTE)
-#   5. runs migrations 0009 + 0010 (idempotent, additive) and every stored procedure
+#   5. runs migrations 0009..latest (idempotent, additive; the old DB has none of them) and
+#      every stored procedure (several need the tables from 0011+, e.g. sign-in needs 0012)
 #   6. copies the uploaded images into the prod wwwroot (adds/overwrites, never deletes)
 #   7. starts the API and checks health
 #
@@ -31,8 +32,12 @@ UPLOAD_DIRS=(uploads partners home-slider product-images product-gallery variant
 echo "==> Uploading backup and SQL to $HOST:$STAGING"
 ssh "$HOST" "mkdir -p $STAGING/sql/migrations"
 rsync -az "$BAK" "$HOST:$STAGING/old-prod.bak"
-rsync -az "$ROOT/database/migrations/0009_create-procedure-table-types.sql" \
-          "$ROOT/database/migrations/0010_create-newsletter-subscribers.sql" "$HOST:$STAGING/sql/migrations/"
+MIGRATIONS=()
+for f in "$ROOT"/database/migrations/[0-9][0-9][0-9][0-9]_*.sql; do
+  n="$(basename "$f")"; (( 10#${n%%_*} >= 9 )) && MIGRATIONS+=("$f")
+done
+echo "    migrations: $(for f in "${MIGRATIONS[@]}"; do basename "$f" | cut -c1-4; done | paste -sd' ' -)"
+rsync -az "${MIGRATIONS[@]}" "$HOST:$STAGING/sql/migrations/"
 rsync -az "$ROOT/database/procedures" "$HOST:$STAGING/sql/"
 ssh "$HOST" "chown -R 10001 $STAGING"
 
@@ -80,8 +85,11 @@ sql -d proteinimkdb -Q "
     ALTER DATABASE proteinimkdb SET COMPATIBILITY_LEVEL = 160;
   ALTER DATABASE proteinimkdb SET RECOVERY SIMPLE;"
 
-echo "Running migrations 0009, 0010"
-for f in $(docker exec mssql bash -c "ls $C/sql/migrations/*.sql" | sort); do sql -d proteinimkdb -i "$f" > /dev/null; done
+echo "Running migrations"
+for f in $(docker exec mssql bash -c "ls $C/sql/migrations/*.sql" | sort); do
+  echo "  $(basename "$f")"
+  sql -d proteinimkdb -i "$f" > /dev/null || { echo "FAILED: $f" >&2; exit 1; }
+done
 
 echo "Deploying stored procedures"
 count=0

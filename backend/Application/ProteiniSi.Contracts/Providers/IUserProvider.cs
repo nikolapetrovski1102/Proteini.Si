@@ -18,4 +18,6 @@ public interface IUserProvider
     Task<EmailCodeInfo?> GetEmailCodeAsync(int userId);
     Task<int> IncrementEmailCodeAttemptsAsync(int userId);
     Task<bool> ConfirmEmailAsync(int userId, byte[] codeHash, DateTime confirmedAt);
+    Task SetLanguageAsync(int userId, string language);
+    Task<ExternalSignInResult> SignInExternalAsync(string? provider, string? providerKey, string? email, string? fullName, bool allowLink);
 }

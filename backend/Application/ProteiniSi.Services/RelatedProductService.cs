@@ -13,6 +13,8 @@ public class RelatedProductService(IRelatedProductProvider provider, IMemoryCach
     private const int DefaultLimit = 8;
     private const int MaxLimit = 24;
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
+    // Short, so a new order shows up on the home page within minutes.
+    private static readonly TimeSpan CustomerCacheDuration = TimeSpan.FromMinutes(5);
 
     public async Task<IReadOnlyList<RelatedProduct>> GetRelatedProductsAsync(int productId, int? limit)
     {
@@ -29,6 +31,23 @@ public class RelatedProductService(IRelatedProductProvider provider, IMemoryCach
         });
 
         return products ?? [];
+    }
+
+    public async Task<IReadOnlyList<CustomerRecommendation>> GetForCustomerAsync(int userId, int? limit)
+    {
+        if (userId <= 0)
+            return [];
+
+        var safeLimit = NormalizeLimit(limit);
+        var cacheKey = $"customer-recommendations:{userId}:{safeLimit}";
+
+        var rows = await cache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = CustomerCacheDuration;
+            return await provider.GetForCustomerAsync(userId, safeLimit);
+        });
+
+        return rows ?? [];
     }
 
     private async Task<IReadOnlyList<RelatedProduct>> LoadRelatedProductsAsync(int productId, int limit)

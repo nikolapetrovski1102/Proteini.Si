@@ -3,11 +3,14 @@ import { FiHeart, FiShoppingBag } from "react-icons/fi";
 import { FaHeart } from "react-icons/fa";
 import { formatSaleEndDate, isSaleActive } from "../../utils/salePricing";
 import { Starburst } from "./sections/Decor";
+import { BoxIcon } from "../Components/ShopIcons";
+import { referralPrice, useReferralOffer } from "../../utils/referralOffer";
+import Price from "../Components/Price";
 
-const formatMkd = (value) => `MKD ${(Number(value) || 0).toFixed(2)}`;
 
+// Clothing is listed once per product (sizes are picked on the product page), so it links to the plain product.
 export const productHref = (product) =>
-  product.isVariant && product.variant_Id
+  product.isVariant && product.variant_Id && !product.isApparel
     ? `/product/${product.parent_Product_Id || product.product_Id}?variant=${product.variant_Id}`
     : `/product/${product.product_Id}`;
 
@@ -17,8 +20,15 @@ export const productHref = (product) =>
  *  tag         – small label shown top-left (e.g. "NEW")
  *  showSaleEnd – show the "sale ends" chip under the price
  *  fluid       – fill the grid cell instead of the fixed rail width
+ *  large       – wider rail card with a shorter 5:4 image (for featured rails)
  *  language    – "al" shows the Albanian name when there is one
+ *  showStock   – mark sold-out products and drop quick purchase for them
  */
+
+/** True when the listed product (or its shown packaging) has nothing left to sell. */
+const isSoldOut = (product) =>
+  !product.isGiftVoucher && !(Number(product.quantity) > 0);
+
 export default function HomeProductCard({
   product,
   onQuickPurchase,
@@ -29,20 +39,44 @@ export default function HomeProductCard({
   tag,
   showSaleEnd = false,
   fluid = false,
+  large = false,
+  showStock = false,
   language,
   saleEndLocale,
 }) {
   const saleActive = isSaleActive(product);
   const regularPrice = Number(product.price) || 0;
   const salePrice = saleActive ? Number(product.compare_Price) || 0 : 0;
-  const hasDiscount = salePrice > 0 && salePrice < regularPrice;
-  const discount = hasDiscount ? Math.round(((regularPrice - salePrice) / regularPrice) * 100) : 0;
+  const hasSale = salePrice > 0 && salePrice < regularPrice;
+  // The visitor's affiliate code, taken off the price they'd pay anyway (sale price included), like checkout.
+  const referralOffer = useReferralOffer();
+  const codePrice = referralPrice(referralOffer, {
+    productId: product.parent_Product_Id || product.product_Id,
+    price: hasSale ? salePrice : regularPrice,
+    isGiftVoucher: product.isGiftVoucher,
+  });
+  const finalPrice = codePrice ?? (hasSale ? salePrice : regularPrice);
+  const hasDiscount = finalPrice > 0 && finalPrice < regularPrice;
+  const discount = hasDiscount ? Math.round(((regularPrice - finalPrice) / regularPrice) * 100) : 0;
   const saleEndDate = showSaleEnd && saleActive ? formatSaleEndDate(product, saleEndLocale) : null;
   const href = productHref(product);
   const name = language === "al" && product.nameAl ? product.nameAl : product.name;
-  const label = product.brandName || product.category || "Proteini.si";
+  const soldOut = showStock && isSoldOut(product);
 
-  const details = product.hasVariants
+  // Same tub listed once per weight: show the weight under the name so the cards can be told apart.
+  const packagingLabel =
+    product.isVariant && !product.isApparel && product.variantPackagingName
+      ? String(product.variantPackagingName).trim()
+      : "";
+
+  const details = product.isApparel
+    ? [
+        Number(product.packagingCount) > 1 &&
+          `${product.packagingCount} ${translate("cardSizes")}`,
+        Number(product.flavorCount) > 1 &&
+          `${product.flavorCount} ${translate("cardColors")}`,
+      ]
+    : product.hasVariants
     ? [
         `${product.packagingCount || 1} ${translate(product.packagingCount === 1 ? "packing" : "packings")}`,
         Number(product.flavorCount) > 0 &&
@@ -52,7 +86,20 @@ export default function HomeProductCard({
         Number(product.gPerServing) > 0 && `${product.gPerServing}g ${translate("perServing")}`,
         Number(product.servings) > 0 && `${product.servings} ${translate("servings")}`,
       ];
-  const detailsText = details.filter(Boolean).join(" · ");
+  // Category is only worth showing when it adds something the name and brand don't already say.
+  const category = String(product.category || "").trim();
+  const showCategory =
+    category &&
+    category.toLowerCase() !== String(product.brandName || "").trim().toLowerCase() &&
+    !String(name || "").toLowerCase().includes(category.toLowerCase());
+  const hoverDetails = [showCategory && category, ...details].filter(Boolean);
+
+  // "Your price · MARKO10" under the price: plain text, so it reads as theirs without another badge.
+  const codeLine = codePrice != null && (
+    <span className="basis-full truncate text-[11px] font-semibold leading-4 text-[#8a5a00] sm:text-[12px]">
+      {translate("referralPriceWithCode")} · {referralOffer.code}
+    </span>
+  );
 
   const quick = (event) => {
     event.preventDefault();
@@ -66,12 +113,17 @@ export default function HomeProductCard({
   return (
     <article
       onPointerEnter={hoverIntent}
+      data-sold-out={soldOut || undefined}
       className={`home-card group relative flex flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.06] ${
-        fluid ? "w-full min-w-0" : "w-[164px] flex-shrink-0 snap-start sm:w-[268px]"
+        fluid
+          ? "w-full min-w-0"
+          : large
+            ? "w-[80vw] max-w-[340px] flex-shrink-0 snap-start sm:w-[380px] sm:max-w-none"
+            : "w-[164px] flex-shrink-0 snap-start sm:w-[268px]"
       }`}
     >
       {/* Image */}
-      <Link to={href} className="relative block aspect-square overflow-hidden bg-gradient-to-b from-[#f8f7f4] to-[#efede7]">
+      <Link to={href} className={`relative block overflow-hidden ${large ? "aspect-[5/4]" : "aspect-square"} bg-gradient-to-b from-[#f8f7f4] to-[#efede7]`}>
         {/* soft yellow glow that blooms behind the product on hover */}
         <span aria-hidden="true" className="home-card-glow pointer-events-none absolute inset-0" />
         {product.img ? (
@@ -80,12 +132,21 @@ export default function HomeProductCard({
             alt={name}
             loading="lazy"
             decoding="async"
-            className="home-card-img relative h-full w-full object-contain p-4 mix-blend-multiply sm:p-6"
+            className={`home-card-img relative h-full w-full object-contain p-4 mix-blend-multiply sm:p-6 ${
+              soldOut ? "opacity-45 grayscale" : ""
+            }`}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
             {translate("noImage")}
           </div>
+        )}
+
+        {soldOut && (
+          <span className="absolute bottom-2.5 left-1/2 flex max-w-[calc(100%-20px)] -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-[#141409] px-3 py-1.5 text-[11px] font-bold leading-none text-white sm:bottom-3 sm:text-[12px]">
+            <BoxIcon className="h-4 w-4 shrink-0" />
+            <span className="truncate">{translate("outOfStock")}</span>
+          </span>
         )}
 
         {/* Badges: "new"/"soon" and the discount always show */}
@@ -101,7 +162,7 @@ export default function HomeProductCard({
             </Starburst>
           )}
           {tag && (
-            <span className="-rotate-3 rounded-md bg-[#141409] px-2 py-1 font-display text-[11px] font-semibold uppercase leading-none tracking-wide text-[#FDC700] shadow-[2px_2px_0_rgba(20,20,9,0.18)] sm:text-[13px]">
+            <span className="-rotate-3 rounded-md bg-[#141409] px-2 py-1 font-display text-[11px] font-semibold uppercase leading-none tracking-wide text-[#FDC700] sm:text-[13px]">
               {tag}
             </span>
           )}
@@ -131,35 +192,48 @@ export default function HomeProductCard({
 
       {/*
         Name + price is all that shows at first sight. On mouse devices the details block is
-        lifted out of the flow and grows upward over the image on hover, revealing brand and
-        details under the title and the sale end + quick purchase by the price. An invisible
+        lifted out of the flow and grows upward over the image on hover, revealing category and
+        product details under the title and the sale end + quick purchase by the price. An invisible
         copy of the name/price keeps the card's resting height, so the row never jumps.
       */}
       <div aria-hidden="true" className="card-info-space invisible flex-1 p-3 sm:px-4 sm:pb-4 sm:pt-3.5">
         <h3 className="line-clamp-2 min-h-[36px] text-[13px] font-semibold leading-[18px] text-gray-900 sm:min-h-[42px] sm:text-[15px] sm:leading-[21px]">{name}</h3>
+        {packagingLabel && (
+          <span className="mt-0.5 block truncate text-[12px] font-medium leading-4 text-gray-500 sm:text-[13px]">
+            {packagingLabel}
+          </span>
+        )}
         <div className="pt-2.5">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
             {hasDiscount ? (
               <>
-                <span className="whitespace-nowrap text-[15px] font-extrabold leading-tight text-[#E3262F] sm:text-lg">{formatMkd(salePrice)}</span>
-                <span className="whitespace-nowrap text-[11px] text-gray-400 line-through sm:text-xs">{formatMkd(regularPrice)}</span>
+                <span className="whitespace-nowrap text-[15px] font-extrabold leading-tight text-[#E3262F] sm:text-lg"><Price value={finalPrice} /></span>
+                <span className="whitespace-nowrap text-[11px] text-gray-400 line-through sm:text-xs"><Price value={regularPrice} /></span>
               </>
             ) : (
-              <span className="whitespace-nowrap text-[15px] font-extrabold leading-tight text-gray-900 sm:text-lg">{formatMkd(regularPrice)}</span>
+              <span className="whitespace-nowrap text-[15px] font-extrabold leading-tight text-gray-900 sm:text-lg"><Price value={regularPrice} /></span>
             )}
+            {codeLine}
           </div>
         </div>
       </div>
 
       <Link to={href} className="card-info flex flex-1 flex-col bg-white p-3 sm:px-4 sm:pb-4 sm:pt-3.5">
         <h3 className="line-clamp-2 min-h-[36px] text-[13px] font-semibold leading-[18px] text-gray-900 sm:min-h-[42px] sm:text-[15px] sm:leading-[21px]">{name}</h3>
+        {packagingLabel && (
+          <span className="mt-0.5 block truncate text-[12px] font-medium leading-4 text-gray-500 sm:text-[13px]">
+            {packagingLabel}
+          </span>
+        )}
 
         <div className="card-more">
           <div>
-            <span className="mt-1 block truncate text-[12px] text-gray-500">
-              <span className="font-semibold uppercase tracking-[0.06em] text-gray-700">{label}</span>
-              {detailsText && <> · {detailsText}</>}
-            </span>
+            {/* The brand is already in the name, so hover reveals what the name doesn't say */}
+            {hoverDetails.length > 0 && (
+              <span className="mt-1 block truncate text-[12px] text-gray-500">
+                {hoverDetails.join(" · ")}
+              </span>
+            )}
             {product.shortExpiry && (
               <span className="mt-1 block truncate text-[11px] font-semibold text-[#8a5a00]">
                 {translate("shortExpiry")}
@@ -173,24 +247,27 @@ export default function HomeProductCard({
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
             {hasDiscount ? (
               <>
-                <span className="whitespace-nowrap text-[15px] font-extrabold leading-tight text-[#E3262F] sm:text-lg">{formatMkd(salePrice)}</span>
-                <span className="whitespace-nowrap text-[11px] text-gray-400 line-through sm:text-xs">{formatMkd(regularPrice)}</span>
+                <span className="whitespace-nowrap text-[15px] font-extrabold leading-tight text-[#E3262F] sm:text-lg"><Price value={finalPrice} /></span>
+                <span className="whitespace-nowrap text-[11px] text-gray-400 line-through sm:text-xs"><Price value={regularPrice} /></span>
               </>
             ) : (
-              <span className="whitespace-nowrap text-[15px] font-extrabold leading-tight text-gray-900 sm:text-lg">{formatMkd(regularPrice)}</span>
+              <span className="whitespace-nowrap text-[15px] font-extrabold leading-tight text-gray-900 sm:text-lg"><Price value={regularPrice} /></span>
             )}
+            {codeLine}
           </div>
 
           {/* Touch devices: compact quick purchase next to the price */}
+          {!soldOut && (
           <button
             type="button"
             onClick={quick}
             onPointerDown={intent}
             aria-label={translate("quickPurchase")}
-            className="card-touch flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#FDC700] text-black transition-transform duration-200 active:scale-90"
+            className="card-touch flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[#FDC700] text-black transition-transform duration-200 active:scale-90"
           >
             <FiShoppingBag size={15} />
           </button>
+          )}
         </div>
 
         {saleEndDate && (
@@ -208,14 +285,21 @@ export default function HomeProductCard({
                 {translate("saleEnds")} {saleEndDate}
               </span>
             )}
+            {soldOut ? (
+              <span className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-[#f4f3ef] py-2.5 text-[13px] font-bold text-gray-500">
+                <BoxIcon className="h-4 w-4" />
+                {translate("outOfStock")}
+              </span>
+            ) : (
             <button
               type="button"
               onClick={quick}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-[#141409] py-2.5 text-[13px] font-bold text-white transition-colors duration-300 hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDC700]"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-[#141409] py-2.5 text-[13px] font-bold text-white transition-colors duration-300 hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDC700]"
             >
               <FiShoppingBag size={16} className="text-[#FDC700]" />
               {translate("quickPurchase")}
             </button>
+            )}
           </div>
         </div>
       </Link>

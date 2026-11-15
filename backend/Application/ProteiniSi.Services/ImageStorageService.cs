@@ -39,6 +39,35 @@ public class ImageStorageService(
         return $"/{webFolder}/{Path.GetFileName(fileName)}";
     }
 
+    public async Task<string> SaveStreamAsync(Stream content, string webFolder, string fileName, CancellationToken cancellationToken = default)
+    {
+        var folder = Path.Combine(WebRoot, webFolder);
+        Directory.CreateDirectory(folder);
+
+        var name = Path.GetFileName(fileName);
+        var target = Path.Combine(folder, name);
+        var temp = target + ".part";
+
+        // Write to a temp file first so a half-downloaded image is never served.
+        await using (var stream = new FileStream(temp, FileMode.Create))
+            await content.CopyToAsync(stream, cancellationToken);
+        File.Move(temp, target, overwrite: true);
+
+        return $"/{webFolder}/{name}";
+    }
+
+    public bool Exists(string webPath) => ResolveInsideRoot(webPath) is { } path && File.Exists(path);
+
+    private string? ResolveInsideRoot(string? webPath)
+    {
+        if (string.IsNullOrWhiteSpace(webPath))
+            return null;
+
+        var root = Path.GetFullPath(WebRoot);
+        var fullPath = Path.GetFullPath(Path.Combine(root, webPath.TrimStart('/', '\\')));
+        return fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal) ? fullPath : null;
+    }
+
     public void Delete(string? webPath)
     {
         if (string.IsNullOrWhiteSpace(webPath))

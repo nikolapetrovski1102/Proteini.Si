@@ -48,20 +48,49 @@ public class GiftVoucherService(IGiftVoucherProvider provider) : IGiftVoucherSer
 
     public async Task<CsvExport> ExportReportAsync()
     {
-        var csv = new StringBuilder("Code,Initial value,Remaining value,Status,Purchase order,Purchaser,Recipient,Valid from,Expires,Redemption order,Redemption amount,Redemption status,Redemption date\r\n");
+        var csv = new StringBuilder("Code,Initial value,Remaining value,Status,Purchase order,Purchaser name,Purchaser email,Recipient name,Recipient email,Valid from,Expires,Redemption channel,Redemption order,Redemption amount,Redemption status,Redeemed by,Redemption date\r\n");
         foreach (var row in await provider.GetReportAsync())
         {
             csv.Append(Csv(row.Code)).Append(',').Append(Csv(row.InitialValue)).Append(',')
                 .Append(Csv(row.RemainingValue)).Append(',').Append(Csv(row.Status)).Append(',')
-                .Append(Csv(row.PurchasedOrderId)).Append(',').Append(Csv(row.PurchaserEmail)).Append(',')
+                .Append(Csv(row.PurchasedOrderId)).Append(',').Append(Csv(row.PurchaserName)).Append(',')
+                .Append(Csv(row.PurchaserEmail)).Append(',').Append(Csv(row.RecipientName)).Append(',')
                 .Append(Csv(row.RecipientEmail)).Append(',').Append(Csv(FormatDate(row.ValidFrom))).Append(',')
-                .Append(Csv(FormatDate(row.ExpiresAt))).Append(',').Append(Csv(row.RedemptionOrderId)).Append(',')
+                .Append(Csv(FormatDate(row.ExpiresAt))).Append(',').Append(Csv(row.RedemptionChannel)).Append(',')
+                .Append(Csv(row.RedemptionOrderId)).Append(',')
                 .Append(Csv(row.RedemptionAmount)).Append(',').Append(Csv(row.RedemptionStatus)).Append(',')
+                .Append(Csv(row.RedeemedBy)).Append(',')
                 .Append(Csv(FormatDate(row.RedemptionCreatedAt))).Append("\r\n");
         }
 
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
         return new CsvExport(bytes, $"gift-vouchers-{DateTime.UtcNow:yyyyMMdd-HHmm}.csv");
+    }
+
+    public async Task<GiftVoucherDetails> GetDetailsAsync(string code)
+    {
+        var normalized = NormalizeCode(code);
+        return await provider.GetDetailsAsync(normalized)
+               ?? throw new NotFoundException("No gift voucher with this code.", new { status = false, message = "No gift voucher with this code." });
+    }
+
+    public async Task<GiftVoucherDetails> RedeemInStoreAsync(GiftVoucherRedeemDto redeem, string? redeemedBy)
+    {
+        var code = NormalizeCode(redeem.Code);
+        var amount = Math.Round(redeem.Amount, 2, MidpointRounding.AwayFromZero);
+        if (amount <= 0) throw Failure("Enter an amount greater than zero.");
+        var note = string.IsNullOrWhiteSpace(redeem.Note) ? null : redeem.Note.Trim();
+        if (note is { Length: > 500 }) throw Failure("The note can be at most 500 characters.");
+
+        await provider.RedeemInStoreAsync(code, amount, redeemedBy, note);
+        return await GetDetailsAsync(code);
+    }
+
+    private static string NormalizeCode(string? code)
+    {
+        var normalized = (code ?? string.Empty).Trim().ToUpperInvariant();
+        if (normalized.Length < 8 || normalized.Length > 64) throw Failure("Enter a valid gift voucher code.");
+        return normalized;
     }
 
     private static BadRequestException Failure(string message) => new(message, new { status = false, message });

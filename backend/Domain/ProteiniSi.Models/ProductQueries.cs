@@ -27,12 +27,19 @@ public class ProductFilterQuery
     public List<int> TagIds { get; set; } = [];
     public List<int> BrandIds { get; set; } = [];
     public List<int> FlavorIds { get; set; } = [];
+    public List<string> Sizes { get; set; } = [];
+    public List<int> ProductIds { get; set; } = [];
+    /// <summary>Listings whose pinned products go first (default sort only); see usp_Product_Filter.</summary>
+    public List<int> PinCategoryIds { get; set; } = [];
+    public List<int> PinBrandIds { get; set; } = [];
+    public bool PinAll { get; set; }
     public decimal? MinPrice { get; set; }
     public decimal? MaxPrice { get; set; }
     public bool InStock { get; set; }
     public bool OnSale { get; set; }
     public bool UpcomingPromotions { get; set; }
     public bool NewProducts { get; set; }
+    public bool BestSellers { get; set; }
     public bool Outlet { get; set; }
     public bool GiftVouchers { get; set; }
     public bool JustForMe { get; set; }

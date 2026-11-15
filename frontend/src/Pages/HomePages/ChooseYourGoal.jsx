@@ -6,10 +6,10 @@ import { getHomepageCardImageUrl } from "../../utils/homepageCardImage";
 import Reveal from "./sections/Reveal";
 
 const fallbackCards = [
-  { id: "goal-1", titleKey: "loseWeight", slug: "weight-loss", filterValue: "Weight Loss", imagePath: "/img/homepage-cards/lose-weight.webp" },
-  { id: "goal-2", titleKey: "gainMuscleMass", slug: "gain-muscle-mass", filterValue: "Muscle Mass", imagePath: "/img/homepage-cards/gain-muscle-mass.webp" },
-  { id: "goal-3", titleKey: "improveYourForm", slug: "improve-your-form-and-endurance", filterValue: "Endurance and Recovery", imagePath: "/img/homepage-cards/improve-form-endurance.webp" },
-  { id: "goal-4", titleKey: "vitalityAsALifestyle", slug: "vitality-as-a-lifestyle", filterValue: "Active Lifestyle", imagePath: "/img/homepage-cards/vitality-lifestyle.webp" },
+  { id: "goal-1", titleKey: "loseWeight", slug: "weight-loss", filterValue: "Weight Loss", imagePath: "/img/homepage-cards/goal-weight-loss.webp" },
+  { id: "goal-2", titleKey: "gainMuscleMass", slug: "gain-muscle-mass", filterValue: "Muscle Mass", imagePath: "/img/homepage-cards/goal-muscle-mass.webp" },
+  { id: "goal-3", titleKey: "improveYourForm", slug: "improve-your-form-and-endurance", filterValue: "Endurance and Recovery", imagePath: "/img/homepage-cards/goal-endurance.webp" },
+  { id: "goal-4", titleKey: "vitalityAsALifestyle", slug: "vitality-as-a-lifestyle", filterValue: "Active Lifestyle", imagePath: "/img/homepage-cards/goal-vitality.webp" },
 ];
 
 export default function ChooseYourGoal() {
@@ -39,11 +39,6 @@ export default function ChooseYourGoal() {
         goalName: goalName,
       },
     });
-  };
-
-  const handleShowAllGoals = () => {
-    window.scrollTo(0, 0);
-    navigate("/goals");
   };
 
   const visibleCards = cards.slice(0, 4);
@@ -118,19 +113,6 @@ export default function ChooseYourGoal() {
               );
             })}
           </div>
-
-          <Reveal delay={450}>
-            <button
-              type="button"
-              onClick={handleShowAllGoals}
-              className="group mt-8 sm:mt-14 inline-flex items-center gap-3 rounded-full border border-white/30 px-7 py-3 text-[13px] font-extrabold text-white transition hover:border-[#FDC700] hover:bg-[#FDC700] hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDC700]"
-            >
-              {translate("showAll")}
-              <svg className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
-            </button>
-          </Reveal>
         </div>
       </div>
     </section>

@@ -1,3 +1,5 @@
+using Microsoft.Data.SqlClient;
+using ProteiniSi.Contracts.Exceptions;
 using ProteiniSi.Contracts.Providers;
 using ProteiniSi.Models;
 
@@ -23,4 +25,28 @@ public class GiftVoucherProvider(ISqlHelper sql) : IGiftVoucherProvider
 
     public Task<List<GiftVoucherReportRow>> GetReportAsync() =>
         sql.QueryAsync<GiftVoucherReportRow>(StoredProcedures.GiftVouchers.GetReport);
+
+    public Task<GiftVoucherDetails?> GetDetailsAsync(string code) =>
+        sql.QueryMultipleAsync(StoredProcedures.GiftVouchers.GetDetails, new { Code = code },
+            async grid =>
+            {
+                var voucher = await grid.ReadSingleOrDefaultAsync<GiftVoucherDetails>();
+                var redemptions = (await grid.ReadAsync<GiftVoucherRedemption>()).ToList();
+                if (voucher != null) voucher.Redemptions = redemptions;
+                return voucher;
+            });
+
+    public async Task<GiftVoucherStoreRedemptionResult> RedeemInStoreAsync(string code, decimal amount, string? redeemedBy, string? note)
+    {
+        try
+        {
+            return await sql.QuerySingleOrDefaultAsync<GiftVoucherStoreRedemptionResult>(StoredProcedures.GiftVouchers.RedeemInStore,
+                       new { Code = code, Amount = amount, RedeemedBy = redeemedBy, Note = note })
+                   ?? throw new InvalidOperationException("Redemption returned no result.");
+        }
+        catch (SqlException ex) when (ex.Number >= 50000)
+        {
+            throw new BadRequestException(ex.Message, new { status = false, message = ex.Message });
+        }
+    }
 }

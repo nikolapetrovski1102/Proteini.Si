@@ -45,7 +45,11 @@ CREATE OR ALTER PROCEDURE dbo.usp_Order_Create
     @PointsEarned DECIMAL(38, 10),
     @PointsText NVARCHAR(100),
     @CartId INT = NULL,
-    @Items NVARCHAR(MAX)
+    @Items NVARCHAR(MAX),
+    @Language NVARCHAR(2) = NULL,
+    @GiftRecipientName NVARCHAR(200) = NULL,
+    @GiftRecipientEmail NVARCHAR(255) = NULL,
+    @GiftMessage NVARCHAR(500) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -114,7 +118,8 @@ BEGIN
         Subtotal, Delivery_Fee, VAT_Amount, Total_Amount, Order_Note, Gift_Voucher_Code, Gift_Voucher_Amount,
         Promo_Code, Promo_Discount, Selected_Free_Gift_Id,
         Points_Redeemed, Points_Discount, Points_Earned,
-        Created_At, Updated_At
+        Created_At, Updated_At, Language,
+        Gift_Recipient_Name, Gift_Recipient_Email, Gift_Message
     ) VALUES (
         @UserId, @OrderNumber, GETDATE(), @OrderStatus, @PaymentMethod, 'pending',
         @BillingType, @BillingFullName, @BillingAddress, @BillingPostCode, @BillingCity,
@@ -124,10 +129,15 @@ BEGIN
         @Subtotal, @DeliveryFee, 0, @TotalAmount, @OrderNote, @GiftVoucherCode, @GiftVoucherAmount,
         @PromoCode, @PromoDiscount, @FreeGiftId,
         @PointsRedeemed, @PointsDiscount, @PointsEarned,
-        GETDATE(), GETDATE()
+        GETDATE(), GETDATE(), @Language,
+        @GiftRecipientName, @GiftRecipientEmail, @GiftMessage
     );
 
     DECLARE @OrderId INT = CAST(SCOPE_IDENTITY() AS INT);
+
+    -- Remember the customer's site language for later emails (marketing, account).
+    IF @UserId IS NOT NULL AND @Language IS NOT NULL
+        UPDATE dbo.[User] SET User_Language = @Language WHERE User_Id = @UserId;
 
     IF @PromoCodeId IS NOT NULL
         INSERT INTO dbo.PromoCodeUsages (PromoCodeId, OrderId, UserId, CustomerEmail, DiscountAmount, UsedAt)

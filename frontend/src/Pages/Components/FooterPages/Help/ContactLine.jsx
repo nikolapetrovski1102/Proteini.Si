@@ -8,9 +8,9 @@ export default function ContactLine() {
       |{" "}
       <a
         className="font-semibold underline"
-        href="mailto:makedonija@proteini.si"
+        href="mailto:info@proteini.mk"
       >
-        makedonija@proteini.si
+        info@proteini.mk
       </a>
     </p>
   );

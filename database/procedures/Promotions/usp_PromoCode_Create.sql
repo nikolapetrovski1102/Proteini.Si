@@ -13,7 +13,10 @@ CREATE OR ALTER PROCEDURE dbo.usp_PromoCode_Create
     @PerCustomerLimit INT,
     @ValidFrom DATETIME2,
     @ValidUntil DATETIME2,
-    @IsActive BIT
+    @IsActive BIT,
+    @AppliesTo NVARCHAR(20) = NULL,
+    @ProductIds dbo.IntList READONLY,
+    @CategoryIds dbo.IntList READONLY
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -38,6 +41,8 @@ BEGIN
          @IsActive, GETDATE(), GETDATE());
 
     DECLARE @PromoCodeId INT = CAST(SCOPE_IDENTITY() AS INT);
+    EXEC dbo.usp_PromoCode_SetTargets @PromoCodeId, @AppliesTo, @ProductIds, @CategoryIds;
+
     COMMIT;
 
     SELECT 0 AS Result, @PromoCodeId AS PromoCodeId;

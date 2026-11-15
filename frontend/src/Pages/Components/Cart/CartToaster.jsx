@@ -95,7 +95,7 @@ export default function CartToaster() {
               dismissToast();
               navigate("/cart");
             }}
-            className="flex-shrink-0 rounded-full bg-[#141409] px-3.5 py-2 text-[12px] font-bold text-white transition hover:bg-black"
+            className="flex-shrink-0 rounded-lg bg-[#141409] px-3.5 py-2 text-[12px] font-bold text-white transition hover:bg-black"
           >
             {translate("viewCart")}
           </button>
@@ -107,7 +107,7 @@ export default function CartToaster() {
               dismissToast();
               shown.onUndo();
             }}
-            className="flex flex-shrink-0 items-center gap-1.5 rounded-full bg-[#141409] px-3.5 py-2 text-[12px] font-bold text-white transition hover:bg-black"
+            className="flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-[#141409] px-3.5 py-2 text-[12px] font-bold text-white transition hover:bg-black"
           >
             <FiRotateCcw size={13} />
             {translate("undo")}

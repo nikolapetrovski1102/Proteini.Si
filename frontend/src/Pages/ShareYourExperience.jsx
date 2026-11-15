@@ -1,441 +1,396 @@
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { FiArrowUpRight, FiChevronLeft, FiChevronRight, FiHeart, FiInstagram, FiX } from "react-icons/fi";
 import { useLanguage } from "./translation/LanguageContext";
 import { api } from "../services/api";
-import { BrandLoader } from "./Components/Loaders/BrandLoader";
+import { InlineLoader } from "./Components/Loaders/BrandLoader";
+import Reveal from "./HomePages/sections/Reveal";
+
+const DEFAULT_HANDLE = "proteini.si_makedonija";
+const VISIBLE = 5; // one featured tile + four small ones
+
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (/^(https?:|blob:|data:)/.test(imagePath)) return imagePath;
+  if (imagePath.startsWith("/")) return `${import.meta.env.VITE_IMAGE_BASE_URL || "https://proteini.mk"}${imagePath}`;
+  return imagePath;
+};
+
+// "https://www.instagram.com/p/DBowZDzsPCh/?utm_source=…" → "DBowZDzsPCh"
+const shortcodeOf = (url) => url?.match(/instagram\.com\/(?:[\w.]+\/)?(?:p|reel|reels|tv)\/([\w-]+)/i)?.[1] || null;
+
+// Instagram's official embed: always shows the real post, even when our copy of the picture is missing.
+const embedUrlOf = (url) => {
+  const code = shortcodeOf(url);
+  return code ? `https://www.instagram.com/p/${code}/embed/captioned/` : null;
+};
+
+const embedMediaOf = (url) => {
+  const code = shortcodeOf(url);
+  return code ? `https://www.instagram.com/p/${code}/embed/` : null;
+};
+
+const formatLikes = (n) => Number(n || 0).toLocaleString("mk-MK");
 
 export default function ShareYourExperience() {
   const { translate } = useLanguage();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPost, setSelectedPost] = useState(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const modalContentRef = useRef(null);
-
-  // Helper function to get full image URL
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return null;
-    if (imagePath.startsWith("http")) return imagePath;
-    if (imagePath.startsWith("/")) {
-      return `https://proteini.mk${imagePath}`;
-    }
-    return imagePath;
-  };
+  const [broken, setBroken] = useState(() => new Set());
+  const [openIndex, setOpenIndex] = useState(null);
 
   useEffect(() => {
-    fetchPosts();
+    let alive = true;
+    api
+      .getInstagramPosts()
+      .then((data) => alive && setPosts(Array.isArray(data) ? data : []))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  const fetchPosts = async () => {
-    try {
-      const data = await api.getInstagramPosts();
-      setPosts(data);
-    } catch (error) {
-      console.error("Error fetching posts:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const markBroken = useCallback((id) => {
+    setBroken((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }, []);
 
-  const openModal = (post, index) => {
-    setSelectedPost(post);
-    setCurrentIndex(index);
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.width = "100%";
-  };
-
-  const closeModal = () => {
-    setSelectedPost(null);
-    document.body.style.overflow = "";
-    document.body.style.position = "";
-    document.body.style.width = "";
-  };
-
-  const goToPrevious = () => {
-    if (currentIndex > 0) {
-      setSelectedPost(posts[currentIndex - 1]);
-      setCurrentIndex(currentIndex - 1);
-      // Reset scroll position when changing posts
-      if (modalContentRef.current) {
-        modalContentRef.current.scrollTop = 0;
-      }
-    }
-  };
-
-  const goToNext = () => {
-    if (currentIndex < posts.length - 1) {
-      setSelectedPost(posts[currentIndex + 1]);
-      setCurrentIndex(currentIndex + 1);
-      // Reset scroll position when changing posts
-      if (modalContentRef.current) {
-        modalContentRef.current.scrollTop = 0;
-      }
-    }
-  };
-
-  const openInstagramLink = (url) => {
-    window.open(url, "_blank");
-  };
-
-  // Prevent scroll chaining when touching the modal content
-  const handleModalTouchMove = (e) => {
-    if (!modalContentRef.current) return;
-
-    const { scrollTop, scrollHeight, clientHeight } = modalContentRef.current;
-    const isAtTop = scrollTop <= 0;
-    const isAtBottom = scrollTop + clientHeight >= scrollHeight - 5;
-
-    if (
-      (isAtTop && e.touches[0].clientY > 0) ||
-      (isAtBottom && e.touches[0].clientY < 0)
-    ) {
-      e.preventDefault();
-    }
-  };
-
-  // Handle keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (!selectedPost) return;
-      if (e.key === "ArrowLeft") {
-        goToPrevious();
-      } else if (e.key === "ArrowRight") {
-        goToNext();
-      } else if (e.key === "Escape") {
-        closeModal();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedPost, currentIndex, posts]);
-
-  if (loading) {
-    return (
-      <div id="social" className="home-section home-tint relative w-full flex justify-center pb-12 sm:pb-[80px] bg-gradient-to-b from-white via-[#fdf4f8] to-[#fff8e6]">
-        <div className="w-full max-w-[1240px] flex flex-col text-center px-[15px]">
-          <h2 className="pt-12 sm:pt-[80px] mb-2 font-display font-bold uppercase tracking-tight text-[30px] leading-[0.95] text-[#141409] sm:text-5xl">
-            #proteinisi
-          </h2>
-          <span className="mb-6 sm:mb-[50px] text-[13px] text-[#6b6b6b] leading-[16px] font-bold">
-            {translate("shareYourExperience")}
-          </span>
-          <div className="flex justify-center items-center py-20">
-            <BrandLoader variant="scoop" size={120} />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (posts.length === 0) {
-    return (
-      <div id="social" className="home-section home-tint relative w-full flex justify-center pb-12 sm:pb-[80px] bg-gradient-to-b from-white via-[#fdf4f8] to-[#fff8e6]">
-        <div className="w-full max-w-[1240px] flex flex-col text-center px-[15px]">
-          <h2 className="pt-12 sm:pt-[80px] mb-2 font-display font-bold uppercase tracking-tight text-[30px] leading-[0.95] text-[#141409] sm:text-5xl">
-            #proteinisi
-          </h2>
-          <span className="mb-6 sm:mb-[50px] text-[13px] text-[#6b6b6b] leading-[16px] font-bold">
-            {translate("shareYourExperience")}
-          </span>
-          <div className="text-center py-20 text-gray-500">
-            {translate("noInstagramPosts")}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handle = useMemo(() => posts.find((p) => p.postedBy)?.postedBy || DEFAULT_HANDLE, [posts]);
+  const profileUrl = `https://www.instagram.com/${handle}/`;
+  const visible = posts.slice(0, VISIBLE);
 
   return (
-    <>
-      <div id="social" className="home-section home-tint relative w-full flex justify-center pb-12 sm:pb-[80px] bg-gradient-to-b from-white via-[#fdf4f8] to-[#fff8e6]">
-        <div className="w-full max-w-[1240px] flex flex-col text-center px-[15px]">
-          <h2 className="pt-12 sm:pt-[80px] mb-2 font-display font-bold uppercase tracking-tight text-[30px] leading-[0.95] text-[#141409] sm:text-5xl">
-            #proteinisi
-          </h2>
-          <span className="mb-6 sm:mb-[50px] text-[13px] text-[#6b6b6b] leading-[16px] font-bold">
-            {translate("shareYourExperience")}
-          </span>
+    <section
+      id="social"
+      className="ig-section home-section home-tint relative w-full overflow-hidden bg-[#f6f5f1] py-14 sm:py-24"
+    >
+      {/* soft brand glow behind the grid */}
+      <div
+        aria-hidden="true"
+        className="ig-glow pointer-events-none absolute -right-40 top-10 h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle,rgba(253,199,0,0.28),transparent_65%)]"
+      />
+      <div
+        aria-hidden="true"
+        className="ig-glow pointer-events-none absolute -left-48 bottom-0 h-[480px] w-[480px] rounded-full bg-[radial-gradient(circle,rgba(221,42,123,0.12),transparent_65%)]"
+      />
 
-          {/* Grid Layout - Mobile */}
-          <div className="grid grid-cols-2 gap-[10px] md:hidden">
-            {posts.slice(0, 6).map((post, index) => (
-              <div
-                key={post.id}
-                className="relative group cursor-pointer overflow-hidden rounded-xl"
-                onClick={() => openModal(post, index)}
-              >
-                <img
-                  src={getImageUrl(post.imagePath)}
-                  alt={post.description || "Instagram post"}
-                  className="w-full object-cover aspect-square transition duration-700 group-hover:scale-110"
-                  onError={(e) => {
-                    e.target.src =
-                      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Crect x='2' y='2' width='20' height='20' rx='2.18'%3E%3C/rect%3E%3Cpath d='M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5'%3E%3C/path%3E%3C/svg%3E";
-                    e.target.onerror = null;
-                  }}
-                />
-                <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
-                  <img
-                    src="/logos/instagram.svg"
-                    className="w-6 h-6"
-                    alt="instagram"
-                  />
-                </div>
-              </div>
-            ))}
+      <div className="relative mx-auto w-full max-w-[1240px] px-4 sm:px-[25px]">
+        <Reveal className="mb-8 flex flex-col gap-5 sm:mb-12 md:flex-row md:items-end md:justify-between">
+          <div>
+            <span className="mb-3 block h-1.5 w-12 rounded-full bg-[#FDC700]" aria-hidden="true" />
+            <h2 className="ig-heading font-display text-[34px] font-bold uppercase leading-[0.95] tracking-tight text-[#141409] sm:text-6xl">
+              <span className="text-[#FDC700]">#</span>proteinisi
+            </h2>
+            <p className="ig-muted mt-3 max-w-md text-[15px] font-medium text-[#55554d] sm:text-base">
+              {translate("shareYourExperience")}. {translate("igTagUs")}
+            </p>
           </div>
 
-          {/* Grid Layout - Tablet and Desktop */}
-          <div
-            className="hidden md:grid grid-cols-4 gap-[12px]"
-            style={{ gridAutoRows: "minmax(140px, auto)" }}
+          <a
+            href={profileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group inline-flex items-center gap-3 self-start rounded-full bg-[#141409] py-2 pl-2 pr-5 text-white shadow-[0_10px_30px_-12px_rgba(20,20,9,0.6)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDC700] focus-visible:ring-offset-2 md:self-auto"
           >
-            {posts.slice(0, 7).map((post, index) => (
-              <div
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[linear-gradient(45deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5)]">
+              <FiInstagram size={20} aria-hidden="true" />
+            </span>
+            <span className="flex flex-col leading-tight">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-white/60">{translate("igFollowUs")}</span>
+              <span className="text-sm font-bold">@{handle}</span>
+            </span>
+            <FiArrowUpRight size={18} className="ml-1 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
+          </a>
+        </Reveal>
+
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <InlineLoader size={36} />
+          </div>
+        ) : visible.length === 0 ? (
+          <div className="ig-muted rounded-3xl border border-dashed border-black/10 py-16 text-center text-[#55554d]">
+            {translate("noInstagramPosts")}
+          </div>
+        ) : (
+          <Reveal className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            {visible.map((post, i) => (
+              <PostTile
                 key={post.id}
-                className="relative group cursor-pointer overflow-hidden rounded-xl"
-                onClick={() => openModal(post, index)}
-              >
-                <img
-                  src={getImageUrl(post.imagePath)}
-                  alt={post.description || "Instagram post"}
-                  className="w-full h-full object-cover transition duration-700 group-hover:scale-110"
-                  onError={(e) => {
-                    e.target.src =
-                      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Crect x='2' y='2' width='20' height='20' rx='2.18'%3E%3C/rect%3E%3Cpath d='M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5'%3E%3C/path%3E%3C/svg%3E";
-                    e.target.onerror = null;
-                  }}
-                />
-                <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
-                  <img
-                    src="/logos/instagram.svg"
-                    className="w-6 h-6"
-                    alt="instagram"
-                  />
-                </div>
-              </div>
+                post={post}
+                featured={i === 0}
+                broken={broken.has(post.id) || !post.imagePath}
+                onBroken={() => markBroken(post.id)}
+                onOpen={() => setOpenIndex(i)}
+                fallbackHandle={handle}
+              />
             ))}
+          </Reveal>
+        )}
+      </div>
+
+      {openIndex !== null && posts[openIndex] && (
+        <PostModal
+          posts={posts}
+          index={openIndex}
+          setIndex={setOpenIndex}
+          broken={broken}
+          onBroken={markBroken}
+          fallbackHandle={handle}
+          translate={translate}
+        />
+      )}
+    </section>
+  );
+}
+
+function PostTile({ post, featured, broken, onBroken, onOpen, fallbackHandle }) {
+  const caption = post.description?.trim();
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={caption ? caption.slice(0, 80) : "Instagram post"}
+      className={`group relative aspect-square overflow-hidden rounded-2xl bg-[#141409] text-left shadow-[0_18px_40px_-24px_rgba(20,20,9,0.55)] ring-1 ring-black/5 transition duration-500 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDC700] focus-visible:ring-offset-2 sm:rounded-3xl ${
+        featured ? "col-span-2 row-span-2" : ""
+      }`}
+    >
+      {broken ? (
+        embedMediaOf(post.postUrl) ? (
+          <EmbedMedia url={embedMediaOf(post.postUrl)} title={caption} />
+        ) : (
+          <TextTile caption={caption} handle={post.postedBy || fallbackHandle} featured={featured} />
+        )
+      ) : (
+        <img
+          src={getImageUrl(post.imagePath)}
+          alt={caption || "Instagram post"}
+          loading="lazy"
+          onError={onBroken}
+          className="absolute inset-0 h-full w-full object-cover transition duration-700 ease-out group-hover:scale-[1.06]"
+        />
+      )}
+
+      {/* IG badge */}
+      <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-[#141409] shadow-sm backdrop-blur transition group-hover:scale-110 sm:h-9 sm:w-9">
+        <FiInstagram size={16} aria-hidden="true" />
+      </span>
+
+      {/* bottom info: always on the featured tile, on hover for the small ones */}
+      {(!broken || embedMediaOf(post.postUrl)) && (
+        <div
+          className={`absolute inset-x-0 bottom-0 flex flex-col gap-1.5 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 pt-14 text-white transition duration-300 sm:p-5 sm:pt-16 ${
+            featured ? "" : "md:translate-y-2 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100"
+          }`}
+        >
+          {featured && caption && <p className="line-clamp-2 text-sm font-medium leading-snug sm:text-base">{caption}</p>}
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold sm:text-sm">
+            <FiHeart size={14} className="fill-current text-[#ff4d6d]" aria-hidden="true" />
+            {formatLikes(post.likeCount)}
+          </span>
+        </div>
+      )}
+    </button>
+  );
+}
+
+// The plain (uncaptioned) embed, rendered at a fixed width, scaled to the tile and shifted up past
+// Instagram's 54px profile header so only the photo shows. Clicks go to the tile underneath.
+const EMBED_W = 400;
+const EMBED_HEADER = 54;
+function EmbedMedia({ url, title }) {
+  const ref = useRef(null);
+  const [box, setBox] = useState(null);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return undefined;
+    const measure = () => setBox(node.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, []);
+  const scale = box ? box / EMBED_W : 1;
+  return (
+    <div ref={ref} className="absolute inset-0 overflow-hidden bg-[#0e0e0a]">
+      {box && (
+        <iframe
+          src={url}
+          title={title?.slice(0, 80) || "Instagram post"}
+          loading="lazy"
+          scrolling="no"
+          tabIndex={-1}
+          aria-hidden="true"
+          className="pointer-events-none absolute left-0 origin-top-left border-0"
+          style={{
+            width: EMBED_W,
+            height: EMBED_W * 1.4 + EMBED_HEADER,
+            top: -EMBED_HEADER * scale,
+            transform: `scale(${scale})`,
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Used when there is neither a picture nor a usable post link: a branded caption card.
+function TextTile({ caption, handle, featured }) {
+  return (
+    <div className="absolute inset-0 flex flex-col justify-between bg-[radial-gradient(120%_90%_at_100%_0%,rgba(253,199,0,0.35),transparent_55%),radial-gradient(90%_80%_at_0%_100%,rgba(214,41,118,0.35),transparent_60%)] p-4 text-white sm:p-6">
+      <span className="font-display text-4xl font-bold leading-none text-[#FDC700] sm:text-5xl">“</span>
+      <p
+        className={`font-medium leading-snug text-white/90 ${
+          featured ? "line-clamp-6 text-lg sm:text-2xl" : "line-clamp-4 text-xs sm:text-sm"
+        }`}
+      >
+        {caption || "#proteinisi"}
+      </p>
+      <span className="truncate text-[11px] font-semibold uppercase tracking-wider text-white/60 sm:text-xs">@{handle}</span>
+    </div>
+  );
+}
+
+function PostModal({ posts, index, setIndex, broken, onBroken, fallbackHandle, translate }) {
+  const post = posts[index];
+  const hasPrev = index > 0;
+  const hasNext = index < posts.length - 1;
+  const close = useCallback(() => setIndex(null), [setIndex]);
+  const prev = useCallback(() => hasPrev && setIndex(index - 1), [hasPrev, index, setIndex]);
+  const next = useCallback(() => hasNext && setIndex(index + 1), [hasNext, index, setIndex]);
+
+  const embedUrl = embedUrlOf(post.postUrl);
+  const showEmbed = (broken.has(post.id) || !post.imagePath) && embedUrl;
+  const caption = post.description?.trim();
+  const handle = post.postedBy || fallbackHandle;
+
+  // Lock page scroll without jumping back to the top.
+  useEffect(() => {
+    const html = document.documentElement;
+    const prevOverflow = html.style.overflow;
+    html.style.overflow = "hidden";
+    return () => {
+      html.style.overflow = prevOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") close();
+      else if (e.key === "ArrowLeft") prev();
+      else if (e.key === "ArrowRight") next();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [close, prev, next]);
+
+  const navBtn =
+    "flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20 disabled:pointer-events-none disabled:opacity-30";
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={caption?.slice(0, 80) || "Instagram post"}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-0 backdrop-blur-sm sm:p-6"
+      onClick={close}
+    >
+      <button
+        type="button"
+        onClick={close}
+        aria-label="Close"
+        className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20 sm:right-6 sm:top-6"
+      >
+        <FiX size={22} />
+      </button>
+
+      <button type="button" aria-label="Previous" onClick={(e) => (e.stopPropagation(), prev())} disabled={!hasPrev} className={`${navBtn} absolute left-6 top-1/2 z-20 hidden -translate-y-1/2 md:flex`}>
+        <FiChevronLeft size={24} />
+      </button>
+      <button type="button" aria-label="Next" onClick={(e) => (e.stopPropagation(), next())} disabled={!hasNext} className={`${navBtn} absolute right-6 top-1/2 z-20 hidden -translate-y-1/2 md:flex`}>
+        <FiChevronRight size={24} />
+      </button>
+
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="flex h-full w-full flex-col overflow-y-auto overscroll-contain bg-white sm:h-auto sm:max-h-[88vh] sm:max-w-[960px] sm:overflow-hidden sm:rounded-3xl md:flex-row"
+      >
+        {/* media */}
+        <div className="flex shrink-0 items-center justify-center bg-[#0e0e0a] md:w-[56%]">
+          {showEmbed ? (
+            <iframe
+              key={embedUrl}
+              src={embedUrl}
+              title={caption?.slice(0, 80) || "Instagram post"}
+              loading="lazy"
+              allowTransparency
+              className="h-[70vh] w-full max-w-[480px] border-0 bg-white md:h-[88vh] md:max-h-[720px]"
+            />
+          ) : (
+            <img
+              key={post.id}
+              src={getImageUrl(post.imagePath)}
+              alt={caption || "Instagram post"}
+              onError={() => onBroken(post.id)}
+              className="max-h-[60vh] w-full object-contain md:max-h-[88vh]"
+            />
+          )}
+        </div>
+
+        {/* details */}
+        <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-7">
+          <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(45deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5)] p-[2px]">
+              <span className="flex h-full w-full items-center justify-center rounded-full bg-white text-[#141409]">
+                <FiInstagram size={16} />
+              </span>
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-gray-900">@{handle}</p>
+              {post.postedDate && (
+                <p className="text-xs text-gray-500">{new Date(post.postedDate).toLocaleDateString("mk-MK", { day: "numeric", month: "long", year: "numeric" })}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 py-4 md:overflow-y-auto">
+            {caption ? (
+              <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-gray-700">{caption}</p>
+            ) : (
+              <p className="text-sm text-gray-500">#proteinisi</p>
+            )}
+          </div>
+
+          <div className="space-y-3 border-t border-gray-100 pt-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-gray-900">
+                <FiHeart size={16} className="fill-current text-[#ff4d6d]" aria-hidden="true" />
+                {formatLikes(post.likeCount)}
+              </span>
+              <span className="text-xs font-medium text-gray-500">
+                {index + 1} / {posts.length}
+              </span>
+            </div>
+            <a
+              href={post.postUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-[#141409] py-3 text-sm font-bold text-white transition hover:bg-black"
+            >
+              <FiInstagram size={16} aria-hidden="true" />
+              {translate("igViewPost")}
+              <FiArrowUpRight size={16} aria-hidden="true" />
+            </a>
+            <div className="flex gap-3 md:hidden">
+              <button type="button" onClick={prev} disabled={!hasPrev} className="flex flex-1 items-center justify-center gap-1 rounded-full bg-gray-100 py-2.5 text-sm font-semibold text-gray-700 disabled:opacity-40">
+                <FiChevronLeft size={16} /> {translate("igPrev")}
+              </button>
+              <button type="button" onClick={next} disabled={!hasNext} className="flex flex-1 items-center justify-center gap-1 rounded-full bg-gray-100 py-2.5 text-sm font-semibold text-gray-700 disabled:opacity-40">
+                {translate("igNext")} <FiChevronRight size={16} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Modal - New mobile version, old desktop version */}
-      {selectedPost && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center"
-          onClick={closeModal}
-        >
-          {/* Desktop modal - original design */}
-          <div
-            className="hidden md:flex md:flex-row relative bg-white max-w-5xl w-full mx-4 overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close button */}
-            <button
-              onClick={closeModal}
-              className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-lg hover:bg-gray-100 transition"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-
-            {/* Navigation Arrows - Desktop */}
-            {currentIndex > 0 && (
-              <button
-                onClick={goToPrevious}
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10"
-              >
-                <img
-                  src="/logos/left-arrow.svg"
-                  alt="Previous"
-                  className="w-10 h-10 bg-white/80 p-2 hover:bg-white transition"
-                />
-              </button>
-            )}
-            {currentIndex < posts.length - 1 && (
-              <button
-                onClick={goToNext}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10"
-              >
-                <img
-                  src="/logos/right-arrow.svg"
-                  alt="Next"
-                  className="w-10 h-10 bg-white/80 p-2 hover:bg-white transition"
-                />
-              </button>
-            )}
-
-            {/* Left side - Image */}
-            <div className="w-1/2 bg-gray-100 flex items-center justify-center p-4">
-              <img
-                src={getImageUrl(selectedPost.imagePath)}
-                alt={selectedPost.description || "Instagram post"}
-                className="w-full h-auto max-h-[70vh] object-contain"
-                onError={(e) => {
-                  e.target.src =
-                    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Crect x='2' y='2' width='20' height='20' rx='2.18'%3E%3C/rect%3E%3Cpath d='M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5'%3E%3C/path%3E%3C/svg%3E";
-                  e.target.onerror = null;
-                }}
-              />
-            </div>
-
-            {/* Right side - Content */}
-            <div className="w-1/2 p-6 flex flex-col">
-              <h2 className="text-2xl font-bold mb-4 break-words">
-                {selectedPost.postedBy || "Instagram User"}
-              </h2>
-
-              <div className="flex-1 mb-6">
-                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap break-words">
-                  {selectedPost.description || "No description provided."}
-                </p>
-              </div>
-
-              <div className="mb-6">
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="w-5 h-5 text-red-500 fill-current"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                  </svg>
-                  <span className="text-gray-600 font-medium">
-                    {selectedPost.likeCount.toLocaleString()} likes
-                  </span>
-                </div>
-              </div>
-
-              <button
-                onClick={() => openInstagramLink(selectedPost.postUrl)}
-                className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold hover:from-purple-700 hover:to-pink-700 transition duration-300"
-              >
-                View Post on Instagram
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile modal - full screen with scroll */}
-          <div
-            className="relative bg-white w-full h-full md:hidden overflow-y-auto flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-            ref={modalContentRef}
-            onTouchMove={handleModalTouchMove}
-          >
-            {/* Close button */}
-            <button
-              onClick={closeModal}
-              className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-lg hover:bg-gray-100 transition"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-
-            {/* Image */}
-            <div className="bg-gray-100 flex items-center justify-center max-h-[50vh]">
-              <img
-                src={getImageUrl(selectedPost.imagePath)}
-                alt={selectedPost.description || "Instagram post"}
-                className="w-full h-auto max-h-full object-contain"
-                onError={(e) => {
-                  e.target.src =
-                    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Crect x='2' y='2' width='20' height='20' rx='2.18'%3E%3C/rect%3E%3Cpath d='M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5'%3E%3C/path%3E%3C/svg%3E";
-                  e.target.onerror = null;
-                }}
-              />
-            </div>
-
-            {/* Content */}
-            <div className="p-4">
-              <h2 className="text-xl font-bold mb-3 break-words">
-                {selectedPost.postedBy || "Instagram User"}
-              </h2>
-
-              <div className="mb-4">
-                <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap break-words">
-                  {selectedPost.description || "No description provided."}
-                </p>
-              </div>
-
-              <div className="mb-4">
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="w-4 h-4 text-red-500 fill-current"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                  </svg>
-                  <span className="text-gray-600 font-medium text-sm">
-                    {selectedPost.likeCount.toLocaleString()} likes
-                  </span>
-                </div>
-              </div>
-
-              <a
-                href={selectedPost.postUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold text-center rounded-lg hover:from-purple-700 hover:to-pink-700 transition duration-300 text-sm"
-              >
-                View Post on Instagram
-              </a>
-
-              {/* Mobile Navigation Buttons */}
-              <div className="flex gap-3 mt-4">
-                <button
-                  onClick={goToPrevious}
-                  disabled={currentIndex === 0}
-                  className={`flex-1 py-2 rounded-lg font-medium transition ${
-                    currentIndex === 0
-                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                      : "bg-gray-200 text-gray-700 active:bg-gray-300"
-                  }`}
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={goToNext}
-                  disabled={currentIndex === posts.length - 1}
-                  className={`flex-1 py-2 rounded-lg font-medium transition ${
-                    currentIndex === posts.length - 1
-                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                      : "bg-gray-200 text-gray-700 active:bg-gray-300"
-                  }`}
-                >
-                  Next
-                </button>
-              </div>
-
-              {/* Mobile counter */}
-              <div className="text-center text-xs text-gray-400 mt-3">
-                {currentIndex + 1} / {posts.length}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </div>,
+    document.body,
   );
 }

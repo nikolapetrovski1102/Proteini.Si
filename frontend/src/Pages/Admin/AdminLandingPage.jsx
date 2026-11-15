@@ -1,146 +1,105 @@
-import { useState, useEffect } from "react";
+import { createElement, useEffect, useState } from "react";
+import { FiAlignLeft, FiArrowDown, FiArrowUp, FiEdit2, FiFeather, FiImage, FiLayout, FiPlus, FiStar, FiTrash2, FiType } from "react-icons/fi";
 import { api } from "../../services/api";
+import {
+  AdminPage,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  IconButton,
+  ImagePicker,
+  Loading,
+  Modal,
+  inputClass,
+  textareaClass,
+} from "./AdminKit";
+import { useConfirm, useToast } from "./adminFeedback";
+
+/** Block types, what fields each one uses, and how they look in the list. */
+const TYPES = {
+  title: { label: "Title", icon: FiType, tone: "ink", hint: "Large heading", fields: ["title"] },
+  subtitle: { label: "Subtitle", icon: FiType, tone: "blue", hint: "Smaller heading", fields: ["title"] },
+  paragraph: { label: "Paragraph", icon: FiAlignLeft, tone: "neutral", hint: "Normal text", fields: ["content"] },
+  highlight: { label: "Highlight", icon: FiStar, tone: "yellow", hint: "Boxed heading + text", fields: ["title", "content"] },
+  italic: { label: "Quote", icon: FiFeather, tone: "pink", hint: "Italic text", fields: ["content"] },
+  image: { label: "Image", icon: FiImage, tone: "green", hint: "Full-width picture", fields: ["image"] },
+};
+
+const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+const emptyForm = { sectionType: "paragraph", title: "", content: "", displayOrder: 0 };
+
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith("http")) return imagePath;
+  if (imagePath.startsWith("/")) return `${import.meta.env.VITE_IMAGE_BASE_URL || "https://proteini.mk"}${imagePath}`;
+  return imagePath;
+};
+
+const adminName = () => {
+  const user = api.getUser();
+  return user?.fullName || user?.email || "Admin";
+};
 
 export default function AdminLandingPage() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [sections, setSections] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [reordering, setReordering] = useState(false);
   const [editingSection, setEditingSection] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    sectionType: "paragraph",
-    title: "",
-    content: "",
-    displayOrder: 0,
-    createdBy: "",
-  });
+  const [formData, setFormData] = useState(emptyForm);
   const [selectedImageFile, setSelectedImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
 
-  // Fetch all sections on component mount
-  useEffect(() => {
-    fetchSections();
-  }, []);
-
   const fetchSections = async () => {
-    setLoading(true);
     try {
-      const data = await api.getAllLandingPageSections();
-      setSections(data);
+      setSections(await api.getAllLandingPageSections());
     } catch (error) {
       console.error("Error fetching sections:", error);
-      alert("Failed to fetch landing page sections");
+      toast.error("Failed to load landing page blocks");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleImageSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const allowedTypes = [
-        "image/jpeg",
-        "image/jpg",
-        "image/png",
-        "image/gif",
-        "image/webp",
-      ];
-      if (!allowedTypes.includes(file.type)) {
-        alert("Invalid file type. Only JPG, PNG, GIF, and WEBP are allowed.");
-        return;
-      }
+  useEffect(() => {
+    fetchSections();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-      if (file.size > 5 * 1024 * 1024) {
-        alert("File size too large. Maximum 5MB allowed.");
-        return;
-      }
+  const setField = (key, value) => setFormData((prev) => ({ ...prev, [key]: value }));
+  const fields = TYPES[formData.sectionType]?.fields || [];
 
-      setSelectedImageFile(file);
-      const previewUrl = URL.createObjectURL(file);
-      setImagePreview(previewUrl);
+  const handleImageSelect = (file) => {
+    if (!ALLOWED.includes(file.type)) {
+      toast.error("Only JPG, PNG, GIF and WebP images are allowed.");
+      return;
     }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image is too large. Maximum 5 MB.");
+      return;
+    }
+    setSelectedImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === "displayOrder" ? parseInt(value) || 0 : value,
-    }));
-  };
-
-  const resetForm = () => {
-    setFormData({
-      sectionType: "paragraph",
-      title: "",
-      content: "",
-      displayOrder: 0,
-      createdBy: "",
-    });
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingSection(null);
     setSelectedImageFile(null);
     setImagePreview("");
+  };
+
+  const startNew = () => {
     setEditingSection(null);
-    setShowForm(false);
-  };
-
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const user = api.getUser();
-      const sectionData = {
-        sectionType: formData.sectionType,
-        title: formData.title || null,
-        content: formData.content || null,
-        displayOrder: formData.displayOrder,
-        createdBy: user?.fullName || user?.email || "Admin",
-      };
-
-      if (selectedImageFile) {
-        sectionData.image = selectedImageFile;
-      }
-
-      await api.createLandingPageSection(sectionData);
-      alert("Section created successfully");
-      resetForm();
-      fetchSections();
-    } catch (error) {
-      console.error("Error creating section:", error);
-      alert("Failed to create section");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const user = api.getUser();
-      const sectionData = {
-        id: editingSection.id,
-        sectionType: formData.sectionType,
-        title: formData.title || null,
-        content: formData.content || null,
-        displayOrder: formData.displayOrder,
-        isActive: editingSection.isActive,
-        updatedBy: user?.fullName || user?.email || "Admin",
-      };
-
-      if (selectedImageFile) {
-        sectionData.image = selectedImageFile;
-      }
-
-      await api.updateLandingPageSection(sectionData);
-      alert("Section updated successfully");
-      resetForm();
-      fetchSections();
-    } catch (error) {
-      console.error("Error updating section:", error);
-      alert("Failed to update section");
-    } finally {
-      setLoading(false);
-    }
+    setFormData({ ...emptyForm, displayOrder: sections.length });
+    setSelectedImageFile(null);
+    setImagePreview("");
+    setShowForm(true);
   };
 
   const handleEdit = (section) => {
@@ -150,35 +109,65 @@ export default function AdminLandingPage() {
       title: section.title || "",
       content: section.content || "",
       displayOrder: section.displayOrder,
-      createdBy: "",
     });
-    if (section.imagePath) {
-      setImagePreview(section.imagePath);
-    }
+    setImagePreview(section.imagePath ? getImageUrl(section.imagePath) : "");
     setSelectedImageFile(null);
     setShowForm(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this section?"))
-      return;
+  const handleSubmit = async (e) => {
+    e?.preventDefault();
+    if (fields.includes("title") && !formData.title.trim()) return toast.error("Please enter a heading.");
+    if (fields.includes("content") && !formData.content.trim()) return toast.error("Please enter some text.");
+    if (fields.includes("image") && !selectedImageFile && !editingSection?.imagePath) return toast.error("Please choose an image.");
 
-    setLoading(true);
+    setSaving(true);
     try {
-      await api.deleteLandingPageSection(id);
-      alert("Section deleted successfully");
-      fetchSections();
+      const base = {
+        sectionType: formData.sectionType,
+        title: formData.title || null,
+        content: formData.content || null,
+        displayOrder: formData.displayOrder,
+      };
+      if (selectedImageFile) base.image = selectedImageFile;
+
+      if (editingSection) {
+        await api.updateLandingPageSection({ ...base, id: editingSection.id, isActive: editingSection.isActive, updatedBy: adminName() });
+        toast.success("Block updated.");
+      } else {
+        await api.createLandingPageSection({ ...base, createdBy: adminName() });
+        toast.success("Block added.");
+      }
+      closeForm();
+      await fetchSections();
+    } catch (error) {
+      console.error("Error saving section:", error);
+      toast.error("Failed to save the block.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (section) => {
+    const ok = await confirm({
+      title: "Delete this block?",
+      message: "It will be removed from the landing page. To hide it temporarily, use the visibility switch instead.",
+      confirmLabel: "Delete",
+      tone: "danger",
+    });
+    if (!ok) return;
+    try {
+      await api.deleteLandingPageSection(section.id);
+      toast.success("Block deleted.");
+      await fetchSections();
     } catch (error) {
       console.error("Error deleting section:", error);
-      alert("Failed to delete section");
-    } finally {
-      setLoading(false);
+      toast.error("Failed to delete the block.");
     }
   };
 
   const toggleActive = async (section) => {
     try {
-      const user = api.getUser();
       await api.updateLandingPageSection({
         id: section.id,
         sectionType: section.sectionType,
@@ -186,468 +175,179 @@ export default function AdminLandingPage() {
         content: section.content,
         displayOrder: section.displayOrder,
         isActive: !section.isActive,
-        updatedBy: user?.fullName || user?.email || "Admin",
+        updatedBy: adminName(),
       });
-      fetchSections();
+      setSections((list) => list.map((s) => (s.id === section.id ? { ...s, isActive: !s.isActive } : s)));
     } catch (error) {
       console.error("Error toggling section:", error);
-      alert("Failed to update section status");
+      toast.error("Failed to change visibility.");
     }
   };
 
-  const moveUp = async (index) => {
-    if (index === 0) return;
-
-    const newSections = [...sections];
-    [newSections[index - 1], newSections[index]] = [
-      newSections[index],
-      newSections[index - 1],
-    ];
-
-    const reorderData = newSections.map((item, idx) => ({
-      id: item.id,
-      displayOrder: idx,
-    }));
-
+  const move = async (index, delta) => {
+    const target = index + delta;
+    if (target < 0 || target >= sections.length) return;
+    const next = [...sections];
+    [next[index], next[target]] = [next[target], next[index]];
+    setSections(next);
+    setReordering(true);
     try {
-      await api.reorderLandingPageSections(reorderData);
-      fetchSections();
+      await api.reorderLandingPageSections(next.map((item, idx) => ({ id: item.id, displayOrder: idx })));
     } catch (error) {
       console.error("Failed to reorder:", error);
-      fetchSections();
+      toast.error("Couldn't save the new order.");
+    } finally {
+      await fetchSections();
+      setReordering(false);
     }
   };
-
-  const moveDown = async (index) => {
-    if (index === sections.length - 1) return;
-
-    const newSections = [...sections];
-    [newSections[index + 1], newSections[index]] = [
-      newSections[index],
-      newSections[index + 1],
-    ];
-
-    const reorderData = newSections.map((item, idx) => ({
-      id: item.id,
-      displayOrder: idx,
-    }));
-
-    try {
-      await api.reorderLandingPageSections(reorderData);
-      fetchSections();
-    } catch (error) {
-      console.error("Failed to reorder:", error);
-      fetchSections();
-    }
-  };
-
-  const getSectionTypeLabel = (type) => {
-    switch (type) {
-      case "image":
-        return "🖼️ Image";
-      case "title":
-        return "📌 Title";
-      case "subtitle":
-        return "📝 Subtitle";
-      case "paragraph":
-        return "📄 Paragraph";
-      case "highlight":
-        return "⭐ Highlight";
-      case "italic":
-        return "✒️ Italic";
-      default:
-        return type;
-    }
-  };
-
-  const getSectionTypeColor = (type) => {
-    switch (type) {
-      case "image":
-        return "bg-purple-100 text-purple-700";
-      case "title":
-        return "bg-blue-100 text-blue-700";
-      case "subtitle":
-        return "bg-green-100 text-green-700";
-      case "paragraph":
-        return "bg-yellow-100 text-yellow-700";
-      case "highlight":
-        return "bg-orange-100 text-orange-700";
-      case "italic":
-        return "bg-pink-100 text-pink-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
-
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return null;
-    if (imagePath.startsWith("http")) return imagePath;
-    if (imagePath.startsWith("/")) {
-      return `https://proteini.mk${imagePath}`;
-    }
-    return imagePath;
-  };
-
-  if (loading && !sections.length) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-gray-500">Loading sections...</div>
-      </div>
-    );
-  }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">
-            Landing Page Management (Battery Nutrition)
-          </h1>
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-[#e98286] hover:bg-[#d47175] text-white px-4 py-2 rounded-lg transition-colors"
-          >
-            + Add New Section
-          </button>
-        </div>
-
-        {/* Sections List */}
-        {sections.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-gray-500">
-              No sections found. Click "Add New Section" to get started.
-            </p>
-          </div>
+    <AdminPage
+      eyebrow="Homepage"
+      title="Landing page"
+      count={loading ? undefined : sections.length}
+      description="The Battery Nutrition brand page, built from blocks of text and images. Blocks appear on the page top to bottom in this order."
+      actions={
+        <Button icon={FiPlus} onClick={startNew}>
+          Add block
+        </Button>
+      }
+    >
+      <Card bodyClassName="">
+        {loading ? (
+          <Loading label="Loading blocks…" />
+        ) : sections.length === 0 ? (
+          <EmptyState
+            icon={FiLayout}
+            title="The page is empty"
+            text="Start with a Title block, then add paragraphs and images."
+            action={<Button icon={FiPlus} onClick={startNew}>Add block</Button>}
+          />
         ) : (
-          <div className="space-y-4">
-            {sections.map((section, index) => (
-              <div
-                key={section.id}
-                className={`bg-white rounded-lg shadow-md overflow-hidden transition-all hover:shadow-lg ${
-                  !section.isActive ? "opacity-60 bg-gray-100" : ""
-                }`}
-              >
-                <div className="flex items-center p-4 gap-4 flex-wrap">
-                  {/* Order number and reorder buttons */}
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-xs text-gray-400 font-medium">
-                      #{index + 1}
-                    </span>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => moveUp(index)}
-                        disabled={index === 0}
-                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Move up"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 15l7-7 7 7"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => moveDown(index)}
-                        disabled={index === sections.length - 1}
-                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Move down"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 9l-7 7-7-7"
-                          />
-                        </svg>
-                      </button>
-                    </div>
+          <ol className={`divide-y divide-black/[0.06] ${reordering ? "pointer-events-none opacity-70" : ""}`}>
+            {sections.map((section, index) => {
+              const type = TYPES[section.sectionType] || { label: section.sectionType, icon: FiAlignLeft, tone: "neutral" };
+              return (
+                <li key={section.id} className={`flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5 ${section.isActive ? "" : "bg-[#faf9f6]"}`}>
+                  <div className="flex flex-col items-center">
+                    <IconButton icon={FiArrowUp} label="Move up" disabled={index === 0 || reordering} onClick={() => move(index, -1)} />
+                    <IconButton icon={FiArrowDown} label="Move down" disabled={index === sections.length - 1 || reordering} onClick={() => move(index, 1)} />
                   </div>
-
-                  {/* Type badge */}
-                  <div className="flex-shrink-0">
-                    <span
-                      className={`px-3 py-1 text-xs font-semibold rounded-full ${getSectionTypeColor(section.sectionType)}`}
-                    >
-                      {getSectionTypeLabel(section.sectionType)}
-                    </span>
-                  </div>
-
-                  {/* Image preview for image type */}
-                  {section.sectionType === "image" && section.imagePath && (
-                    <div className="flex-shrink-0">
-                      <img
-                        src={getImageUrl(section.imagePath)}
-                        alt={section.title || "Section image"}
-                        className="w-16 h-16 object-cover rounded"
-                        onError={(e) => {
-                          e.target.src =
-                            "https://via.placeholder.com/64?text=Image";
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {/* Content preview */}
-                  <div className="flex-1 min-w-0">
-                    {section.title && (
-                      <h3 className="font-semibold text-gray-800 truncate">
-                        {section.title}
-                      </h3>
+                  <button type="button" onClick={() => handleEdit(section)} className={`flex min-w-0 flex-1 items-center gap-3 text-left ${section.isActive ? "" : "opacity-50"}`}>
+                    {section.sectionType === "image" && section.imagePath ? (
+                      <img src={getImageUrl(section.imagePath)} alt="" className="h-14 w-20 shrink-0 rounded-lg bg-[#f6f5f1] object-cover" />
+                    ) : (
+                      <span className="flex h-14 w-20 shrink-0 items-center justify-center rounded-lg bg-[#f6f5f1] text-gray-500">
+                        {createElement(type.icon, { size: 18, "aria-hidden": true })}
+                      </span>
                     )}
-                    {section.content && (
-                      <p className="text-sm text-gray-600 truncate">
-                        {section.content.substring(0, 100)}
-                        {section.content.length > 100 ? "..." : ""}
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-400 mt-1">
-                      Order: {section.displayOrder} | Created:{" "}
-                      {new Date(section.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-
-                  {/* Status toggle */}
-                  <button
-                    onClick={() => toggleActive(section)}
-                    className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-                      section.isActive
-                        ? "bg-green-100 text-green-700 hover:bg-green-200"
-                        : "bg-gray-200 text-gray-500 hover:bg-gray-300"
-                    }`}
-                  >
-                    {section.isActive ? "Active" : "Inactive"}
+                    <span className="min-w-0 flex-1">
+                      <Badge tone={type.tone}>{type.label}</Badge>
+                      {section.title && <span className="mt-1 block truncate font-semibold text-gray-900">{section.title}</span>}
+                      {section.content && <span className="mt-0.5 line-clamp-1 block text-sm text-gray-600">{section.content}</span>}
+                    </span>
                   </button>
-
-                  {/* Actions */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEdit(section)}
-                      className="text-blue-600 hover:text-blue-800 p-2 transition-colors"
-                      title="Edit"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                        />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleDelete(section.id)}
-                      className="text-red-600 hover:text-red-800 p-2 transition-colors"
-                      title="Delete"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-xl font-bold mb-4">
-                {editingSection ? "Edit Section" : "Add New Section"}
-              </h2>
-              <form onSubmit={editingSection ? handleUpdate : handleCreate}>
-                <div className="space-y-4">
-                  {/* Section Type */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Section Type *
-                    </label>
-                    <select
-                      name="sectionType"
-                      value={formData.sectionType}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                    >
-                      <option value="image">🖼️ Image</option>
-                      <option value="title">📌 Title</option>
-                      <option value="subtitle">📝 Subtitle</option>
-                      <option value="paragraph">📄 Paragraph</option>
-                      <option value="highlight">⭐ Highlight</option>
-                      <option value="italic">✒️ Italic</option>
-                    </select>
-                  </div>
-
-                  {/* Title (for title, subtitle, highlight types) */}
-                  {(formData.sectionType === "title" ||
-                    formData.sectionType === "subtitle" ||
-                    formData.sectionType === "highlight") && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Title *
-                      </label>
-                      <input
-                        type="text"
-                        name="title"
-                        value={formData.title}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                        placeholder="Enter title..."
-                      />
-                    </div>
-                  )}
-
-                  {/* Image (for image type only) */}
-                  {formData.sectionType === "image" && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Image *
-                      </label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                        {imagePreview ? (
-                          <div>
-                            <img
-                              src={imagePreview}
-                              alt="Preview"
-                              className="max-h-48 mx-auto mb-2 rounded object-contain"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedImageFile(null);
-                                setImagePreview("");
-                              }}
-                              className="text-sm text-red-600 hover:text-red-800"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ) : (
-                          <div>
-                            <input
-                              type="file"
-                              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                              onChange={handleImageSelect}
-                              className="hidden"
-                              id="image-upload"
-                            />
-                            <label
-                              htmlFor="image-upload"
-                              className="cursor-pointer text-[#e98286] hover:text-[#d47175]"
-                            >
-                              Click to upload image
-                            </label>
-                            <p className="text-xs text-gray-500 mt-1">
-                              JPG, PNG, GIF, WEBP. Max 5MB.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Content (for paragraph, highlight, italic types) */}
-                  {(formData.sectionType === "paragraph" ||
-                    formData.sectionType === "highlight" ||
-                    formData.sectionType === "italic") && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Content *
-                      </label>
-                      <textarea
-                        name="content"
-                        value={formData.content}
-                        onChange={handleInputChange}
-                        required
-                        rows="6"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                        placeholder="Enter content here..."
-                      />
-                    </div>
-                  )}
-
-                  {/* Display Order */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Display Order
-                    </label>
-                    <input
-                      type="number"
-                      name="displayOrder"
-                      value={formData.displayOrder}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                      min="0"
-                      placeholder="0 = first position"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Lower numbers appear first
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-6">
                   <button
                     type="button"
-                    onClick={resetForm}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    role="switch"
+                    aria-checked={section.isActive}
+                    aria-label={section.isActive ? "Visible — click to hide" : "Hidden — click to show"}
+                    title={section.isActive ? "Visible — click to hide" : "Hidden — click to show"}
+                    onClick={() => toggleActive(section)}
+                    className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition ${section.isActive ? "bg-[#141409]" : "bg-black/[0.15]"}`}
                   >
-                    Cancel
+                    <span className={`absolute h-5 w-5 rounded-full shadow transition ${section.isActive ? "left-[18px] bg-[#FDC700]" : "left-0.5 bg-white"}`} />
                   </button>
+                  <div className="flex gap-1">
+                    <IconButton icon={FiEdit2} label="Edit block" onClick={() => handleEdit(section)} />
+                    <IconButton icon={FiTrash2} tone="danger" label="Delete block" onClick={() => handleDelete(section)} />
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </Card>
+
+      <Modal
+        open={showForm}
+        onClose={closeForm}
+        size="lg"
+        title={editingSection ? "Edit block" : "Add block"}
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeForm}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} loading={saving}>
+              {editingSection ? "Save changes" : "Add block"}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Field label="Block type">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {Object.entries(TYPES).map(([key, t]) => {
+                const active = formData.sectionType === key;
+                return (
                   <button
-                    type="submit"
-                    disabled={loading || uploadingImage}
-                    className="flex-1 px-4 py-2 bg-[#e98286] text-white rounded-lg hover:bg-[#d47175] disabled:opacity-50"
+                    key={key}
+                    type="button"
+                    onClick={() => setField("sectionType", key)}
+                    aria-pressed={active}
+                    className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left ring-1 transition ${
+                      active ? "bg-[#141409] text-white ring-[#141409]" : "bg-white text-gray-800 ring-black/[0.08] hover:ring-black/25"
+                    }`}
                   >
-                    {uploadingImage
-                      ? "Uploading..."
-                      : loading
-                        ? "Saving..."
-                        : editingSection
-                          ? "Update"
-                          : "Create"}
+                    {createElement(t.icon, { size: 16, "aria-hidden": true, className: active ? "text-[#FDC700]" : "text-gray-500" })}
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold">{t.label}</span>
+                      <span className={`block truncate text-xs ${active ? "text-white/60" : "text-gray-500"}`}>{t.hint}</span>
+                    </span>
                   </button>
-                </div>
-              </form>
+                );
+              })}
             </div>
-          </div>
-        </div>
-      )}
-    </div>
+          </Field>
+
+          {fields.includes("title") && (
+            <Field label="Heading" required>
+              <input className={inputClass} value={formData.title} onChange={(e) => setField("title", e.target.value)} />
+            </Field>
+          )}
+          {fields.includes("content") && (
+            <Field label="Text" required>
+              <textarea rows={6} className={textareaClass} value={formData.content} onChange={(e) => setField("content", e.target.value)} />
+            </Field>
+          )}
+          {fields.includes("image") && (
+            <Field label="Image" required>
+              <ImagePicker promptKey="landing"
+                preview={imagePreview}
+                aspect="aspect-[16/9]"
+                fit="object-contain"
+                accept={ALLOWED.join(",")}
+                hint="JPG, PNG, GIF or WebP. Max 5 MB."
+                onFile={handleImageSelect}
+                onClear={
+                  selectedImageFile
+                    ? () => {
+                        setSelectedImageFile(null);
+                        setImagePreview(editingSection?.imagePath ? getImageUrl(editingSection.imagePath) : "");
+                      }
+                    : undefined
+                }
+              />
+            </Field>
+          )}
+          <Field label="Position" hint="Lower numbers appear first. You can also reorder with the arrows in the list.">
+            <input type="number" min="0" className={`${inputClass} max-w-[140px]`} value={formData.displayOrder} onChange={(e) => setField("displayOrder", parseInt(e.target.value) || 0)} />
+          </Field>
+          <button type="submit" className="hidden" />
+        </form>
+      </Modal>
+    </AdminPage>
   );
 }

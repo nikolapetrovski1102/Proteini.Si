@@ -1,13 +1,171 @@
-import { FaPhoneAlt } from "react-icons/fa";
-import { IoIosStarOutline } from "react-icons/io";
-import { FiHeart } from "react-icons/fi";
-import { FaHeart } from "react-icons/fa";
+import { FiPhone } from "react-icons/fi";
 import { useState, useEffect } from "react";
 import { api } from "../../services/api";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuickPurchase } from "../Hooks/useQuickPurchase";
 import { useLanguage } from "../translation/LanguageContext";
-import { BrandLoader } from "../Components/Loaders/BrandLoader";
+import { BrandLoader, InlineLoader } from "../Components/Loaders/BrandLoader";
+import HomeProductCard from "./HomeProductCard";
+import Reveal from "./sections/Reveal";
+import { notify } from "../Components/Feedback/siteFeedback";
+
+const FALLBACK_IMAGE = "/img/proteini-landing.jpg";
+
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith("http")) return imagePath;
+  if (imagePath.startsWith("/")) return `${import.meta.env.VITE_IMAGE_BASE_URL || "https://proteini.mk"}${imagePath}`;
+  return imagePath;
+};
+
+// Content shown when the admin has not set up any landing sections yet.
+const FALLBACK_SECTIONS = [
+  { id: "f-img", sectionType: "image", imagePath: FALLBACK_IMAGE, title: "Battery Nutrition" },
+  { id: "f-title", sectionType: "title", titleKey: "aTrustedChoice" },
+  { id: "f-offer", sectionType: "offer", contentKey: "todaysOfferDesc" },
+  {
+    id: "f-intro",
+    sectionType: "paragraph",
+    content:
+      "Battery Nutrition is a sports nutrition brand that sets the standard for quality and effectiveness. We manufacture our products in the European Union, where we oversee every step of the production process; from sourcing raw materials to the finished product.",
+  },
+  { id: "f-why", sectionType: "subtitle", title: "Why Battery Nutrition?" },
+  {
+    id: "f-h1",
+    sectionType: "highlight",
+    title: "European quality",
+    content:
+      "Our products are made in state-of-the-art EU production facilities, where we ensure the highest quality control standards. Every product is the result of careful development and testing.",
+  },
+  {
+    id: "f-h2",
+    sectionType: "highlight",
+    title: "Proven effectiveness",
+    content:
+      "We don't promise miracles, but we do offer proven formulas with dosages based on scientific research. From Battery Complete Whey with a full 21g of protein per serving to Battery Creatine Reload+ which contains not just creatine, but also L-leucine and electrolytes. Every product we put on our virtual and physical shelves is designed to deliver concrete results.",
+  },
+  {
+    id: "f-h3",
+    sectionType: "highlight",
+    title: "Transparency",
+    content:
+      "On every label you'll find the complete composition, clear dosages and usage instructions. No secrets, completely transparent.",
+  },
+  {
+    id: "f-h4",
+    sectionType: "highlight",
+    title: "Complete range",
+    content:
+      "From proteins, creatine and amino acids to vitamins and minerals - Battery Nutrition covers all the needs of an active lifestyle. One brand, complete support!",
+  },
+  {
+    id: "f-h5",
+    sectionType: "highlight",
+    title: "Flavours that excite!",
+    content:
+      "Fruity, sweet, tropical – we develop different flavour profiles because we want everyone to find something they love, and because sticking to your routine also means enjoying every serving.",
+  },
+  {
+    id: "f-quote",
+    sectionType: "italic",
+    content:
+      "Battery Nutrition is more than sports nutrition. It's a brand that understands your needs, respects your effort and supports every step of your journey toward your goals.",
+  },
+];
+
+/** Consecutive "highlight" sections are merged into one group so they can render as a card grid. */
+const groupSections = (sections) =>
+  sections.reduce((groups, section) => {
+    const last = groups[groups.length - 1];
+    if (section.sectionType === "highlight" && last?.sectionType === "highlights") {
+      last.items.push(section);
+    } else if (section.sectionType === "highlight") {
+      groups.push({ id: `hl-${section.id}`, sectionType: "highlights", items: [section] });
+    } else {
+      groups.push(section);
+    }
+    return groups;
+  }, []);
+
+function LandingBlock({ section, translate }) {
+  const title = section.titleKey ? translate(section.titleKey) : section.title;
+  const content = section.contentKey ? translate(section.contentKey) : section.content;
+
+  switch (section.sectionType) {
+    case "image":
+      return (
+        <div className="overflow-hidden rounded-2xl bg-[#f6f5f1] ring-1 ring-black/[0.06]">
+          <img
+            src={getImageUrl(section.imagePath)}
+            alt={section.title || "Battery Nutrition"}
+            className="h-auto w-full"
+            onError={(e) => {
+              if (!e.currentTarget.src.endsWith(FALLBACK_IMAGE)) e.currentTarget.src = FALLBACK_IMAGE;
+            }}
+          />
+        </div>
+      );
+
+    case "title":
+      return (
+        <h1 className="font-display text-[32px] font-bold uppercase leading-[0.95] tracking-tight text-gray-900 [text-wrap:balance] sm:text-5xl">
+          {title}
+        </h1>
+      );
+
+    case "subtitle":
+      return (
+        <h2 className="flex items-center gap-3 pt-4 font-display text-[22px] font-bold uppercase leading-tight tracking-tight text-gray-900 sm:text-[28px]">
+          <span aria-hidden="true" className="h-[3px] w-8 flex-shrink-0 rounded-full bg-[#FDC700]" />
+          {title}
+        </h2>
+      );
+
+    case "offer":
+      return (
+        <p className="inline-block -rotate-1 rounded-md bg-[#141409] px-3 py-2 text-[14px] font-semibold leading-snug text-[#FDC700] sm:text-[15px]">
+          {content}
+        </p>
+      );
+
+    case "paragraph":
+      return <p className="text-[15px] leading-[1.75] text-gray-700 sm:text-base">{content}</p>;
+
+    case "highlights":
+      return (
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+          {section.items.map((item, i) => (
+            <Reveal key={item.id} delay={80 * i} className={section.items.length % 2 && i === section.items.length - 1 ? "sm:col-span-2" : ""}>
+              <div className="group relative h-full overflow-hidden rounded-2xl bg-white p-5 ring-1 ring-black/[0.06] sm:p-6">
+                <span className="font-display text-[13px] font-semibold tracking-wide text-[#b38c00]">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <h3 className="mt-1 text-[16px] font-bold leading-snug text-gray-900 sm:text-[17px]">{item.title}</h3>
+                <p className="mt-2 text-[14px] leading-relaxed text-gray-600">{item.content}</p>
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-x-0 bottom-0 h-1 origin-left scale-x-0 bg-[#FDC700] transition-transform duration-500 ease-out group-hover:scale-x-100"
+                />
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      );
+
+    case "italic":
+      return (
+        <blockquote className="relative rounded-2xl bg-[#141409] px-6 pb-7 pt-10 text-white sm:px-10 sm:pb-9 sm:pt-12">
+          <span aria-hidden="true" className="absolute left-5 top-1 font-display text-[72px] leading-none text-[#FDC700] sm:left-8 sm:text-[88px]">
+            “
+          </span>
+          <p className="text-[16px] font-medium italic leading-relaxed sm:text-[19px]">{content}</p>
+        </blockquote>
+      );
+
+    default:
+      return null;
+  }
+}
 
 export default function Landing() {
   const [sections, setSections] = useState([]);
@@ -16,10 +174,9 @@ export default function Landing() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [favorites, setFavorites] = useState({});
   const navigate = useNavigate();
-  const { quickPurchase, quickPurchaseSheet } = useQuickPurchase();
-  const { translate } = useLanguage();
+  const { quickPurchase, prefetchQuickPurchase, quickPurchaseSheet } = useQuickPurchase();
+  const { translate, language } = useLanguage();
 
-  // Check if user is logged in
   const isAuthenticated = api.isAuthenticated();
 
   useEffect(() => {
@@ -42,12 +199,9 @@ export default function Landing() {
     setProductsLoading(true);
     try {
       const data = await api.getProducts();
-      const filteredProducts = data.filter(
-        (product) => product.recommendedForYou === true,
-      );
+      const filteredProducts = data.filter((product) => product.recommendedForYou === true);
       setRecommendedProducts(filteredProducts);
 
-      // Fetch favorites for all products if user is logged in
       if (isAuthenticated && filteredProducts.length > 0) {
         await fetchAllFavorites(filteredProducts);
       }
@@ -72,14 +226,12 @@ export default function Landing() {
     setFavorites((prev) => ({ ...prev, ...favoriteStatus }));
   };
 
-
-
   const handleToggleFavorite = async (productId, e) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!isAuthenticated) {
-      alert("Please login to add products to favorites");
+      notify(translate("favoritesLoginRequired"));
       navigate("/login");
       return;
     }
@@ -87,300 +239,105 @@ export default function Landing() {
     try {
       const response = await api.toggleFavorite(productId);
       if (response.success) {
-        setFavorites((prev) => ({
-          ...prev,
-          [productId]: !prev[productId],
-        }));
+        setFavorites((prev) => ({ ...prev, [productId]: !prev[productId] }));
       }
     } catch (error) {
       console.error("Error toggling favorite:", error);
-      alert("Failed to update favorites. Please try again.");
-    }
-  };
-
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return null;
-    if (imagePath.startsWith("http")) return imagePath;
-    if (imagePath.startsWith("/")) {
-      return `https://proteini.mk${imagePath}`;
-    }
-    return imagePath;
-  };
-
-  const renderSection = (section) => {
-    switch (section.sectionType) {
-      case "image":
-        return (
-          <div key={section.id} className="w-full flex justify-center mt-10">
-            <img
-              src={getImageUrl(section.imagePath)}
-              alt={section.title || "Battery Nutrition"}
-              className="w-full max-w-full h-auto"
-              onError={(e) => {
-                e.target.src = "/img/proteini-landing.jpg";
-              }}
-            />
-          </div>
-        );
-
-      case "title":
-        return (
-          <p key={section.id} className="text-[24px] font-bold mt-10 mb-4">
-            {section.title}
-          </p>
-        );
-
-      case "subtitle":
-        return (
-          <p key={section.id} className="text-[20px] font-bold mt-8 mb-4">
-            {section.title}
-          </p>
-        );
-
-      case "paragraph":
-        return (
-          <p key={section.id} className="mt-4 leading-relaxed">
-            {section.content}
-          </p>
-        );
-
-      case "highlight":
-        return (
-          <p key={section.id} className="mt-4">
-            <span className="font-bold">{section.title}:</span>{" "}
-            {section.content}
-          </p>
-        );
-
-      case "italic":
-        return (
-          <p key={section.id} className="mt-4 italic">
-            {section.content}
-          </p>
-        );
-
-      default:
-        return null;
+      notify(translate("favoritesUpdateFailed"), { tone: "error" });
     }
   };
 
   if (loading) {
     return (
-      <div className="w-full flex flex-col justify-center items-center min-h-screen">
+      <div className="flex min-h-screen w-full flex-col items-center justify-center">
         <BrandLoader variant="shaker" size={120} />
       </div>
     );
   }
 
+  const blocks = groupSections(sections.length === 0 ? FALLBACK_SECTIONS : sections);
+  // A leading image becomes the hero; the rest of the content sits in a reading column.
+  const [hero, ...body] = blocks[0]?.sectionType === "image" ? blocks : [null, ...blocks];
+
   return (
-    <div className="w-full flex flex-col justify-center items-center overflow-y-hidden pb-48">
-      {/* Top Help Bar */}
-      <div className="w-full h-[40px] bg-[#282828] text-white flex justify-center">
-        <div className="w-full max-w-[1210px] flex justify-end max-sm:justify-center items-center">
-          <span>Need Help?</span>
+    <main className="landing-page w-full font-montserrat text-gray-800">
+      {/* Top bar: logo + help line */}
+      <div className="w-full bg-[#141409] text-white">
+        <div className="mx-auto flex h-14 max-w-[1240px] items-center justify-between gap-3 px-4 sm:h-16 sm:px-[25px]">
+          <Link
+            to="/"
+            aria-label="Proteini.si"
+            className="flex-shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDC700] focus-visible:ring-offset-4 focus-visible:ring-offset-[#141409]"
+          >
+            <img src="/logos/proteinisi-white.svg" className="h-auto w-[118px] sm:w-[150px]" alt="Proteini.si" />
+          </Link>
           <a
             href="tel:+38971399036"
-            className="py-[14px] px-[20px] mx-[7px] leading-[20px] flex items-center justify-center gap-2 max-h-[48px] text-white"
+            className="group flex items-center gap-2.5 rounded-full py-1.5 pl-1.5 pr-3 text-[12px] font-semibold transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDC700] sm:pr-4 sm:text-[13px]"
           >
-            <FaPhoneAlt />
-            <span className="max-md:text-[14px]">+389 71 399 036</span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FDC700] text-[#141409]">
+              <FiPhone className="h-4 w-4" strokeWidth={2.4} />
+            </span>
+            <span className="flex flex-col leading-tight">
+              <span className="hidden text-[11px] font-medium text-white/60 sm:block">{translate("needHelp")}?</span>
+              <span className="whitespace-nowrap">+389 71 399 036</span>
+            </span>
           </a>
         </div>
       </div>
 
-      {/* Logo Bar */}
-      <div className="w-full flex justify-center bg-[#0B0B0B]">
-        <div className="w-full max-w-[1240px] flex justify-center py-3">
-          <img
-            src="/logos/proteinisi-white.svg"
-            className="w-[155px] h-[41px] cursor-pointer"
-            alt="ProteiniSi"
-            onClick={() => navigate("/")}
-          />
+      {/* Hero image */}
+      {hero && (
+        <div className="w-full bg-gradient-to-b from-[#141409] from-40% to-transparent to-40% px-4 pt-4 sm:px-[25px] sm:pt-6">
+          <Reveal className="mx-auto max-w-[1240px]">
+            <LandingBlock section={hero} translate={translate} />
+          </Reveal>
         </div>
-      </div>
+      )}
 
-      {/* Dynamic Content Sections */}
-      <div className="w-full max-w-[1240px] flex flex-col justify-center items-start px-4">
-        {sections.length === 0 ? (
-          // Fallback to original content if no sections found
-          <>
-            <img
-              src="/img/proteini-landing.jpg"
-              className="mt-10"
-              alt="Battery Nutrition"
-            />
-            <div className="w-full">
-              <p className="text-[24px] font-bold mt-10 mb-4">
-                {translate("aTrustedChoice")}
-              </p>
-              <span className="bg-[#1F497D] text-white font-semibold px-1">
-                {translate("todaysOfferDesc")}
-              </span>
-              <p className="mt-4">
-                Battery Nutrition is a sports nutrition brand that sets the
-                standard for quality and effectiveness. We manufacture our
-                products in the European Union, where we oversee every step of
-                the production process; from sourcing raw materials to the
-                finished product.
-              </p>
-              <p className="mt-4 font-bold">Why Battery Nutrition?</p>
-              <p className="mt-4">
-                <span className="font-bold">European quality.</span> Our
-                products are made in state-of-the-art EU production facilities,
-                where we ensure the highest quality control standards. Every
-                product is the result of careful development and testing.
-              </p>
-              <p className="mt-4">
-                <span className="font-bold">Proven effectiveness.</span> We
-                don't promise miracles, but we do offer proven formulas with
-                dosages based on scientific research. From Battery Complete Whey
-                with a full 21g of protein per serving to Battery Creatine
-                Reload+ which contains not just creatine, but also L-leucine and
-                electrolytes. Every product we put on our virtual and physical
-                shelves is designed to deliver concrete results.
-              </p>
-              <p className="mt-4">
-                <span className="font-bold">Transparency.</span> On every label
-                you'll find the complete composition, clear dosages and usage
-                instructions. No secrets, completely transparent.
-              </p>
-              <p className="mt-4">
-                <span className="font-bold">Complete range.</span> From
-                proteins, creatine and amino acids to vitamins and minerals -
-                Battery Nutrition covers all the needs of an active lifestyle.
-                One brand, complete support!
-              </p>
-              <p className="mt-4">
-                <span className="font-bold">Flavours that excite!</span> Fruity,
-                sweet, tropical – we develop different flavour profiles because
-                we want everyone to find something they love, and because
-                sticking to your routine also means enjoying every serving.
-              </p>
-              <p className="mt-4 italic">
-                Battery Nutrition is more than sports nutrition. It's a brand
-                that understands your needs, respects your effort and supports
-                every step of your journey toward your goals.
-              </p>
+      {/* Article */}
+      <article className="mx-auto flex w-full max-w-[820px] flex-col gap-5 px-4 py-10 sm:gap-6 sm:px-[25px] sm:py-16">
+        {body.map((section) => (
+          <Reveal key={section.id}>
+            <LandingBlock section={section} translate={translate} />
+          </Reveal>
+        ))}
+      </article>
+
+      {/* Recommended products */}
+      <section className="w-full bg-[#f6f5f1] px-4 py-10 sm:px-[25px] sm:py-16">
+        <div className="mx-auto max-w-[1240px]">
+          <h2 className="mb-5 font-display text-[30px] font-bold uppercase leading-[0.95] tracking-tight text-gray-900 sm:mb-8 sm:text-5xl">
+            {translate("recommendedForYou")}
+          </h2>
+
+          {productsLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <InlineLoader size={36} />
             </div>
-          </>
-        ) : (
-          sections.map((section) => renderSection(section))
-        )}
-      </div>
+          ) : recommendedProducts.length === 0 ? (
+            <p className="py-10 text-gray-500">{translate("noRecommendedProducts")}</p>
+          ) : (
+            <div className="grid w-full grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 lg:grid-cols-4">
+              {recommendedProducts.map((product) => (
+                <HomeProductCard
+                  key={product.product_Id}
+                  product={product}
+                  fluid
+                  language={language}
+                  onQuickPurchase={() => quickPurchase(product)}
+                  onQuickPurchaseIntent={() => prefetchQuickPurchase(product)}
+                  onToggleFavorite={handleToggleFavorite}
+                  isFavorite={favorites[product.product_Id] || false}
+                  translate={translate}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
-      {/* Recommended Products Section */}
-      <div className="w-full max-w-[1240px] flex flex-col justify-center items-center px-4 mt-10 mb-10">
-        <h2 className="text-2xl font-bold mb-6">
-          {translate("recommendedForYou")}
-        </h2>
-
-        {productsLoading ? (
-          <div className="flex justify-center items-center py-10">
-            <BrandLoader variant="shaker" size={120} />
-          </div>
-        ) : recommendedProducts.length === 0 ? (
-          <p className="text-gray-500 py-10">
-            {translate("noRecommendedProducts")}
-          </p>
-        ) : (
-          <div className="grid w-full grid-cols-4 gap-4 max-lg:grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1">
-            {recommendedProducts.map((product) => (
-              <div
-                key={product.product_Id}
-                className="group relative bg-white"
-              >
-                <Link
-                  to={`/product/${product.product_Id}`}
-                  className="flex flex-col p-[10px] pb-[18px] max-md:p-0 border border-transparent group-hover:border-gray-400 relative bg-white"
-                  style={{ borderBottom: "none" }}
-                >
-                  {product.img ? (
-                    <img
-                      src={`${product.img}`}
-                      className="w-full aspect-square object-cover"
-                      alt={product.name}
-                    />
-                  ) : (
-                    <div className="w-full h-48 bg-gray-200 flex items-center justify-center text-gray-400">
-                      {translate("noImage")}
-                    </div>
-                  )}
-                  <span className="text-[10px] mt-[10px]">
-                    {product.category || "Product"}
-                  </span>
-                  <span className="font-semibold text-[18px] leading-[22px] mb-[2px] break-words line-clamp-2">
-                    {product.name}
-                  </span>
-                  <div className="flex flex-col">
-                    <span className="flex text-yellow-400 mb-1">
-                      <IoIosStarOutline />
-                      <IoIosStarOutline />
-                      <IoIosStarOutline />
-                      <IoIosStarOutline />
-                      <IoIosStarOutline />
-                    </span>
-                    <span className="text-xs">
-                      {translate("moreAboutRatings")}
-                    </span>
-                  </div>
-                  <span className="font-semibold text-lg mb-[2px]">
-                    MKD {(product.price || 0).toFixed(2)}
-                  </span>
-                  <span className="text-[#2096D8] text-[11px] leading-3 font-bold mt-[10px]">
-                    {translate("recommended")}
-                  </span>
-                </Link>
-
-                <div
-                  className="absolute left-0 w-full bg-white border border-gray-400 z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible max-lg:hidden"
-                  style={{
-                    top: "calc(100% - 22px)",
-                    borderTop: "none",
-                  }}
-                >
-                  <div className="p-4 flex flex-col justify-between h-[139px]">
-                    {(Number(product.gPerServing) > 0 || Number(product.servings) > 0) && (
-                      <span className="text-sm">
-                        {Number(product.gPerServing) > 0 && `${product.gPerServing}g per serving`}
-                        {Number(product.gPerServing) > 0 && Number(product.servings) > 0 && " | "}
-                        {Number(product.servings) > 0 && `${product.servings} servings`}
-                      </span>
-                    )}
-                    <div className="flex justify-between items-center">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          quickPurchase(product);
-                        }}
-                        className="bg-[#E5E5E5] hover:bg-[#d8d8d8] font-bold py-[13px] px-[16px] cursor-pointer"
-                      >
-                        Quick purchase
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) =>
-                          handleToggleFavorite(product.product_Id, e)
-                        }
-                        className="cursor-pointer"
-                      >
-                        {favorites[product.product_Id] ? (
-                          <FaHeart size={22} color="#1b88c5" />
-                        ) : (
-                          <FiHeart size={22} color="#1b88c5" strokeWidth={2} />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
       {quickPurchaseSheet}
-    </div>
+    </main>
   );
 }

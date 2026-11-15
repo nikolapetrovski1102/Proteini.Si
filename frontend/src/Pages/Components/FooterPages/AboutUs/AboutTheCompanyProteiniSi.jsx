@@ -25,7 +25,7 @@ export default function AboutTheCompanyProteiniSi() {
     if (!imagePath) return null;
     if (imagePath.startsWith("http")) return imagePath;
     if (imagePath.startsWith("/")) {
-      return `https://proteini.mk${imagePath}`;
+      return `${import.meta.env.VITE_IMAGE_BASE_URL || "https://proteini.mk"}${imagePath}`;
     }
     return imagePath;
   };

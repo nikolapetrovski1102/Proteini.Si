@@ -131,6 +131,79 @@ Preferred sequence:
 
 Do not copy development appsettings over production secrets. Do not deploy old nested `publish/publish` artifacts.
 
+### Daily report job
+
+`backend/Presentation/ProteiniSi.Reports` is a console app run every morning at 07:00 Skopje time by
+`proteinisi-daily-report.timer` (unit `proteinisi-daily-report@prod.service`, runs as root so it can
+read nginx logs, the journal, docker and certificates). `deploy/deploy.sh prod reports` publishes it to
+`/srv/proteinisi/prod/reports`, installs both units and enables the timer.
+
+- It reads the connection string and mail settings from `/etc/proteinisi/prod.env`.
+- Recipients live in `/etc/proteinisi/reports.env`:
+  - `DailyReport__DeveloperRecipients=` server status and errors (comma separated)
+  - `DailyReport__AdminRecipients=` extra business report recipients; SuperAdmin accounts are always
+    included unless `DailyReport__IncludeSuperAdmins=false`
+  - `DailyReport__ExcludeRecipients=` addresses to leave out
+- Requires migration 0013 and `database/procedures/Reports/*`.
+- Each day is sent once (`DailyReportRuns`). Manual runs:
+  `systemd-run --wait --pipe -p EnvironmentFile=/etc/proteinisi/prod.env -p EnvironmentFile=-/etc/proteinisi/reports.env -p WorkingDirectory=/srv/proteinisi/prod/reports dotnet ProteiniSi.Reports.dll [--date yyyy-MM-dd] [--force] [--dry-run /tmp/report] [--only business|server]`
+- Check the last run: `systemctl status proteinisi-daily-report@prod` and `systemctl list-timers proteinisi-daily-report.timer`.
+
+### Automatic marketing emails
+
+The same job sends three Macedonian marketing emails, edited and previewed in Admin → Marketing emails:
+
+| Email | Default send time (Skopje) | Who |
+|---|---|---|
+| Reorder reminder | 11:00 | delivered product with ≥ 14 doses runs out in 5 days (doses × quantity from the order date) |
+| Welcome offers | 15:00 | new accounts (2 h – 3 days old) |
+| Abandoned checkout | 18:30 | reached checkout 3–48 h ago, no order since |
+
+Only people with marketing consent get them: the cookie banner's "Marketing" choice (synced when they
+are signed in, or when they request the guest checkout code), or an active newsletter subscription. Unsubscribes (link in every email
+and the one-click `List-Unsubscribe` header) are permanent until the person opts in again. Nobody gets
+more than one marketing email in 20 hours and every reference (order, account, checkout) is sent once.
+
+- `proteinisi-marketing.timer` runs `proteinisi-marketing@prod.service` every 15 minutes; each template is
+  sent once a day in the first run within 3 hours after its send time (`MarketingRuns`).
+- Nothing is sent unless **both** the template is switched on in the admin **and** `Marketing__Enabled=true`
+  (put it in `/etc/proteinisi/prod.env` so the API admin page shows it too, then restart the API). Keep it
+  unset on stage. `Marketing__AllowedRecipients=a@b.mk,c@d.mk` limits sending to those addresses (soft launch).
+- Other settings: `Marketing__MaxPerRun` (200), `Marketing__SendDelayMs` (1500), `Marketing__CapHours` (20).
+- Requires migration 0014 and `database/procedures/Marketing/*`, plus the API and web deploy (consent sync,
+  `/unsubscribe` page, admin page).
+- Manual runs (same `systemd-run` prefix as above): `dotnet ProteiniSi.Reports.dll marketing [--dry-run /tmp/mk] [--redirect-to you@mail.com] [--only welcome|abandoned_checkout|replenishment] [--force]`.
+  `--dry-run` and `--redirect-to` ignore the switches and log nothing.
+
+### Instagram gallery sync
+
+The API pulls the latest posts of the shop's Instagram account into the home page `#proteinisi`
+gallery every `Instagram__SyncIntervalDays` (default 7; last run kept in api/App_Data/instagram-sync.json so restarts keep the schedule). Each picture is downloaded once into
+`wwwroot/uploads/instagram/instagram_<shortcode>.jpg`; captions, likes and dates are refreshed on
+every run. Posts are matched by their Instagram link, so posts added by hand are updated too, and posts
+removed in Admin → Instagram stay removed. Admin → Instagram shows the last run and has a "Sync from
+Instagram" button.
+
+One-time setup (Instagram API with Instagram Login, needs a Business or Creator account):
+
+1. In the Meta developer dashboard, open the app (or create one, type "Business"), add the
+   **Instagram** product and choose **API setup with Instagram login**.
+2. Under "Generate access tokens", add `proteini.si_makedonija` and generate a token. It needs the
+   `instagram_business_basic` permission. The token from the dashboard is long-lived (60 days).
+3. Put it in `/etc/proteinisi/prod.env` and `/etc/proteinisi/stage.env` and restart the API:
+   `Instagram__AccessToken=<token>`
+   (optional: `Instagram__MaxPosts=12`, `Instagram__SyncIntervalDays=7`)
+   A Facebook **System User** token (`EAA…`, from Meta Business Settings) works too: the system user
+   needs the shop's Facebook Page and Instagram account assigned, and the token needs
+   `instagram_basic`, `pages_show_list` and `pages_read_engagement`. The API finds the Instagram
+   account through the Page (or set `Instagram__UserId`). Pick "Never" expiry; it is not refreshed.
+4. Deploy `database/procedures/InstagramPosts/*` (adds `usp_InstagramPost_UpsertFromFeed`).
+
+The API refreshes the token on each sync (at most once a day; weekly is well inside its 60 days) and keeps the current one in `api/App_Data/instagram-token.json`
+(owner-only, excluded from deploys). Pasting a new token into the env file replaces it. If the account's
+password changes or the app loses access, the sync fails and Admin → Instagram shows the error; generate
+a new token and repeat step 3.
+
 ## 7. Deploy frontend
 
 1. Upload the archive built from `dist`, not the source tree.
@@ -174,6 +247,12 @@ Commerce on staging/sandbox:
 - [ ] Voucher partial redemption, remaining balance, expiry/disable, failed-payment release and two-request race are correct.
 - [ ] Operational order document downloads once without duplicate records and clearly says it is non-fiscal.
 - [ ] Tips detail/localization/SEO/sanitized formatting and historical category redirects work.
+
+Branded emails (since 2.0.0):
+
+- [ ] `https://proteini.mk/img/email/proteini-banner.png`, `arc-yellow.png` and `arc-ink.png` return 200 as `image/png` (not the SPA `index.html`). The emails load them from prod, so ship the frontend in the same release as the API (`deploy/deploy.sh prod` does both).
+- [ ] An order confirmation, a sign-in code and a password reset (Macedonian and Albanian) arrive with the banner, yellow arc status label and dark footer in Gmail and Outlook.
+- [ ] The password reset button opens `/reset-password?token=…` and the reset completes.
 
 ## 9. Monitoring immediately after release
 

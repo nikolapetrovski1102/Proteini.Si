@@ -1,5 +1,5 @@
-import { BrandLoader } from "./BrandLoader";
+import { InlineLoader } from "./BrandLoader";
 
 export function LargeLoader() {
-  return <BrandLoader variant="shaker" size={130} />;
+  return <InlineLoader size={40} />;
 }

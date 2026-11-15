@@ -57,3 +57,6 @@ dist-ssr/
 coverage/
 test-results/
 playwright-report/
+
+# Runtime state written by the API (auto-refreshed Instagram token)
+App_Data/

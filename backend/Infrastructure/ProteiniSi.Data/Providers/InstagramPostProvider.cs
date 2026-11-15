@@ -39,4 +39,16 @@ public class InstagramPostProvider(ISqlHelper sql) : IInstagramPostProvider
 
     public async Task<bool> DeactivateAsync(int id) =>
         await sql.ExecuteScalarAsync<int>(StoredProcedures.InstagramPosts.Deactivate, new { Id = id }) > 0;
+
+    public async Task<InstagramUpsertResult> UpsertFromFeedAsync(InstagramFeedPostDto post) =>
+        await sql.QuerySingleOrDefaultAsync<InstagramUpsertResult>(StoredProcedures.InstagramPosts.UpsertFromFeed, new
+        {
+            post.ShortCode,
+            post.PostUrl,
+            post.ImagePath,
+            post.Description,
+            post.LikeCount,
+            post.PostedBy,
+            post.PostedDate
+        }) ?? throw new InvalidOperationException("Instagram upsert returned no row");
 }

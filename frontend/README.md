@@ -16,7 +16,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Set `VITE_GOOGLE_MAPS_EMBED_API_KEY` in `.env.local` to a Google Maps Embed API browser key before using embedded branch maps. Obtain the existing key securely or configure a replacement, restrict it to the intended website origins and Maps Embed API, and confirm billing/API access with the account owner. The browser key is visible in the generated client bundle. Without a valid key, embedded maps do not load; the branch directions links remain available.
+Branch maps use Google's free keyless embed (`maps.google.com/maps?...&output=embed`), so no API key or billing is needed.
 
 Vite normally serves development at `http://localhost:5173`; use the URL printed by the command if that port is occupied. Restart the dev server after changing environment values.
 

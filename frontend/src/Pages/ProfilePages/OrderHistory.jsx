@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { FiChevronRight, FiCreditCard, FiPackage, FiX } from "react-icons/fi";
 import { api } from "../../services/api";
 import { useLanguage } from "../translation/LanguageContext";
-import { BrandLoader } from "../Components/Loaders/BrandLoader";
+import { InlineLoader } from "../Components/Loaders/BrandLoader";
 import {
   Notice,
   ProfileEmpty,
@@ -15,7 +15,9 @@ import {
   headingClass,
   pillButtonClass,
 } from "./ProfileKit";
-import { formatDate, formatPrice } from "./profileFormat";
+import { formatDate } from "./profileFormat";
+import { confirmDialog } from "../Components/Feedback/siteFeedback";
+import Price from "../Components/Price";
 
 const STATUS_STYLES = {
   pending: "bg-[#FDC700]/25 text-[#5c4800]",
@@ -121,7 +123,7 @@ export default function OrderHistory() {
   };
 
   const handleCancel = async (orderId) => {
-    if (!window.confirm(translate("ordersCancelConfirm"))) return;
+    if (!(await confirmDialog({ title: translate("ordersCancelTitle"), message: translate("ordersCancelConfirm"), confirmLabel: translate("cancelOrder"), cancelLabel: translate("ordersCancelKeep"), tone: "danger" }))) return;
     setCancelling(orderId);
     setNotice({ tone: "success", text: "" });
     try {
@@ -211,7 +213,7 @@ export default function OrderHistory() {
                   </p>
                 </div>
                 <p className="font-display text-2xl font-bold leading-none tabular-nums text-gray-900">
-                  {formatPrice(order.Total_Amount)}
+                  <Price value={order.Total_Amount} />
                 </p>
               </div>
 
@@ -269,7 +271,7 @@ export default function OrderHistory() {
             <div className="overflow-y-auto p-5 sm:p-6">
               {loadingDetails ? (
                 <div className="flex flex-col items-center py-10">
-                  <BrandLoader variant="scoop" size={100} />
+                  <InlineLoader size={32} />
                   <p className="mt-4 text-sm text-gray-500">{translate("loadingOrderDetails")}</p>
                 </div>
               ) : details ? (
@@ -299,19 +301,19 @@ export default function OrderHistory() {
                           </p>
                         </div>
                         <p className="shrink-0 text-sm font-bold tabular-nums text-gray-900">
-                          {formatPrice(item.Product_Price * item.Quantity)}
+                          <Price value={item.Product_Price * item.Quantity} />
                         </p>
                       </li>
                     ))}
                   </ul>
 
                   <div className="mt-4 space-y-1.5 rounded-2xl bg-[#f6f5f1] p-4">
-                    <SummaryRow label={translate("subtotal")} value={formatPrice(details.order?.Subtotal)} />
-                    <SummaryRow label={translate("deliveryFee")} value={formatPrice(details.order?.Delivery_Fee)} />
-                    <SummaryRow label="DDV (9.5%)" value={formatPrice(details.order?.VAT_9_5)} />
-                    <SummaryRow label="DDV (22%)" value={formatPrice(details.order?.VAT_22)} />
+                    <SummaryRow label={translate("subtotal")} value={<Price value={details.order?.Subtotal} />} />
+                    <SummaryRow label={translate("deliveryFee")} value={<Price value={details.order?.Delivery_Fee} />} />
+                    <SummaryRow label="DDV (9.5%)" value={<Price value={details.order?.VAT_9_5} />} />
+                    <SummaryRow label="DDV (22%)" value={<Price value={details.order?.VAT_22} />} />
                     <div className="border-t border-black/[0.08]">
-                      <SummaryRow strong label={translate("total")} value={formatPrice(selected.Total_Amount)} />
+                      <SummaryRow strong label={translate("total")} value={<Price value={selected.Total_Amount} />} />
                     </div>
                   </div>
                 </>

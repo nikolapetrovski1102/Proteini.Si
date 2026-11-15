@@ -9,7 +9,7 @@ import BecauseYouOrdered from "./BecauseYouOrdered";
 import ChooseYourGoal from "./ChooseYourGoal";
 import HomeSection from "./sections/HomeSection";
 import BrandTicker from "./sections/BrandTicker";
-import { Sparkle, WaveEdge } from "./sections/Decor";
+import { WaveEdge } from "./sections/Decor";
 // Hidden from the home page for now (kept for re-use):
 // import Video from "../Video";
 // import OutletBranches from "./OutletBranches"; // sale points now live on /sales-points
@@ -17,13 +17,11 @@ import { Sparkle, WaveEdge } from "./sections/Decor";
 // import ProductsInTheOutlet from "./ProductsInTheOutlet";
 // import WhatSportsAreYouInterestedIn from "./WhatSportsAreYouInterestedIn";
 
-// Enables proximity scroll-snapping on <html> only while the home page is mounted, and
-// publishes the sticky header's real height (--header-h) plus the space above the hero
+// While the home page is mounted, publishes the sticky header's real height (--header-h) plus the space above the hero
 // (--hero-top: promo bar + header) so the hero fills exactly the rest of the screen.
-function useHomeSnapScroll() {
+function useHeroHeight() {
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.add("home-snap");
 
     const header = document.querySelector("header");
     const measure = () => {
@@ -33,6 +31,10 @@ function useHomeSnapScroll() {
       const promo = header.previousElementSibling;
       const top = header.offsetHeight + (promo?.offsetHeight || 0);
       root.style.setProperty("--hero-top", `${top}px`);
+      // Mobile tab bar fixed to the bottom of the screen: the hero leaves room above it too.
+      const tabBar = document.querySelector(".mobile-tab-bar");
+      const tabH = tabBar && getComputedStyle(tabBar).display !== "none" ? tabBar.offsetHeight : 0;
+      root.style.setProperty("--tabbar-h", `${tabH}px`);
     };
     measure();
     const observer = typeof ResizeObserver !== "undefined" && header ? new ResizeObserver(measure) : null;
@@ -40,9 +42,9 @@ function useHomeSnapScroll() {
     window.addEventListener("resize", measure);
 
     return () => {
-      root.classList.remove("home-snap");
       root.style.removeProperty("--header-h");
       root.style.removeProperty("--hero-top");
+      root.style.removeProperty("--tabbar-h");
       observer?.disconnect();
       window.removeEventListener("resize", measure);
     };
@@ -50,7 +52,7 @@ function useHomeSnapScroll() {
 }
 
 export default function Home() {
-  useHomeSnapScroll();
+  useHeroHeight();
 
   return (
     <main className="w-full flex-1 text-gray-800 font-montserrat">
@@ -65,6 +67,7 @@ export default function Home() {
         imageOpacity={0.35}
         overlay="home-wash bg-gradient-to-b from-white/70 via-white/40 to-[#f6f5f1]"
         className="sm:py-10"
+        reveal={false}
       >
         <NewInTheShop />
       </HomeSection>
@@ -84,13 +87,9 @@ export default function Home() {
         waveBottom="#3a3a32"
         decor={
           <>
-            <Sparkle color="#141409" className="absolute left-[3%] top-[7%] hidden h-8 w-8 rotate-12 lg:block" />
-            <Sparkle color="#E3262F" className="absolute right-[6%] top-[9%] hidden h-10 w-10 sm:block" />
-            <Sparkle color="#ffffff" className="absolute bottom-[14%] left-[8%] hidden h-7 w-7 -rotate-12 md:block" />
-            <Sparkle color="#141409" className="absolute bottom-[18%] right-[3%] hidden h-5 w-5 md:block" />
           </>
         }
-        className="home-tint-keep pt-16 pb-24 sm:pt-24 sm:pb-32"
+        className="home-tint-keep pt-5 pb-6 sm:pt-24 sm:pb-32"
         reveal={false}
       >
         <ProductsOnSale />
@@ -108,7 +107,7 @@ export default function Home() {
       {/* <Video /> */}
       {/* <OutletBranches /> */}
 
-      <BrandTicker variant="yellow" reverse />
+      <BrandTicker variant="yellow" />
 
       {/* 7. Partners & certificates */}
       <Partners />

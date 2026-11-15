@@ -6,7 +6,7 @@ Administrators need `SuperAdmin = 1` and must sign out/in after access changes s
 
 - Search by order number, name, email or phone; filter status/payment; choose sorting and direction.
 - Open an order for addresses, items, variants/flavours, delivery, discounts, points, free gifts and voucher issue/redemption detail.
-- Only valid next status actions are shown. When marking Shipped, enter the courier tracking number and optional HTTP/HTTPS tracking URL.
+- Order flow: Mark as confirmed → Mark as shipped (tracking number + link) → Mark as claimed. Reject is possible until the order ships. The tracking link fills in from the tracking number when a template with {number} is set under Promotions & gifts → Delivery & payment. Claiming an order marks it paid.
 - Download the immutable operational order document or export filtered CSV.
 - “Refunded” records an operational state; confirm any real payment-provider refund separately.
 

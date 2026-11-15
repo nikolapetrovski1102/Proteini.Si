@@ -2,8 +2,12 @@
 import { useState, useEffect } from "react";
 import { api } from "../../services/api";
 import { useLanguage } from "../translation/LanguageContext";
+import { useConfirm, usePrompt, useToast } from "./adminFeedback";
 
 const NutritionTableEditor = ({ variantId, variantName, onSave }) => {
+  const toast = useToast();
+  const confirm = useConfirm();
+  const prompt = usePrompt();
   const [nutritionData, setNutritionData] = useState({
     columns: [],
     rows: [],
@@ -77,7 +81,7 @@ const NutritionTableEditor = ({ variantId, variantName, onSave }) => {
       .filter((h) => h);
 
     if (dataHeaders.length === 0) {
-      alert("Please include at least one data column in your Excel table");
+      toast.error("Please include at least one data column in your Excel table.");
       return null;
     }
 
@@ -85,7 +89,7 @@ const NutritionTableEditor = ({ variantId, variantName, onSave }) => {
     const dataRows = parsedRows.slice(1).filter((row) => row[0]?.trim());
 
     if (dataRows.length === 0) {
-      alert("Please include at least one row of data");
+      toast.error("Please include at least one row of data.");
       return null;
     }
 
@@ -105,17 +109,15 @@ const NutritionTableEditor = ({ variantId, variantName, onSave }) => {
   };
 
   // Import pasted data
-  const handlePasteImport = () => {
+  const handlePasteImport = async () => {
     if (!pasteData.trim()) {
-      alert("Please paste some data first (Ctrl+V)");
+      toast.error("Paste the table first (Ctrl+V).");
       return;
     }
 
     const parsed = parsePastedData(pasteData);
     if (!parsed || parsed.rows.length === 0) {
-      alert(
-        "Invalid data format.\n\nPlease copy from Excel including headers.\n\nExpected format:\nNutrient\tPer 100g\tPer Serving\nEnergy (kcal)\t350\t175\nProtein (g)\t25\t12.5",
-      );
+      toast.error("Couldn't read the table. Copy it from Excel including the header row (Nutrient · Per 100g · Per serving).");
       return;
     }
 
@@ -125,9 +127,12 @@ const NutritionTableEditor = ({ variantId, variantName, onSave }) => {
 
     if (hasExistingData) {
       if (
-        !confirm(
-          `⚠️ This will REPLACE your current table with:\n\n📊 ${parsed.rows.length} rows\n📋 ${parsed.columnNames.length} columns\n\nCurrent data will be lost. Continue?`,
-        )
+        !(await confirm({
+          title: "Replace the current table?",
+          message: `The pasted table has ${parsed.rows.length} rows and ${parsed.columnNames.length} columns. The current data will be lost.`,
+          confirmLabel: "Replace",
+          tone: "danger",
+        }))
       ) {
         return;
       }
@@ -171,7 +176,7 @@ const NutritionTableEditor = ({ variantId, variantName, onSave }) => {
   // Export current table to Excel format (TSV)
   const handleExportToExcel = () => {
     if (nutritionData.rows.length === 0) {
-      alert("No data to export");
+      toast.error("There is no data to export.");
       return;
     }
 
@@ -234,29 +239,26 @@ const NutritionTableEditor = ({ variantId, variantName, onSave }) => {
 
   const handleSave = async () => {
     if (nutritionData.rows.length === 0) {
-      alert("No data to save. Please add rows first.");
+      toast.error("Add at least one row before saving.");
       return;
     }
 
     setSaving(true);
     try {
       await api.saveVariantNutrition(variantId, nutritionData);
-      alert("✅ Nutrition data saved successfully!");
+      toast.success("Nutrition table saved.");
       if (onSave) onSave();
       await loadNutritionData(); // Reload to get generated IDs
     } catch (error) {
       console.error("Error saving nutrition data:", error);
-      alert(
-        "❌ Failed to save nutrition data: " +
-          (error.message || "Unknown error"),
-      );
+      toast.error(`Couldn't save the nutrition table: ${error.message || "unknown error"}`);
     } finally {
       setSaving(false);
     }
   };
 
-  const addColumn = () => {
-    const newColumnName = prompt("Enter column name:", "New Nutrient");
+  const addColumn = async () => {
+    const newColumnName = await prompt({ title: "Add column", label: "Column name", defaultValue: "New Nutrient" });
     if (!newColumnName || !newColumnName.trim()) return;
 
     const newColumn = {
@@ -277,14 +279,14 @@ const NutritionTableEditor = ({ variantId, variantName, onSave }) => {
     });
   };
 
-  const removeColumn = (columnIndex) => {
+  const removeColumn = async (columnIndex) => {
     const columnToRemove = nutritionData.columns[columnIndex];
     if (columnToRemove.is_First_Column) {
-      alert("Cannot remove the first column (Nutrient)");
+      toast.error("The first column (Nutrient) can't be removed.");
       return;
     }
 
-    if (!confirm(`Remove column "${columnToRemove.column_Name}"?`)) return;
+    if (!(await confirm({ title: `Remove column "${columnToRemove.column_Name}"?`, confirmLabel: "Remove", tone: "danger" }))) return;
 
     const newColumns = nutritionData.columns.filter(
       (_, idx) => idx !== columnIndex,
@@ -322,8 +324,8 @@ const NutritionTableEditor = ({ variantId, variantName, onSave }) => {
     });
   };
 
-  const addRow = () => {
-    const newRowName = prompt("Enter row name:", "New Nutrient");
+  const addRow = async () => {
+    const newRowName = await prompt({ title: "Add row", label: "Row name", defaultValue: "New Nutrient" });
     if (!newRowName || !newRowName.trim()) return;
 
     const newRow = {
@@ -343,9 +345,9 @@ const NutritionTableEditor = ({ variantId, variantName, onSave }) => {
     });
   };
 
-  const removeRow = (rowIndex) => {
+  const removeRow = async (rowIndex) => {
     const rowToRemove = nutritionData.rows[rowIndex];
-    if (!confirm(`Remove row "${rowToRemove.row_Name}"?`)) return;
+    if (!(await confirm({ title: `Remove row "${rowToRemove.row_Name}"?`, confirmLabel: "Remove", tone: "danger" }))) return;
 
     const newRows = nutritionData.rows.filter((_, idx) => idx !== rowIndex);
     setNutritionData({ ...nutritionData, rows: newRows });

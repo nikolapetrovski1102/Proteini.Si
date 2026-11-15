@@ -12,7 +12,7 @@ BEGIN
            o.Subtotal AS Order_Subtotal, o.Points_Discount, o.Promo_Code, o.Promo_Discount,
            o.Gift_Voucher_Code, o.Gift_Voucher_Amount,
            (SELECT TOP 1 DisplayName FROM dbo.OrderFreeGifts fg WHERE fg.OrderId = o.Order_Id) AS FreeGiftName,
-           o.Payment_Method, o.Order_Note,
+           o.Payment_Method, o.Order_Note, o.Language,
            o.Billing_FullName, o.Billing_Address, o.Billing_PostCode, o.Billing_City,
            o.Billing_Country, o.Billing_Phone, o.Billing_Email,
            o.Delivery_IsDifferent, o.Delivery_FullName, o.Delivery_Address, o.Delivery_PostCode,

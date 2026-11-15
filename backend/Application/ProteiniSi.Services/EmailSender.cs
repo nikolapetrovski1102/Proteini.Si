@@ -104,6 +104,49 @@ public class EmailSender(IConfiguration config, ILogger<EmailSender> logger) : I
         }
     }
 
+    public async Task<EmailSendResult> SendMarketingAsync(string recipient, string subject, string htmlBody, string textBody, string unsubscribeUrl, string oneClickUnsubscribeUrl)
+    {
+        var mail = CreateMailModel([recipient], subject, htmlBody);
+        var startedAt = DateTime.UtcNow;
+        var result = CreateResult(mail, startedAt);
+
+        try
+        {
+            if (mail.ToRecipients.Count != 1)
+                throw new InvalidOperationException("A marketing email needs exactly one recipient.");
+
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress(mail.sender_name, mail.sender_email));
+            message.To.Add(MailboxAddress.Parse(mail.ToRecipients[0]));
+            message.Subject = subject;
+            // RFC 2369 / RFC 8058: mail clients show an "Unsubscribe" link and can unsubscribe with one POST.
+            message.Headers.Add("List-Unsubscribe", $"<{oneClickUnsubscribeUrl}>, <mailto:{mail.sender_email}?subject=unsubscribe>");
+            message.Headers.Add("List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
+            message.Body = new BodyBuilder { HtmlBody = htmlBody, TextBody = textBody }.ToMessageBody();
+
+            using var client = new SmtpClient();
+            client.CheckCertificateRevocation = mail.CheckCertificateRevocation;
+            await client.ConnectAsync(mail.host, mail.SMTPPort, GetSocketOptions(mail));
+            await client.AuthenticateAsync(mail.sender_username, mail.sender_password);
+            await client.SendAsync(message);
+            await client.DisconnectAsync(true);
+
+            result.Success = true;
+            result.CompletedAtUtc = DateTime.UtcNow;
+            result.DurationMs = (long)(result.CompletedAtUtc.Value - startedAt).TotalMilliseconds;
+            result.Message = "Sent";
+            return result;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error sending marketing email \"{Subject}\" to {Recipient}", subject, EmailMask.Mask(recipient));
+            result.CompletedAtUtc = DateTime.UtcNow;
+            result.Message = ex.Message;
+            result.ExceptionType = ex.GetType().FullName;
+            return result;
+        }
+    }
+
     private static EmailSendResult CreateResult(MailModel mail, DateTime startedAt) => new()
     {
         Host = mail.host,

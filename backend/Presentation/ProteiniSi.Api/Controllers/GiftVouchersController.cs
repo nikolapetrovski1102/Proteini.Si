@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ProteiniSi.Contracts.Services;
@@ -52,6 +53,23 @@ public class GiftVouchersController(IGiftVoucherService service) : ControllerBas
     {
         await service.UpdateStatusAsync(id, dto);
         return Ok(new { status = true });
+    }
+
+    /// <summary>Staff check a code (in the shop or for support): balance, who bought it, for whom, and every use.</summary>
+    [HttpGet("admin/lookup")]
+    public async Task<IActionResult> Lookup([FromQuery] string code)
+    {
+        var details = await service.GetDetailsAsync(code);
+        return Ok(new { status = true, data = details });
+    }
+
+    /// <summary>Deducts an amount from a voucher used at the till in the shop.</summary>
+    [HttpPost("admin/redeem")]
+    public async Task<IActionResult> Redeem([FromBody] GiftVoucherRedeemDto dto)
+    {
+        var redeemedBy = User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue("email") ?? User.Identity?.Name;
+        var details = await service.RedeemInStoreAsync(dto, redeemedBy);
+        return Ok(new { status = true, data = details });
     }
 
     [HttpGet("admin/report.csv")]

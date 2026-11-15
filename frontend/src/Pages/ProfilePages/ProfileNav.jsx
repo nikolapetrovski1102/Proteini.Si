@@ -21,6 +21,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../translation/LanguageContext";
 import { api } from "../../services/api";
+import { ADMIN_NAV } from "../Admin/adminNav";
 
 const initialsOf = (name = "") =>
   name
@@ -31,18 +32,10 @@ const initialsOf = (name = "") =>
     .map((part) => part[0]?.toUpperCase())
     .join("") || "P";
 
+// Admin accounts get the same navigation as the admin shell (labels are not translated there).
 const ADMIN_LINKS = [
-  ["/admin-panel", FiGrid, "adminPanel"],
-  ["/admin-orders", FiShoppingBag, "adminNavOrders"],
-  ["/admin-categories", FiSliders, "adminNavCategories"],
-  ["/admin-promotions", FiTag, "adminNavPromotions"],
-  ["/admin-landing-page", FiLayout, "adminLanding"],
-  ["/admin-gallery", FiImage, "adminGallery"],
-  ["/admin-instagram-gallery", FiInstagram, "adminInstagramGallery"],
-  ["/admin-youtube", FiYoutube, "adminYoutube"],
-  ["/admin-partners", FiUsers, "adminPartners"],
-  ["/admin-about-company", FiInfo, "adminAboutCompany"],
-  ["/admin/dynamic-content", FiFileText, "adminNavDynamic"],
+  ["/admin", FiGrid, "Overview"],
+  ...ADMIN_NAV.flatMap((group) => group.items.map((item) => [item.to, item.icon, item.label])),
 ];
 
 export default function ProfileNav() {
@@ -95,7 +88,7 @@ export default function ProfileNav() {
     ["/profile/favorite-products", FiHeart, "favouriteProducts", counts.favorites],
   ];
   const links = isSuperAdmin
-    ? ADMIN_LINKS.map(([to, Icon, key]) => [to, Icon, key, null])
+    ? ADMIN_LINKS.map(([to, icon, label]) => [to, icon, label, null, true])
     : userLinks;
 
   const stats = [
@@ -155,15 +148,15 @@ export default function ProfileNav() {
       {/* navigation: horizontal pills on mobile, list on desktop */}
       <nav aria-label={translate("profileMemberArea")} className="mt-4">
         <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:block lg:space-y-1 lg:overflow-visible lg:rounded-2xl lg:bg-white lg:p-2 lg:ring-1 lg:ring-black/[0.06] [&::-webkit-scrollbar]:hidden">
-          {links.map(([to, icon, key, count]) => (
+          {links.map(([to, icon, key, count, raw]) => (
             <li key={to} className="shrink-0">
               <NavLink
                 to={to}
                 end
                 className={({ isActive }) =>
-                  `group flex min-h-[44px] items-center gap-3 whitespace-nowrap rounded-full px-4 text-sm font-semibold transition lg:rounded-xl ${
+                  `group flex min-h-[44px] items-center gap-3 whitespace-nowrap rounded-lg px-4 text-sm font-semibold transition ${
                     isActive
-                      ? "bg-[#141409] text-white"
+                      ? "ink-tab bg-[#141409] text-white"
                       : "bg-white text-gray-700 ring-1 ring-black/[0.06] hover:text-gray-900 lg:bg-transparent lg:ring-0 lg:hover:bg-black/[0.04]"
                   }`
                 }
@@ -171,7 +164,7 @@ export default function ProfileNav() {
                 {({ isActive }) => (
                   <>
                     {createElement(icon, { size: 17, className: isActive ? "text-[#FDC700]" : "text-gray-500 group-hover:text-gray-900" })}
-                    <span className="lg:flex-1">{translate(key)}</span>
+                    <span className="lg:flex-1">{raw ? key : translate(key)}</span>
                     {typeof count === "number" && (
                       <span
                         className={`min-w-[24px] rounded-full px-2 py-0.5 text-center text-[11px] font-bold tabular-nums ${
@@ -192,7 +185,7 @@ export default function ProfileNav() {
       <button
         type="button"
         onClick={handleLogout}
-        className="mt-4 hidden min-h-[44px] w-full items-center justify-center gap-2 rounded-full text-sm font-bold text-gray-700 ring-1 ring-black/[0.12] transition hover:bg-white hover:text-gray-900 lg:flex"
+        className="mt-4 hidden min-h-[44px] w-full items-center justify-center gap-2 rounded-lg text-sm font-bold text-gray-700 ring-1 ring-black/[0.12] transition hover:bg-white hover:text-gray-900 lg:flex"
       >
         <FiLogOut size={16} />
         {translate("logout")}

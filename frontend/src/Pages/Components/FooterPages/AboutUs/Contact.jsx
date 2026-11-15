@@ -11,8 +11,8 @@ export default function Contact() {
         </p>
         <p className="mb-8 font-bold">
           <span>{translate("emailLabel")}:</span>{" "}
-          <a href="mailto:makedonija@proteini.si" className="cursor-pointer">
-            makedonija@proteini.si
+          <a href="mailto:info@proteini.mk" className="cursor-pointer">
+            info@proteini.mk
           </a>
         </p>
         <p className="mt-4 font-bold mb-4">{translate("workingHours")}</p>

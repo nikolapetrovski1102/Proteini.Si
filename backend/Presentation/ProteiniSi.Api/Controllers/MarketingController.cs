@@ -9,7 +9,7 @@ namespace ProteiniSi.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "SuperAdmin")]
-public class MarketingController(IMarketingService service) : ControllerBase
+public class MarketingController(IMarketingService service, IMarketingAutomationService automation) : ControllerBase
 {
     [AllowAnonymous]
     [HttpPost("newsletter/subscribe")]
@@ -55,6 +55,48 @@ public class MarketingController(IMarketingService service) : ControllerBase
 
     [HttpGet("admin/users.csv")]
     public async Task<IActionResult> ExportUsers() => CsvFile(await service.ExportUsersAsync());
+
+    // ---- marketing emails (automatic welcome / abandoned checkout / replenishment) ----
+
+    [HttpGet("admin/email-templates")]
+    public async Task<IActionResult> GetEmailTemplates() =>
+        Ok(new { status = true, data = await automation.GetTemplatesAsync() });
+
+    [HttpPut("admin/email-templates/{code}")]
+    public async Task<IActionResult> UpdateEmailTemplate(string code, [FromBody] MarketingTemplateUpdateDto dto, [FromServices] IUserService users)
+    {
+        var me = int.TryParse(User.FindFirst("userId")?.Value, out var userId) ? await users.GetCurrentAsync(userId) : null;
+        var (template, error) = await automation.UpdateTemplateAsync(code, dto, me?.User_Email);
+        return template == null
+            ? BadRequest(new { status = false, message = error })
+            : Ok(new { status = true, data = template });
+    }
+
+    /// <summary>Renders the template (or an unsaved draft of it) with sample data.</summary>
+    [HttpPost("admin/email-templates/{code}/preview")]
+    public async Task<IActionResult> PreviewEmailTemplate(string code, [FromBody] MarketingTemplateUpdateDto? draft)
+    {
+        var (preview, error) = await automation.PreviewAsync(code, draft);
+        return preview == null
+            ? BadRequest(new { status = false, message = error })
+            : Ok(new { status = true, subject = preview.Subject, html = preview.Html });
+    }
+
+    /// <summary>Sends the template (or draft) with sample data to the signed-in admin.</summary>
+    [HttpPost("admin/email-templates/{code}/test")]
+    public async Task<IActionResult> SendTestEmail(string code, [FromBody] MarketingTemplateUpdateDto? draft, [FromServices] IUserService users)
+    {
+        if (!int.TryParse(User.FindFirst("userId")?.Value, out var userId)) return Unauthorized();
+        var me = await users.GetCurrentAsync(userId);
+        if (string.IsNullOrWhiteSpace(me.User_Email)) return BadRequest(new { status = false, message = "Your account has no email address." });
+
+        var (success, message) = await automation.SendTestAsync(code, draft, me.User_Email, me.User_FullName);
+        return success ? Ok(new { status = true, message }) : BadRequest(new { status = false, message });
+    }
+
+    [HttpGet("admin/email-log")]
+    public async Task<IActionResult> GetEmailLog([FromQuery] int top = 100) =>
+        Ok(new { status = true, data = await automation.GetLogAsync(top) });
 
     private OkObjectResult Paged<T>(PagedResult<T> result, int page, int pageSize) => Ok(new
     {

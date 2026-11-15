@@ -1,6 +1,6 @@
 /*
- * Playful decorative shapes used across the home page: starburst stickers,
- * four-point sparkles and wavy section edges.
+ * Decorative shapes used across the home page: starburst stickers and wavy
+ * section edges.
  */
 
 // Builds a starburst polygon (alternating outer/inner radius) in a 100x100 box.
@@ -38,7 +38,7 @@ export function Starburst({
       style={{ transform: `rotate(${rotate}deg)` }}
       {...rest}
     >
-      <svg viewBox="0 0 100 100" aria-hidden="true" className="absolute inset-0 h-full w-full drop-shadow-[0_2px_0_rgba(20,20,9,0.18)]">
+      <svg viewBox="0 0 100 100" aria-hidden="true" className="absolute inset-0 h-full w-full">
         <polygon points={spikes === 16 ? BURST_16 : BURST_12} fill={color} />
       </svg>
       <span
@@ -48,15 +48,6 @@ export function Starburst({
         {children}
       </span>
     </span>
-  );
-}
-
-/** Four-point sparkle (decorative only). */
-export function Sparkle({ color = "currentColor", className = "", style }) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className={className} style={style}>
-      <path d="M12 0C12.9 7.6 16.4 11.1 24 12 16.4 12.9 12.9 16.4 12 24 11.1 16.4 7.6 12.9 0 12 7.6 11.1 11.1 7.6 12 0Z" fill={color} />
-    </svg>
   );
 }
 

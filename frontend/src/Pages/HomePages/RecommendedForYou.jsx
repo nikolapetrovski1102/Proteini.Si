@@ -7,6 +7,8 @@ import { useLanguage } from "../translation/LanguageContext";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuickPurchase } from "../Hooks/useQuickPurchase";
 import { LargeLoader } from "../Components/Loaders/LargeLoader";
+import { notify } from "../Components/Feedback/siteFeedback";
+import Price from "../Components/Price";
 
 export default function RecommendedForYou() {
   const scrollContainerRef = useRef(null);
@@ -65,7 +67,7 @@ export default function RecommendedForYou() {
     e.stopPropagation();
 
     if (!isAuthenticated) {
-      alert("Please login to add products to favorites");
+      notify(translate("favoritesLoginRequired"));
       navigate("/login");
       return;
     }
@@ -80,7 +82,7 @@ export default function RecommendedForYou() {
       }
     } catch (error) {
       console.error("Error toggling favorite:", error);
-      alert("Failed to update favorites. Please try again.");
+      notify(translate("favoritesUpdateFailed"), { tone: "error" });
     }
   };
 
@@ -302,7 +304,7 @@ function ProductCard({
           <span className="text-xs">{translate("moreAboutRatings")}</span>
         </div>
         <span className="font-semibold sm:text-lg text-[16px] mb-[2px]">
-          MKD {(product.price || 0).toFixed(2)}
+          <Price value={product.price} />
         </span>
         <span className="text-[#2096D8] text-[11px] leading-3 font-bold mt-[10px]">
           {translate("recommended")}

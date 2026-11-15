@@ -10,7 +10,7 @@ import {
   ProfileLoading,
   ghostButtonClass,
 } from "./ProfileKit";
-import { formatPrice } from "./profileFormat";
+import Price from "../Components/Price";
 
 export default function FavoriteProducts() {
   const [favorites, setFavorites] = useState([]);
@@ -100,7 +100,7 @@ export default function FavoriteProducts() {
               className="group relative flex flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.06] transition hover:ring-black/[0.14]"
             >
               <Link to={`/product/${fav.productId}`} className="flex flex-1 flex-col">
-                <div className="flex aspect-square items-center justify-center bg-[#f6f5f1] p-4">
+                <div className="photo-tile flex aspect-square items-center justify-center bg-[#f6f5f1] p-4">
                   <img
                     src={fav.productImage || "/img/placeholder.jpg"}
                     alt={fav.productName}
@@ -111,7 +111,7 @@ export default function FavoriteProducts() {
                 <div className="flex flex-1 flex-col p-3.5 sm:p-4">
                   <p className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900">{fav.productName}</p>
                   <p className="mt-auto pt-2 text-[15px] font-bold tabular-nums text-gray-900">
-                    {formatPrice(fav.productPrice)}
+                    <Price value={fav.productPrice} />
                   </p>
                 </div>
               </Link>

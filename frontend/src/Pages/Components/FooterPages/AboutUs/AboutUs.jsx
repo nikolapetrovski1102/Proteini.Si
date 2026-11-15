@@ -24,7 +24,7 @@ export default function AboutUs() {
   const currentPageText = getBreadcrumbText(location.pathname);
 
   return (
-    <div className="w-full max-w-[1240px] mx-auto px-4 py-10">
+    <div className="w-full max-w-[1240px] mx-auto px-4 pt-10 pb-16 sm:pb-20">
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-sm mb-6">
         <Breadcrumb />

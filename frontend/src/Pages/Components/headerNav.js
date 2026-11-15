@@ -1,20 +1,53 @@
 // Static navigation data for the header (desktop dropdowns and mobile menu).
 // Kept out of Header.jsx so the component only deals with layout and behaviour.
 import {
-  FiActivity,
-  FiAward,
-  FiBox,
-  FiCalendar,
-  FiCoffee,
-  FiGift,
-  FiGrid,
-  FiPercent,
-  FiShield,
-  FiShoppingBag,
-  FiTag,
-  FiTrendingDown,
-  FiZap,
-} from "react-icons/fi";
+  BarIcon,
+  CalendarIcon,
+  CapsuleIcon,
+  DumbbellIcon,
+  GiftIcon,
+  GridIcon,
+  MedalIcon,
+  PriceTagIcon,
+  ProteinTubIcon,
+  SaleIcon,
+  ScaleIcon,
+  ShakerIcon,
+  SparkleIcon,
+  TShirtIcon,
+} from "./ShopIcons";
+
+/**
+ * Drops menu entries for categories with no listed products. `categories` is the filter options' list (with
+ * product_Count); links that aren't a category (e.g. sports-nutrition) always stay. A parent stays while one of its
+ * subcategories has products; a section goes when nothing in it is left.
+ */
+export const pruneCategoryNav = (sections, categories) => {
+  if (!categories?.length) return sections;
+  const counts = new Map();
+  categories.forEach((cat) => {
+    if (cat.product_Count == null) return;
+    const slug = (cat.category_Slug || "").toLowerCase();
+    counts.set(slug, Math.max(counts.get(slug) ?? 0, cat.product_Count));
+  });
+  if (counts.size === 0) return sections;
+  const empty = (link) => {
+    const slug = (link || "").split("?")[0].replace(/^\/all-products\/?/, "").toLowerCase();
+    return slug !== "" && counts.has(slug) && counts.get(slug) === 0;
+  };
+  const pruneItem = (item) => {
+    const subItems = item.subItems?.filter((sub) => !empty(sub.link));
+    if (empty(item.link) && !subItems?.length) return null;
+    return item.subItems ? { ...item, subItems } : item;
+  };
+  return sections
+    .map((section) => {
+      const columns = section.columns.map((column) => column.map(pruneItem).filter(Boolean)).filter((c) => c.length);
+      if (columns.length === 0 && empty(section.link)) return null;
+      return { ...section, columns };
+    })
+    .filter(Boolean);
+};
 
 /** Category trees. `translate` is the LanguageContext translate function. */
 export const buildCategoryNav = (translate) => {
@@ -262,11 +295,11 @@ export const buildCategoryNav = (translate) => {
 
   const snacks = [
     {
-      label: translate("snacks"),
+      label: translate("snacksUpper"),
       link: "/all-products/snacks",
       subItems: [
         { label: translate("muesli"), link: "/all-products/muesli" },
-        { label: translate("snacks"), link: "/all-products/snacks" },
+        { label: translate("snacksUpper"), link: "/all-products/snacks" },
         { label: translate("pancakes"), link: "/all-products/pancakes" },
         { label: translate("pudding"), link: "/all-products/pudding" },
         { label: translate("calorieFree"), link: "/all-products/calorie-free" },
@@ -387,7 +420,7 @@ export const buildCategoryNav = (translate) => {
   return [
     {
       key: "sports-nutrition",
-      icon: FiActivity,
+      icon: DumbbellIcon,
       title: translate("sportsNutrition"),
       link: "/all-products/sports-nutrition",
       columns: [
@@ -398,21 +431,21 @@ export const buildCategoryNav = (translate) => {
     },
     {
       key: "protein",
-      icon: FiZap,
+      icon: ProteinTubIcon,
       title: translate("protein"),
       link: "/all-products/proteins",
       columns: [protein.slice(0, 1), protein.slice(1, 2)],
     },
     {
       key: "weightLoss",
-      icon: FiTrendingDown,
+      icon: ScaleIcon,
       title: translate("weightLoss"),
       link: "/all-products/weight-loss",
       columns: [weightLoss],
     },
     {
       key: "vitamins",
-      icon: FiShield,
+      icon: CapsuleIcon,
       title: translate("vitamins"),
       link: "/all-products/vitamins",
       columns: [
@@ -423,14 +456,14 @@ export const buildCategoryNav = (translate) => {
     },
     {
       key: "snacks",
-      icon: FiCoffee,
+      icon: BarIcon,
       title: translate("snacks"),
       link: "/all-products/snacks",
       columns: [snacks.slice(0, 1), snacks.slice(1, 2)],
     },
     {
       key: "accessories",
-      icon: FiBox,
+      icon: ShakerIcon,
       title: translate("accessories"),
       link: "/all-products/accessories",
       columns: [
@@ -441,7 +474,7 @@ export const buildCategoryNav = (translate) => {
     },
     {
       key: "clothing",
-      icon: FiShoppingBag,
+      icon: TShirtIcon,
       title: translate("clothing"),
       link: "/all-products/mens-clothing",
       columns: [
@@ -460,7 +493,7 @@ export const buildOfferItems = (translate) => [
     label: translate("productsOnSale"),
     description: translate("offerDescSale"),
     link: "/all-products?onSale=true",
-    icon: FiPercent,
+    icon: SaleIcon,
     tone: "red",
   },
   {
@@ -468,7 +501,7 @@ export const buildOfferItems = (translate) => [
     label: translate("upcomingPromotions"),
     description: translate("offerDescUpcoming"),
     link: "/all-products?upcomingPromotions=true",
-    icon: FiCalendar,
+    icon: CalendarIcon,
     tone: "yellow",
   },
   {
@@ -476,15 +509,15 @@ export const buildOfferItems = (translate) => [
     label: translate("outlet"),
     description: translate("offerDescOutlet"),
     link: "/all-products?outlet=true",
-    icon: FiTag,
+    icon: PriceTagIcon,
     tone: "ink",
   },
   {
     key: "best",
     label: translate("bestSeller"),
     description: translate("offerDescBest"),
-    link: "/all-products?bestSeller=true",
-    icon: FiAward,
+    link: "/all-products?bestSellers=true",
+    icon: MedalIcon,
     tone: "yellow",
   },
   {
@@ -492,7 +525,7 @@ export const buildOfferItems = (translate) => [
     label: translate("new"),
     description: translate("offerDescNew"),
     link: "/all-products?newProducts=true",
-    icon: FiZap,
+    icon: SparkleIcon,
     tone: "green",
   },
   {
@@ -500,7 +533,7 @@ export const buildOfferItems = (translate) => [
     label: translate("giftVouchers"),
     description: translate("offerDescVoucher"),
     link: "/all-products/gift-voucher",
-    icon: FiGift,
+    icon: GiftIcon,
     tone: "red",
   },
   {
@@ -508,7 +541,7 @@ export const buildOfferItems = (translate) => [
     label: translate("allProducts"),
     description: translate("offerDescAll"),
     link: "/all-products",
-    icon: FiGrid,
+    icon: GridIcon,
     tone: "ink",
   },
 ];

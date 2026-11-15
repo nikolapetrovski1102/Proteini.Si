@@ -1,6 +1,6 @@
 // src/Pages/Components/Loaders/Loader.jsx
-import { BrandLoader } from "./BrandLoader";
+import { InlineLoader } from "./BrandLoader";
 
 export default function Loader() {
-  return <BrandLoader variant="scoop" size={96} />;
+  return <InlineLoader size={32} />;
 }

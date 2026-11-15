@@ -8,7 +8,7 @@ namespace ProteiniSi.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "SuperAdmin")]
-public class InstagramPostsController(IInstagramPostService service) : ControllerBase
+public class InstagramPostsController(IInstagramPostService service, IInstagramFeedSyncService feedSync) : ControllerBase
 {
     [AllowAnonymous]
     [HttpGet]
@@ -45,4 +45,13 @@ public class InstagramPostsController(IInstagramPostService service) : Controlle
         var path = await service.UploadImageAsync(file);
         return Ok(new { imagePath = path, message = "Image uploaded successfully" });
     }
+
+    /// <summary>Whether the automatic Instagram sync is set up, and how its last run went.</summary>
+    [HttpGet("sync")]
+    public IActionResult GetSyncStatus() => Ok(new { configured = feedSync.IsConfigured, last = feedSync.LastResult });
+
+    /// <summary>Pulls the latest posts from Instagram right away.</summary>
+    [HttpPost("sync")]
+    public async Task<IActionResult> SyncNow(CancellationToken cancellationToken) =>
+        Ok(await feedSync.SyncAsync(cancellationToken));
 }

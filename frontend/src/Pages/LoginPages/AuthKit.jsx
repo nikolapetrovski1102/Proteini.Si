@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { checkPasswordStrength } from "./authUtils";
 import { FiCheck, FiEye, FiEyeOff } from "react-icons/fi";
-import { Sparkle } from "../HomePages/sections/Decor";
 
 export const headingClass =
   "font-display font-bold uppercase tracking-tight leading-[0.95] text-gray-900 [text-wrap:balance]";
@@ -9,11 +8,14 @@ export const headingClass =
 export const eyebrowClass =
   "text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500";
 
+/** Big page title on the auth card; scales down so long words (e.g. "Добредојдовте") fit small phones. */
+export const authTitleClass = `${headingClass} text-[clamp(28px,8.6vw,40px)] sm:text-5xl`;
+
 export const inputClass =
   "auth-input block w-full min-h-[48px] rounded-xl bg-[#f6f5f1] px-4 text-[15px] text-gray-900 ring-1 ring-black/[0.08] placeholder:text-gray-400 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#141409]";
 
 export const primaryButtonClass =
-  "group inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full bg-[#141409] px-7 text-sm font-bold text-white transition hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDC700] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+  "ink-btn group inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg bg-[#141409] px-7 text-sm font-bold text-white transition hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDC700] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const linkButtonClass =
   "font-semibold text-gray-900 underline decoration-[#FDC700] decoration-2 underline-offset-4 transition hover:decoration-[#141409] disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline";
@@ -50,7 +52,7 @@ export function PasswordStrength({ password, translate }) {
             <span
               key={i}
               className="h-1.5 flex-1 rounded-full transition-colors duration-300"
-              style={{ background: i <= metCount ? level.color : "#e5e5e0" }}
+              style={{ background: i <= metCount ? level.color : "var(--pw-empty, #e5e5e0)" }}
             />
           ))}
         </div>
@@ -146,12 +148,9 @@ export function Alert({ tone = "error", children }) {
  */
 export function AuthShell({ children, aside, mobileAside }) {
   return (
-    <div className="home-tint bg-[#f6f5f1]">
+    <div className="auth-page home-tint bg-[#f6f5f1]">
       <div className="mx-auto grid max-w-[1240px] gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)] lg:items-stretch lg:gap-8 lg:py-16">
         <aside className="relative hidden overflow-hidden rounded-3xl bg-[#141409] p-10 text-white lg:flex lg:flex-col xl:p-12">
-          <Sparkle color="#FDC700" className="absolute right-[12%] top-[10%] h-9 w-9" />
-          <Sparkle color="#ffffff" className="absolute right-[24%] top-[22%] h-4 w-4 opacity-70" />
-          <Sparkle color="#E3262F" className="absolute bottom-[14%] right-[10%] h-6 w-6" />
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -bottom-32 -left-24 h-80 w-80 rounded-full bg-[#FDC700]/[0.12] blur-2xl"

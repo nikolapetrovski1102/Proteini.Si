@@ -1,5 +1,5 @@
 import { createElement, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   FiArrowLeft,
   FiArrowRight,
@@ -14,7 +14,17 @@ import {
 } from "react-icons/fi";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../translation/LanguageContext";
-import { COUNTRIES } from "../Components/countries";
+import {
+  CityPostCodeSelector,
+  EmailTypoHint,
+  LockedCountryInput,
+  PhoneInputWithCountry,
+  StreetAddressAutocomplete,
+  findMatchingCity,
+  useCheckoutLocations,
+  validateEmailAddressClient,
+  validatePhoneWithCountry,
+} from "../Components/AddressFields";
 import {
   Alert,
   AuthShell,
@@ -23,12 +33,13 @@ import {
   PasswordInput,
   PasswordStrength,
   eyebrowClass,
-  headingClass,
+  authTitleClass,
   inputClass,
   linkButtonClass,
   primaryButtonClass,
 } from "./AuthKit";
 import { checkPasswordStrength, useCountdown } from "./authUtils";
+import SocialSignIn from "./SocialSignIn";
 
 // Survives a refresh while the user goes to their inbox for the code.
 const PENDING_KEY = "pendingEmailVerification";
@@ -55,6 +66,7 @@ const writePending = (pending) => {
 const EMPTY_REGISTER = {
   User_FullName: "",
   User_Email: "",
+  User_Phone: "",
   Password: "",
   PasswordConfirm: "",
   Company_Name: "",
@@ -62,7 +74,7 @@ const EMPTY_REGISTER = {
   Company_TaxNumber: "",
   Company_PostCode: "",
   Company_City: "",
-  Company_Country: "",
+  Company_Country: "North Macedonia",
   Company_Phone: "",
 };
 
@@ -77,9 +89,20 @@ const errorText = (err, fallback) =>
   err?.data?.errors?.[0] || err?.message || fallback;
 
 export default function Login() {
-  const { login, register, forgotPassword, verifyEmail, resendVerificationCode } =
-    useAuth();
+  const {
+    login,
+    register,
+    forgotPassword,
+    verifyEmail,
+    resendVerificationCode,
+    externalSignIn,
+    sendSignInCode,
+    signInWithEmailCode,
+  } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Optional sign-in error passed in navigation state.
+  const [socialError] = useState(() => location.state?.socialError || "");
   const { translate, language } = useLanguage();
 
   const [pending, setPending] = useState(readPending);
@@ -119,6 +142,18 @@ export default function Login() {
     setPending(null);
     goTo(target);
   };
+
+  const social = (
+    <SocialSignIn
+      key={view}
+      translate={translate}
+      externalSignIn={externalSignIn}
+      onSignedIn={finishSignIn}
+      onEmailCode={() => goTo("emailCode")}
+      dividerKey={view === "login" ? "socialOrPassword" : "socialOrRegisterForm"}
+      initialError={view === "login" ? socialError : ""}
+    />
+  );
 
   const aside = (
     <>
@@ -163,12 +198,15 @@ export default function Login() {
   );
 
   return (
-    <AuthShell aside={aside} mobileAside={view === "verify" ? null : mobileAside}>
+    <AuthShell
+      aside={aside}
+      mobileAside={view === "verify" || view === "emailCode" ? null : mobileAside}
+    >
       {(view === "login" || view === "register") && (
         <div
           role="tablist"
           aria-label={translate("authTabsLabel")}
-          className="mb-8 grid grid-cols-2 rounded-full bg-[#f6f5f1] p-1 ring-1 ring-black/[0.05]"
+          className="mb-8 grid grid-cols-2 rounded-xl bg-[#f6f5f1] p-1 ring-1 ring-black/[0.05]"
         >
           {[
             ["login", "login"],
@@ -180,9 +218,9 @@ export default function Login() {
               role="tab"
               aria-selected={view === key}
               onClick={() => goTo(key)}
-              className={`min-h-[44px] rounded-full px-4 text-sm font-bold transition ${
+              className={`min-h-[44px] rounded-lg px-4 text-sm font-bold transition ${
                 view === key
-                  ? "bg-[#141409] text-white shadow-sm"
+                  ? "ink-tab bg-[#141409] text-white shadow-sm"
                   : "text-gray-600 hover:text-gray-900"
               }`}
             >
@@ -198,6 +236,7 @@ export default function Login() {
           language={language}
           login={login}
           notice={notice}
+          social={social}
           onForgot={() => goTo("forgot")}
           onSignedIn={finishSignIn}
           onNeedsVerification={(email, retry) =>
@@ -211,14 +250,27 @@ export default function Login() {
           translate={translate}
           language={language}
           register={register}
+          social={social}
           onRegistered={(email, retry) => startVerification(email, retry)}
           onPrivacy={() => window.scrollTo(0, 0)}
+        />
+      )}
+
+      {view === "emailCode" && (
+        <EmailCodeForm
+          translate={translate}
+          language={language}
+          sendSignInCode={sendSignInCode}
+          signInWithEmailCode={signInWithEmailCode}
+          onSignedIn={finishSignIn}
+          onBack={() => goTo("login")}
         />
       )}
 
       {view === "forgot" && (
         <ForgotForm
           translate={translate}
+          language={language}
           forgotPassword={forgotPassword}
           onBack={() => goTo("login")}
         />
@@ -253,6 +305,7 @@ function LoginForm({
   language,
   login,
   notice,
+  social,
   onForgot,
   onSignedIn,
   onNeedsVerification,
@@ -285,12 +338,14 @@ function LoginForm({
 
   return (
     <form onSubmit={handleSubmit}>
-      <h1 className={`${headingClass} text-[40px] sm:text-5xl`}>
+      <h1 className={authTitleClass}>
         {translate("authWelcomeBack")}
       </h1>
       <p className="mt-3 text-[15px] leading-relaxed text-gray-600">
         {translate("authSignInSubtitle")}
       </p>
+
+      {social}
 
       <div className="mt-7 space-y-4">
         <Alert tone="info">{notice}</Alert>
@@ -341,7 +396,8 @@ function LoginForm({
 
 /* --------------------------------------------------------------- register */
 
-function RegisterForm({ translate, language, register, onRegistered, onPrivacy }) {
+function RegisterForm({ translate, language, register, social, onRegistered, onPrivacy }) {
+  const { phoneCountries, cities } = useCheckoutLocations();
   const [accountType, setAccountType] = useState("natural");
   const [form, setForm] = useState(EMPTY_REGISTER);
   const [error, setError] = useState("");
@@ -356,6 +412,16 @@ function RegisterForm({ translate, language, register, onRegistered, onPrivacy }
     e.preventDefault();
     setError("");
 
+    const emailCheck = validateEmailAddressClient(form.User_Email);
+    if (!emailCheck.valid) {
+      if (emailCheck.reason === "typo" && emailCheck.suggestion) {
+        setError(`${translate("invalidEmailFormat")} ${translate("emailDidYouMean")} ${emailCheck.suggestion}?`);
+      } else {
+        setError(translate("invalidEmailFormat"));
+      }
+      return;
+    }
+
     if (!checkPasswordStrength(form.Password).isValid) {
       setError(translate("passwordTooWeak"));
       return;
@@ -365,8 +431,34 @@ function RegisterForm({ translate, language, register, onRegistered, onPrivacy }
       return;
     }
 
+    let normalizedPhone = "";
+    if (isCompany) {
+      const phoneCheck = validatePhoneWithCountry(form.Company_Phone, phoneCountries);
+      if (!phoneCheck.valid) {
+        setError(translate("invalidPhoneFormat"));
+        return;
+      }
+      normalizedPhone = phoneCheck.e164;
+
+      const matchedCity = findMatchingCity(form.Company_City, form.Company_PostCode, cities);
+      if (
+        !matchedCity ||
+        !matchedCity.postCodes?.some((p) => p.postCode === form.Company_PostCode.trim())
+      ) {
+        setError(translate("invalidCityOrPostCode"));
+        return;
+      }
+    } else if (form.User_Phone?.trim()) {
+      const phoneCheck = validatePhoneWithCountry(form.User_Phone, phoneCountries);
+      if (!phoneCheck.valid) {
+        setError(translate("invalidPhoneFormat"));
+        return;
+      }
+      normalizedPhone = phoneCheck.e164;
+    }
+
     const base = {
-      user_Email: form.User_Email.trim(),
+      user_Email: emailCheck.normalized,
       password: form.Password,
       passwordConfirm: form.PasswordConfirm,
       language,
@@ -375,20 +467,20 @@ function RegisterForm({ translate, language, register, onRegistered, onPrivacy }
       ? {
           ...base,
           user_IsCompany: true,
-          user_Phone: form.Company_Phone || "",
+          user_Phone: normalizedPhone,
           company_Name: form.Company_Name,
           company_Address: form.Company_Address,
           company_TaxNumber: form.Company_TaxNumber,
-          company_PostCode: form.Company_PostCode,
-          company_City: form.Company_City,
-          company_Country: form.Company_Country,
-          company_Phone: form.Company_Phone,
+          company_PostCode: form.Company_PostCode.trim(),
+          company_City: form.Company_City.trim(),
+          company_Country: "North Macedonia",
+          company_Phone: normalizedPhone,
         }
       : {
           ...base,
           user_FullName: form.User_FullName.trim(),
           user_IsCompany: false,
-          user_Phone: "",
+          user_Phone: normalizedPhone,
         };
 
     setLoading(true);
@@ -410,12 +502,14 @@ function RegisterForm({ translate, language, register, onRegistered, onPrivacy }
 
   return (
     <form onSubmit={handleSubmit}>
-      <h1 className={`${headingClass} text-[40px] sm:text-5xl`}>
+      <h1 className={authTitleClass}>
         {translate("createYourAccount")}
       </h1>
       <p className="mt-3 text-[15px] leading-relaxed text-gray-600">
         {translate("authCreateSubtitle")}
       </p>
+
+      {social}
 
       <fieldset className="mt-7">
         <legend className="mb-2 text-[13px] font-semibold text-gray-800">
@@ -466,38 +560,63 @@ function RegisterForm({ translate, language, register, onRegistered, onPrivacy }
             <Field label={translate("companyName")} htmlFor="reg-company" className="sm:col-span-2">
               <input id="reg-company" required autoComplete="organization" value={form.Company_Name} onChange={set("Company_Name")} className={inputClass} />
             </Field>
-            <Field label={translate("taxNumber")} htmlFor="reg-tax">
+            <Field label={translate("taxNumber")} htmlFor="reg-tax" className="sm:col-span-2">
               <input id="reg-tax" required value={form.Company_TaxNumber} onChange={set("Company_TaxNumber")} className={inputClass} />
             </Field>
-            <Field label={translate("phone")} htmlFor="reg-phone">
-              <input id="reg-phone" type="tel" required autoComplete="tel" value={form.Company_Phone} onChange={set("Company_Phone")} className={inputClass} />
-            </Field>
-            <Field label={translate("companyAddress")} htmlFor="reg-address" className="sm:col-span-2">
-              <input id="reg-address" required autoComplete="street-address" value={form.Company_Address} onChange={set("Company_Address")} className={inputClass} />
-            </Field>
-            <Field label={translate("city")} htmlFor="reg-city">
-              <input id="reg-city" required autoComplete="address-level2" value={form.Company_City} onChange={set("Company_City")} className={inputClass} />
-            </Field>
-            <Field label={translate("postCode")} htmlFor="reg-post">
-              <input id="reg-post" required autoComplete="postal-code" value={form.Company_PostCode} onChange={set("Company_PostCode")} className={inputClass} />
-            </Field>
-            <Field label={translate("country")} htmlFor="reg-country" className="sm:col-span-2">
-              <select id="reg-country" required value={form.Company_Country} onChange={set("Company_Country")} className={`${inputClass} appearance-none`}>
-                <option value="">{translate("selectACountry")}</option>
-                {COUNTRIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </Field>
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-[13px] font-semibold text-gray-800">
+                {translate("phone")} *
+              </label>
+              <PhoneInputWithCountry
+                value={form.Company_Phone}
+                onChange={(val) => setForm((f) => ({ ...f, Company_Phone: val }))}
+                phoneCountries={phoneCountries}
+                required
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <CityPostCodeSelector
+                city={form.Company_City}
+                postCode={form.Company_PostCode}
+                onSelectCityAndPostCode={(nextCity, nextZip) =>
+                  setForm((f) => ({
+                    ...f,
+                    Company_City: nextCity,
+                    Company_PostCode: nextZip,
+                  }))
+                }
+                cities={cities}
+                required
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-[13px] font-semibold text-gray-800">
+                {translate("companyAddress")} *
+              </label>
+              <StreetAddressAutocomplete
+                value={form.Company_Address}
+                onChange={(val) => setForm((f) => ({ ...f, Company_Address: val }))}
+                city={form.Company_City}
+                required
+                placeholder={translate("enterAddress")}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <LockedCountryInput label={translate("country")} />
+            </div>
           </div>
         ) : (
           <Field label={translate("nameAndSurname")} htmlFor="reg-name">
-            <input id="reg-name" required autoComplete="name" value={form.User_FullName} onChange={set("User_FullName")} className={inputClass} />
+            <input id="reg-name" required autoComplete="name" maxLength={45} value={form.User_FullName} onChange={set("User_FullName")} className={inputClass} />
           </Field>
         )}
 
         <Field label={translate("eMail")} htmlFor="reg-email" hint={translate("authEmailCodeHint")}>
-          <input id="reg-email" type="email" required autoComplete="email" value={form.User_Email} onChange={set("User_Email")} className={inputClass} placeholder="name@email.com" />
+          <input id="reg-email" type="email" required autoComplete="email" maxLength={45} value={form.User_Email} onChange={set("User_Email")} className={inputClass} placeholder="name@email.com" />
+          <EmailTypoHint
+            email={form.User_Email}
+            onAcceptSuggestion={(fixed) => setForm((f) => ({ ...f, User_Email: fixed }))}
+          />
         </Field>
 
         <Field label={translate("password")} htmlFor="reg-password">
@@ -550,7 +669,7 @@ function RegisterForm({ translate, language, register, onRegistered, onPrivacy }
 
 /* ---------------------------------------------------------------- forgot */
 
-function ForgotForm({ translate, forgotPassword, onBack }) {
+function ForgotForm({ translate, language, forgotPassword, onBack }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
@@ -561,7 +680,7 @@ function ForgotForm({ translate, forgotPassword, onBack }) {
     setError("");
     setLoading(true);
     try {
-      const response = await forgotPassword({ User_Email: email.trim() });
+      const response = await forgotPassword({ User_Email: email.trim(), Language: language });
       if (response.status) setSent(true);
       else setError(response.message || translate("authGenericError"));
     } catch (err) {
@@ -577,7 +696,7 @@ function ForgotForm({ translate, forgotPassword, onBack }) {
         <FiArrowLeft /> {translate("authBackToSignIn")}
       </button>
 
-      <h1 className={`${headingClass} text-[40px] sm:text-5xl`}>
+      <h1 className={authTitleClass}>
         {translate("forgotPassword")}
       </h1>
 
@@ -694,11 +813,11 @@ function VerifyEmailStep({
 
   return (
     <div>
-      <div className="relative mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#141409] text-[#FDC700] shadow-[4px_4px_0_rgba(253,199,0,0.9)]">
+      <div className="relative mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#141409] text-[#FDC700]">
         {done ? <FiCheck size={28} strokeWidth={3} /> : <FiMail size={28} />}
       </div>
 
-      <h1 id="verify-title" className={`${headingClass} text-[40px] sm:text-5xl`}>
+      <h1 id="verify-title" className={authTitleClass}>
         {translate(done ? "verifyDone" : "verifyTitle")}
       </h1>
       <p className="mt-3 text-[15px] leading-relaxed text-gray-600">
@@ -777,6 +896,221 @@ function VerifyEmailStep({
         <span aria-hidden="true" className="h-1 w-1 rounded-full bg-gray-300" />
         <button type="button" onClick={onBackToLogin} className="font-semibold text-gray-600 transition hover:text-gray-900">
           {translate("authBackToSignIn")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------- email code */
+
+function EmailCodeForm({
+  translate,
+  language,
+  sendSignInCode,
+  signInWithEmailCode,
+  onSignedIn,
+  onBack,
+}) {
+  const [email, setEmail] = useState("");
+  const [sentTo, setSentTo] = useState(null);
+  const [isNew, setIsNew] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [code, setCode] = useState("");
+  const [resendAt, setResendAt] = useState(0);
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [expired, setExpired] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [done, setDone] = useState(false);
+  const secondsLeft = useCountdown(resendAt);
+
+  const send = async (target, resend = false) => {
+    setError("");
+    setSending(true);
+    try {
+      const response = await sendSignInCode({ email: target, language });
+      setSentTo(target);
+      setIsNew(Boolean(response.isNewAccount));
+      setResendAt(Date.now() + (response.retryAfterSeconds ?? 60) * 1000);
+      setExpired(false);
+      setCode("");
+      setInfo(resend ? translate("verifyResent") : "");
+    } catch (err) {
+      setError(errorText(err, translate("authGenericError")));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const submit = async (value = code) => {
+    if (verifying || done) return;
+    if (value.length !== 6) {
+      setError(translate("verifyEnterAll"));
+      return;
+    }
+    if (isNew && !fullName.trim()) {
+      setError(translate("emailCodeNewAccount"));
+      return;
+    }
+    setError("");
+    setVerifying(true);
+    try {
+      const response = await signInWithEmailCode({
+        email: sentTo,
+        code: value,
+        fullName: isNew ? fullName.trim() : null,
+      });
+      if (response.status) {
+        setDone(true);
+        setTimeout(() => onSignedIn(response), 500);
+      }
+    } catch (err) {
+      if (err.data?.requiresName) {
+        // The account did not exist after all; the code is still valid.
+        setIsNew(true);
+        setError(translate("emailCodeNewAccount"));
+        return;
+      }
+      setCode("");
+      if (err.data?.codeExpired) {
+        setExpired(true);
+        setError(translate("verifyCodeExpired"));
+      } else if (typeof err.data?.attemptsLeft === "number") {
+        setError(`${translate("verifyCodeIncorrect")} ${translate("verifyAttemptsLeft")} ${err.data.attemptsLeft}.`);
+      } else {
+        setError(errorText(err, translate("authGenericError")));
+      }
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const backButton = (
+    <button type="button" onClick={onBack} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-gray-600 transition hover:text-gray-900">
+      <FiArrowLeft /> {translate("authBackToSignIn")}
+    </button>
+  );
+
+  if (!sentTo) {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          send(email.trim());
+        }}
+      >
+        {backButton}
+        <h1 className={authTitleClass}>
+          {translate("emailCodeTitle")}
+        </h1>
+        <p className="mt-3 text-[15px] leading-relaxed text-gray-600">
+          {translate("emailCodeSubtitle")}
+        </p>
+        <div className="mt-7 space-y-4">
+          <Alert>{error}</Alert>
+          <Field label={translate("eMail")} htmlFor="code-email">
+            <input id="code-email" type="email" required autoComplete="email" autoFocus maxLength={45} value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="name@email.com" />
+          </Field>
+        </div>
+        <button type="submit" disabled={sending} className={`${primaryButtonClass} mt-6`}>
+          {sending ? translate("authSending") : translate("emailCodeSend")}
+          {!sending && <FiArrowRight className="text-[#FDC700] transition-transform group-hover:translate-x-0.5" />}
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <div>
+      {backButton}
+      <div className="relative mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#141409] text-[#FDC700]">
+        {done ? <FiCheck size={28} strokeWidth={3} /> : <FiMail size={28} />}
+      </div>
+
+      <h1 id="code-title" className={authTitleClass}>
+        {translate(done ? "verifyDone" : "verifyTitle")}
+      </h1>
+      <p className="mt-3 text-[15px] leading-relaxed text-gray-600">
+        {translate("verifySubtitle")}{" "}
+        <span className="break-all font-semibold text-gray-900">{sentTo}</span>
+      </p>
+
+      <form
+        className="mt-7 space-y-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <Alert tone="info">{!error && (info || (isNew ? translate("emailCodeNewAccount") : ""))}</Alert>
+        <Alert>{error}</Alert>
+
+        {isNew && (
+          <Field label={translate("nameAndSurname")} htmlFor="code-name">
+            <input id="code-name" required autoComplete="name" maxLength={45} value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputClass} />
+          </Field>
+        )}
+
+        <OtpInput
+          value={code}
+          onChange={(v) => {
+            setCode(v);
+            if (error && !expired) setError("");
+          }}
+          onComplete={(v) => (!isNew || fullName.trim()) && submit(v)}
+          disabled={verifying || done || expired}
+          invalid={Boolean(error) && !expired}
+          labelledBy="code-title"
+        />
+
+        <p className="text-xs leading-relaxed text-gray-500">{translate("verifyCheckSpam")}</p>
+
+        {expired ? (
+          <button type="button" onClick={() => send(sentTo, true)} disabled={secondsLeft > 0 || sending} className={primaryButtonClass}>
+            {sending
+              ? translate("authSending")
+              : secondsLeft > 0
+                ? `${translate("verifyResendIn")} ${secondsLeft}s`
+                : translate("verifyResend")}
+          </button>
+        ) : (
+          <button type="submit" disabled={verifying || done || code.length !== 6} className={primaryButtonClass}>
+            {verifying ? translate("emailCodeSigningIn") : translate("emailCodeSignIn")}
+            {!verifying && <FiArrowRight className="text-[#FDC700] transition-transform group-hover:translate-x-0.5" />}
+          </button>
+        )}
+      </form>
+
+      {!expired && (
+        <p className="mt-6 text-center text-sm text-gray-600">
+          {translate("verifyNoCode")}{" "}
+          {secondsLeft > 0 ? (
+            <span className="font-semibold tabular-nums text-gray-500">
+              {translate("verifyResendIn")} {secondsLeft}s
+            </span>
+          ) : (
+            <button type="button" onClick={() => send(sentTo, true)} disabled={sending} className={linkButtonClass}>
+              {sending ? translate("authSending") : translate("verifyResend")}
+            </button>
+          )}
+        </p>
+      )}
+
+      <div className="mt-6 flex justify-center border-t border-black/[0.06] pt-5 text-sm">
+        <button
+          type="button"
+          onClick={() => {
+            setSentTo(null);
+            setCode("");
+            setError("");
+            setInfo("");
+            setIsNew(false);
+          }}
+          className="font-semibold text-gray-600 transition hover:text-gray-900"
+        >
+          {translate("verifyChangeEmail")}
         </button>
       </div>
     </div>

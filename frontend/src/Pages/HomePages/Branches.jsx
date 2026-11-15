@@ -1,17 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "../translation/LanguageContext";
 import { api } from "../../services/api";
-import {
-  FiArrowUpRight,
-  FiChevronRight,
-  FiClock,
-  FiMail,
-  FiMapPin,
-  FiNavigation,
-  FiPhone,
-  FiShoppingBag,
-  FiUsers,
-} from "react-icons/fi";
 import "./Branches.css";
 
 export default function Branches() {
@@ -29,7 +18,7 @@ export default function Branches() {
       city: "Skopje - Centar",
       address: "Proteini.si Shop Skopje - Centar",
       phone: "+389 71 399 036",
-      email: "makedonija@proteini.si",
+      email: "info@proteini.mk",
       workingHours: {
         monFri: "10:00 - 22:00",
         sat: "Closed",
@@ -44,7 +33,7 @@ export default function Branches() {
       city: "Skopje - Aerodrom",
       address: "Franjo Kluz 16, Skopje 1000",
       phone: "+389 71 399 036",
-      email: "makedonija@proteini.si",
+      email: "info@proteini.mk",
       workingHours: {
         monFri: "10:00 - 22:00",
         sat: "Closed",
@@ -59,7 +48,7 @@ export default function Branches() {
       city: "Tetovo",
       address: "Ilirija bb, Tetovo 1200",
       phone: "+389 71 399 036",
-      email: "makedonija@proteini.si",
+      email: "info@proteini.mk",
       workingHours: {
         monFri: "10:00 - 22:00",
         sat: "Closed",
@@ -74,7 +63,7 @@ export default function Branches() {
       city: "Kumanovo",
       address: "La Plaza Mall, III-ta Makedonska Udarna Brigada 23, Kumanovo",
       phone: "+389 71 399 036",
-      email: "makedonija@proteini.si",
+      email: "info@proteini.mk",
       workingHours: {
         monFri: "10:00 - 22:00",
         sat: "Closed",
@@ -90,7 +79,7 @@ export default function Branches() {
       city: "Skopje - Diamond Mall",
       address: "Diamond Mall, Jordan Mijalkov 31, 1000 Skopje",
       phone: "+389 71 399 036",
-      email: "makedonija@proteini.si",
+      email: "info@proteini.mk",
       workingHours: {
         monFri: "10:00 - 22:00",
         sat: "Closed",
@@ -105,7 +94,7 @@ export default function Branches() {
       city: "Skopje - City Mall",
       address: "Skopje City Mall, Ljubljanska 4, Skopje 1000",
       phone: "+389 71 399 036",
-      email: "makedonija@proteini.si",
+      email: "info@proteini.mk",
       workingHours: {
         monFri: "10:00 - 22:00",
         sat: "Closed",
@@ -120,7 +109,7 @@ export default function Branches() {
       city: "Skopje - Location 7",
       address: "42.009476, 21.370836",
       phone: "+389 71 399 036",
-      email: "makedonija@proteini.si",
+      email: "info@proteini.mk",
       workingHours: {
         monFri: "10:00 - 22:00",
         sat: "Closed",
@@ -213,10 +202,13 @@ export default function Branches() {
         : gyms;
   const selectedBranchData = currentItems[selectedBranch] || currentItems[0];
 
-  // Function to get Google Maps embed URL
-  const getGoogleMapsEmbedUrl = (branch) => {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_EMBED_API_KEY || "";
-    return `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${branch.coordinates}&zoom=15`;
+  // Free keyless Google Maps embed (no API key / billing needed).
+  // Accepts "lat,lng" or a free-text address/place name.
+  const getMapEmbedUrl = (branch) => {
+    const query = String(branch.coordinates || branch.address || "")
+      .replace(/\+/g, " ")
+      .trim();
+    return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=15&output=embed`;
   };
 
   const directionsUrl = new URL("https://www.google.com/maps/dir/");
@@ -226,19 +218,22 @@ export default function Branches() {
     selectedBranchData.coordinates.replace(/\+/g, " "),
   );
 
+  const hours = [
+    ["monFri", "mondayToFriday"],
+    ["sat", "saturday"],
+    ["sun", "sunday"],
+  ].filter(([key]) => selectedBranchData.workingHours?.[key]);
+
   return (
     <main className="branches-page">
       <div className="branches-inner">
         <header className="branches-heading">
-          <div>
-            <p className="branches-brand">PROTEINI.SI</p>
-            <h1>{translate("branches")}</h1>
-          </div>
-          <div className="branches-tabs" aria-label={translate("ourLocations")}>
+          <h1>{translate("branches")}</h1>
+          <nav className="branches-tabs" aria-label={translate("ourLocations")}>
             {[
-              { id: "shops", label: translate("shops"), icon: FiShoppingBag },
-              { id: "gyms", label: translate("partners"), icon: FiUsers },
-            ].map(({ id, label, icon: Icon }) => (
+              { id: "shops", label: translate("shops") },
+              { id: "gyms", label: translate("partners") },
+            ].map(({ id, label }) => (
               <button
                 key={id}
                 type="button"
@@ -248,47 +243,40 @@ export default function Branches() {
                   setSelectedBranch(0);
                 }}
               >
-                <Icon aria-hidden="true" />
                 {label}
               </button>
             ))}
-          </div>
+          </nav>
         </header>
 
         <div className="branches-layout">
-          <aside className="branches-directory" aria-label={translate("ourLocations")}>
-            <div className="branches-directory-heading">
-              <h2>{activeTab === "shops" ? translate("ourShops") : translate("partners")}</h2>
-              <span>{currentItems.length}</span>
-            </div>
-            <div className="branches-list">
-              {currentItems.map((branch, index) => (
+          <ul className="branches-list" aria-label={translate("ourLocations")}>
+            {currentItems.map((branch, index) => (
+              <li key={branch.id}>
                 <button
-                  key={branch.id}
                   type="button"
                   aria-pressed={selectedBranchData.id === branch.id}
                   aria-controls="branch-details"
                   className="branches-location"
                   onClick={() => setSelectedBranch(index)}
                 >
-                  <FiMapPin className="branches-pin" aria-hidden="true" />
-                  <span className="branches-location-copy">
-                    <strong>{branch.name}</strong>
-                    <span>{branch.city}</span>
-                    <small>{branch.address}</small>
-                  </span>
-                  <FiChevronRight className="branches-chevron" aria-hidden="true" />
+                  <strong>{branch.name}</strong>
+                  <span>{branch.city}</span>
                 </button>
-              ))}
-            </div>
-          </aside>
+              </li>
+            ))}
+          </ul>
 
-          <section id="branch-details" className="branches-detail" aria-label={selectedBranchData.city}>
+          <section id="branch-details" className="branches-detail" aria-live="polite">
             <div className="branches-detail-heading">
               <div>
-                <p>{selectedBranchData.city}</p>
                 <h2>{selectedBranchData.name}</h2>
-                <address>{selectedBranchData.address}</address>
+                <address>
+                  {selectedBranchData.address}
+                  {selectedBranchData.city && selectedBranchData.address !== selectedBranchData.city
+                    ? `, ${selectedBranchData.city}`
+                    : ""}
+                </address>
               </div>
               <a
                 href={directionsUrl.toString()}
@@ -296,16 +284,15 @@ export default function Branches() {
                 rel="noopener noreferrer"
                 className="branches-directions"
               >
-                <FiNavigation aria-hidden="true" />
-                {translate("getDirections")}
-                <FiArrowUpRight aria-hidden="true" />
+                {translate("getDirections")} <span aria-hidden="true">&#8599;</span>
               </a>
             </div>
 
             <div className="branches-map">
               <iframe
+                key={selectedBranchData.id}
                 title={`Map of ${selectedBranchData.name}, ${selectedBranchData.city}`}
-                src={getGoogleMapsEmbedUrl(selectedBranchData)}
+                src={getMapEmbedUrl(selectedBranchData)}
                 loading="lazy"
                 allowFullScreen
                 referrerPolicy="no-referrer-when-downgrade"
@@ -313,43 +300,44 @@ export default function Branches() {
             </div>
 
             <div className="branches-information">
-              <div className="branches-contact">
-                {selectedBranchData.phone && (
-                  <div className="branches-contact-row">
-                    <FiPhone aria-hidden="true" />
-                    <div>
-                      <h3>{translate("phone")}</h3>
-                      <a href={`tel:${selectedBranchData.phone.replace(/[^+\d]/g, "")}`}>
-                        {selectedBranchData.phone}
-                      </a>
-                    </div>
-                  </div>
-                )}
-                {selectedBranchData.email && (
-                  <div className="branches-contact-row">
-                    <FiMail aria-hidden="true" />
-                    <div>
-                      <h3>{translate("email")}</h3>
-                      <a href={`mailto:${selectedBranchData.email}`}>{selectedBranchData.email}</a>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="branches-hours">
-                <h3><FiClock aria-hidden="true" />{translate("workingHours")}</h3>
-                <dl>
-                  {[
-                    ["monFri", "mondayToFriday"],
-                    ["sat", "saturday"],
-                    ["sun", "sunday"],
-                  ].map(([key, label]) => (
-                    <div key={key}>
-                      <dt>{translate(label)}</dt>
-                      <dd>{selectedBranchData.workingHours[key]}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
+              {(selectedBranchData.phone || selectedBranchData.email) && (
+                <div>
+                  <h3>{translate("contact")}</h3>
+                  <dl>
+                    {selectedBranchData.phone && (
+                      <div>
+                        <dt>{translate("phone")}</dt>
+                        <dd>
+                          <a href={`tel:${selectedBranchData.phone.replace(/[^+\d]/g, "")}`}>
+                            {selectedBranchData.phone}
+                          </a>
+                        </dd>
+                      </div>
+                    )}
+                    {selectedBranchData.email && (
+                      <div>
+                        <dt>{translate("email")}</dt>
+                        <dd>
+                          <a href={`mailto:${selectedBranchData.email}`}>{selectedBranchData.email}</a>
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
+              )}
+              {hours.length > 0 && (
+                <div>
+                  <h3>{translate("workingHours")}</h3>
+                  <dl>
+                    {hours.map(([key, label]) => (
+                      <div key={key}>
+                        <dt>{translate(label)}</dt>
+                        <dd className="branches-num">{selectedBranchData.workingHours[key]}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
             </div>
           </section>
         </div>

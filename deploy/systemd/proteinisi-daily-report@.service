@@ -1,0 +1,23 @@
+[Unit]
+Description=Proteini.mk daily report (%i): business numbers to admins, server status to the developer
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Root so it can read nginx logs, the journal, docker and the Let's Encrypt certificates.
+User=root
+WorkingDirectory=/srv/proteinisi/%i/reports
+ExecStart=/usr/bin/dotnet /srv/proteinisi/%i/reports/ProteiniSi.Reports.dll
+# Connection string and mail settings come from the API's environment file;
+# report recipients (DailyReport__*) from reports.env.
+EnvironmentFile=/etc/proteinisi/%i.env
+EnvironmentFile=-/etc/proteinisi/reports.env
+Environment=DOTNET_NOLOGO=1
+TimeoutStartSec=10min
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true

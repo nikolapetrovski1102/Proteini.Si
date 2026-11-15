@@ -10,6 +10,8 @@ import HomeProductCard from "./HomeProductCard";
 import HomeProductRail from "./HomeProductRail";
 import Reveal from "./sections/Reveal";
 import { Starburst } from "./sections/Decor";
+import Scribble from "../Components/Scribble";
+import { notify } from "../Components/Feedback/siteFeedback";
 
 export default function ProductsOnSale({ mode = "sale" }) {
   const [products, setProducts] = useState([]);
@@ -69,7 +71,7 @@ export default function ProductsOnSale({ mode = "sale" }) {
     e.stopPropagation();
 
     if (!isAuthenticated) {
-      alert("Please login to add products to favorites");
+      notify(translate("favoritesLoginRequired"));
       navigate("/login");
       return;
     }
@@ -84,7 +86,7 @@ export default function ProductsOnSale({ mode = "sale" }) {
       }
     } catch (error) {
       console.error("Error toggling favorite:", error);
-      alert("Failed to update favorites. Please try again.");
+      notify(translate("favoritesUpdateFailed"), { tone: "error" });
     }
   };
 
@@ -138,7 +140,7 @@ export default function ProductsOnSale({ mode = "sale" }) {
 
   return (
     <>
-      <div className="w-full flex justify-center px-[25px] pb-8 max-sm:px-4 sm:pb-12">
+      <div className="w-full flex justify-center px-[25px] pb-0 max-sm:px-4 sm:pb-12">
         <Reveal once={false} className="w-full max-w-[1240px] flex flex-col justify-center">
           <div className="mb-4 flex items-end justify-between gap-4 sm:mb-7">
             <div className="min-w-0">
@@ -172,9 +174,9 @@ export default function ProductsOnSale({ mode = "sale" }) {
             <button
               type="button"
               onClick={handleShowAll}
-              className="group flex min-h-[40px] flex-shrink-0 items-center gap-1.5 rounded-full border border-[#141409]/25 bg-white/50 px-4 text-[12px] font-bold text-[#141409] transition hover:border-[#141409] hover:bg-[#141409] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141409] sm:text-[13px]"
+              className="group flex flex-shrink-0 items-center gap-1.5 pb-2 text-[12px] font-bold text-[#141409] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141409] sm:text-[13px]"
             >
-              {translate("showAll")}
+              <Scribble color="#141409">{translate("showAll")}</Scribble>
               <FiArrowRight className="transition-transform group-hover:translate-x-0.5" />
             </button>
           </div>
@@ -186,6 +188,7 @@ export default function ProductsOnSale({ mode = "sale" }) {
                 product={product}
                 tag={upcoming ? translate("soon") : null}
                 showSaleEnd={!upcoming}
+                large
                 onQuickPurchase={() => quickPurchase(product)}
                 onQuickPurchaseIntent={() => prefetchQuickPurchase(product)}
                 onToggleFavorite={handleToggleFavorite}

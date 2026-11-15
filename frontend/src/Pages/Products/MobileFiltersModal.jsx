@@ -1,9 +1,22 @@
 // src/Pages/Products/MobileFiltersModal.jsx
-import { useState, useEffect } from "react";
-import { FiX, FiFilter, FiTrash2 } from "react-icons/fi";
-import { api } from "../../services/api";
-import PriceRangeFilter from "./PriceRangeFilter";
-import { BrandLoader } from "../Components/Loaders/BrandLoader";
+import { useState, useEffect, useRef } from "react";
+import { FiX, FiCheck, FiChevronDown } from "react-icons/fi";
+import MobilePriceFilter from "./MobilePriceFilter";
+import { InlineLoader } from "../Components/Loaders/BrandLoader";
+import { useLanguage } from "../translation/LanguageContext";
+import { filterLabel, filterText } from "../../utils/filterLabels";
+import { FILTER_GROUP_ICONS, iconForFilterItem, iconForSlug } from "../Components/shopIconMap";
+import {
+  useFilterGroups,
+  visibleGroups,
+  isSelected,
+  toggleFilter,
+  selectedCount,
+  activeFilterCount,
+} from "./filterGroups";
+
+const VISIBLE_LIMIT = 8;
+const OPEN_BY_DEFAULT = new Set(["categoryIds", "priceRange", "status"]);
 
 export default function MobileFiltersModal({
   isOpen,
@@ -14,327 +27,265 @@ export default function MobileFiltersModal({
   fetchProductCount,
   navigate,
 }) {
-  const [filterGroups, setFilterGroups] = useState([]);
+  useLanguage(); // re-render labels when the language changes
+  const { groups: allGroups, parentIds, apparelIds, loading } = useFilterGroups();
   const [tempFilters, setTempFilters] = useState({});
-  const [loading, setLoading] = useState(true);
+  const groups = visibleGroups(allGroups, tempFilters, apparelIds);
   const [tempProductCount, setTempProductCount] = useState(totalProducts);
   const [updatingCount, setUpdatingCount] = useState(false);
+  const [openOverrides, setOpenOverrides] = useState({});
+  const countRequest = useRef(0);
 
-  // Fetch filter options from API
-  useEffect(() => {
-    const fetchFilterOptions = async () => {
-      try {
-        const data = await api.getFilterOptions();
+  const updateProductCount = async (filters) => {
+    const request = ++countRequest.current;
+    setUpdatingCount(true);
+    try {
+      const count = await fetchProductCount(filters);
+      if (request === countRequest.current) setTempProductCount(count);
+    } catch (error) {
+      console.error("Error updating product count:", error);
+    } finally {
+      if (request === countRequest.current) setUpdatingCount(false);
+    }
+  };
 
-        // Transform API data into button-based filter structure
-        const transformedFilters = [
-          {
-            title: "Product category",
-            key: "categoryIds",
-            items: data.categories.map((cat) => ({
-              id: cat.category_Id,
-              name: cat.category_Name,
-              slug: cat.category_Slug,
-            })),
-          },
-          {
-            title: "Sport",
-            key: "sportIds",
-            items: data.sports.map((sport) => ({
-              id: sport.sport_Id,
-              name: sport.sport_Name,
-              slug: sport.sport_Slug,
-            })),
-          },
-          {
-            title: "Goals",
-            key: "goalIds",
-            items: data.goals.map((goal) => ({
-              id: goal.goal_Id,
-              name: goal.goal_Name,
-              slug: goal.goal_Slug,
-            })),
-          },
-          {
-            title: "Use",
-            key: "useTimingIds",
-            items: data.useTimings.map((timing) => ({
-              id: timing.useTiming_Id,
-              name: timing.useTiming_Name,
-              slug: timing.useTiming_Slug,
-            })),
-          },
-          {
-            title: "Product flavour",
-            key: "flavorIds",
-            items: data.flavors.map((flavor) => ({
-              id: flavor.flavor_Id,
-              name: flavor.flavor_Name,
-              slug: flavor.flavor_Slug,
-            })),
-          },
-          {
-            title: "Brands",
-            key: "brandIds",
-            items: data.brands.map((brand) => ({
-              id: brand.brand_Id,
-              name: brand.brand_Name,
-              slug: brand.brand_Slug,
-            })),
-          },
-          {
-            title: "Price Range",
-            key: "priceRange",
-            isPriceRange: true,
-            items: [],
-            min: Number(data.priceBounds?.min ?? 0),
-            max: Math.max(Number(data.priceBounds?.max ?? 10000), 1000),
-          },
-          {
-            title: "Product status",
-            key: "status",
-            items: [
-              { id: "inStock", name: "Products in stock" },
-              { id: "onSale", name: "Products on sale" },
-              { id: "newProducts", name: "New products" },
-              { id: "outlet", name: "Outlet products" },
-              { id: "upcomingPromotions", name: "Upcoming promotions" },
-            ],
-          },
-          {
-            title: "Other",
-            key: "tagIds",
-            items: data.tags.map((tag) => ({
-              id: tag.tag_Id,
-              name: tag.tag_Name,
-              slug: tag.tag_Slug,
-            })),
-          },
-        ];
-
-        setFilterGroups(transformedFilters);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching filter options:", error);
-        setLoading(false);
-      }
-    };
-
-    fetchFilterOptions();
-  }, []);
-
-  // Initialize temp filters when modal opens or selectedFilters change
+  // Start from the applied filters every time the sheet opens.
   useEffect(() => {
     if (isOpen) {
       setTempFilters({ ...selectedFilters });
       updateProductCount({ ...selectedFilters });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, selectedFilters]);
 
-  const updateProductCount = async (filters) => {
-    setUpdatingCount(true);
-    try {
-      const count = await fetchProductCount(filters);
-      setTempProductCount(count);
-    } catch (error) {
-      console.error("Error updating product count:", error);
-    } finally {
-      setUpdatingCount(false);
-    }
+  // Lock page scroll and close on Escape while open.
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [isOpen, onClose]);
+
+  const change = (next) => {
+    setTempFilters(next);
+    updateProductCount(next);
   };
 
-  const handleFilterClick = async (
-    filterKey,
-    itemId,
-    isPriceRange = false,
-    item = null,
-  ) => {
-    const newFilters = { ...tempFilters };
-
-    if (isPriceRange) {
-      // Handle price range (single selection)
-      if (
-        tempFilters.minPrice === item.min &&
-        tempFilters.maxPrice === item.max
-      ) {
-        // If same price range is selected, deselect it
-        delete newFilters.minPrice;
-        delete newFilters.maxPrice;
-      } else {
-        newFilters.minPrice = item.min;
-        newFilters.maxPrice = item.max;
-      }
-    } else if (filterKey === "status") {
-      // Handle status (checkbox style)
-      if (newFilters[itemId]) {
-        delete newFilters[itemId];
-      } else {
-        newFilters[itemId] = true;
-      }
-    } else {
-      // Handle array-based filters (multiple selection)
-      if (!newFilters[filterKey]) {
-        newFilters[filterKey] = [];
-      }
-
-      const currentArray = newFilters[filterKey];
-      if (currentArray.includes(itemId)) {
-        newFilters[filterKey] = currentArray.filter((id) => id !== itemId);
-        if (newFilters[filterKey].length === 0) {
-          delete newFilters[filterKey];
-        }
-      } else {
-        newFilters[filterKey] = [...currentArray, itemId];
-      }
-    }
-
-    setTempFilters(newFilters);
-
-    // Update product count based on new filters in real-time
-    await updateProductCount(newFilters);
-  };
-
-  const isFilterSelected = (
-    filterKey,
-    itemId,
-    isPriceRange = false,
-    item = null,
-  ) => {
-    if (isPriceRange) {
-      return (
-        tempFilters.minPrice === item.min && tempFilters.maxPrice === item.max
-      );
-    } else if (filterKey === "status") {
-      return tempFilters[itemId] === true;
-    } else {
-      const filterArray = tempFilters[filterKey];
-      return Array.isArray(filterArray) && filterArray.includes(itemId);
-    }
-  };
-
-  const handleApplyFilters = () => {
+  const handleApply = () => {
     onFilterChange(tempFilters);
     onClose();
   };
 
-  const handlePriceCommit = async (minPrice, maxPrice) => {
-    const newFilters = { ...tempFilters, minPrice, maxPrice };
-    setTempFilters(newFilters);
-    await updateProductCount(newFilters);
-  };
-
-  const handleCancelFilters = () => {
-    // Navigate to all-products page
+  const handleClear = () => {
     navigate("/all-products");
     onClose();
   };
 
-  const getActiveFilterCount = () => {
-    let count = 0;
-    Object.keys(tempFilters).forEach((key) => {
-      if (Array.isArray(tempFilters[key])) {
-        count += tempFilters[key].length;
-      } else if (key === "minPrice" && tempFilters.minPrice !== undefined) {
-        count += 1;
-      } else if (
-        key !== "minPrice" &&
-        key !== "maxPrice" &&
-        tempFilters[key] === true
-      ) {
-        count += 1;
-      }
-    });
-    return count;
-  };
-
   if (!isOpen) return null;
 
+  const total = activeFilterCount(tempFilters, groups);
+
   return (
-    <div className="fixed inset-0 z-50">
-      {/* Modal Content - Full width and height */}
-      <div className="fixed inset-0 bg-white flex flex-col">
-        {/* Header with Cancel Filters (top left) and Close (top right) */}
-        <div className="flex justify-between items-center p-4 border-b bg-white">
+    <div className="fixed inset-x-0 top-0 bottom-[var(--bottom-nav-h,0px)] z-50 bg-white lg:hidden" role="dialog" aria-modal="true" aria-labelledby="mobile-filters-title">
+      <div className="filter-sheet-in flex h-full flex-col">
+        <div className="flex items-center justify-between gap-3 border-b border-black/[0.06] px-4 py-3">
+          <div className="flex items-center gap-2">
+            <h2
+              id="mobile-filters-title"
+              className="font-display text-[22px] font-semibold uppercase leading-none tracking-wide text-gray-900"
+            >
+              {filterText("filter")}
+            </h2>
+            {total > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#FDC700] px-1.5 text-[11px] font-bold leading-none text-[#141409]">
+                {total}
+              </span>
+            )}
+          </div>
           <button
-            onClick={handleCancelFilters}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-          >
-            <FiTrash2 size={16} />
-            Cancel filters
-          </button>
-          <button
+            type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            aria-label={filterText("close")}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f4f3ef] text-gray-900 transition-colors active:bg-[#e9e7e0]"
           >
-            <FiX size={24} />
+            <FiX size={20} />
           </button>
         </div>
 
-        {/* Filter Groups - Scrollable Area */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain">
           {loading ? (
-            <div className="flex justify-center items-center h-32">
-              <BrandLoader variant="scoop" size={80} />
+            <div className="flex h-40 items-center justify-center">
+              <InlineLoader size={32} />
             </div>
           ) : (
-            filterGroups.map((group, index) => (
-              <div key={index} className="mb-6">
-                <h3 className="text-sm font-semibold mb-3 text-gray-700">
-                  {group.title}
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {group.key === "priceRange" ? (
-                    <PriceRangeFilter
-                      min={group.min}
-                      max={group.max}
-                      valueMin={tempFilters.minPrice}
-                      valueMax={tempFilters.maxPrice}
-                      onCommit={handlePriceCommit}
-                      compact
+            groups.map((group) => {
+              const count = selectedCount(tempFilters, group);
+              const open = openOverrides[group.key] ?? (OPEN_BY_DEFAULT.has(group.key) || count > 0);
+              const GroupIcon = FILTER_GROUP_ICONS[group.key];
+              return (
+                <section key={group.key} className="border-b border-black/[0.06]">
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() => setOpenOverrides((o) => ({ ...o, [group.key]: !open }))}
+                    className="flex w-full items-center justify-between gap-2 px-4 py-4 text-left"
+                  >
+                    <span className="flex items-center gap-3 text-[15px] font-bold text-gray-900">
+                      {GroupIcon && <GroupIcon className="h-8 w-8 shrink-0" />}
+                      {filterText(group.key)}
+                      {count > 0 && (
+                        <span className="rounded-full bg-[#141409] px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">
+                          {count}
+                        </span>
+                      )}
+                    </span>
+                    <FiChevronDown
+                      aria-hidden
+                      className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
                     />
-                  ) : group.items.map((item, itemIndex) => (
-                    <button
-                      key={itemIndex}
-                      onClick={() =>
-                        handleFilterClick(
-                          group.key,
-                          item.id,
-                          group.isPriceRange,
-                          item,
-                        )
-                      }
-                      className={`px-3 py-2 text-sm rounded-md border transition-all duration-200 ${
-                        isFilterSelected(
-                          group.key,
-                          item.id,
-                          group.isPriceRange,
-                          item,
-                        )
-                          ? "border-blue-500 bg-blue-50 text-blue-700 font-medium"
-                          : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
-                      }`}
-                    >
-                      {item.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))
+                  </button>
+
+                  {open && (
+                    <div className="px-4 pb-5">
+                      {group.isPrice ? (
+                        <MobilePriceFilter
+                          min={group.min}
+                          max={group.max}
+                          valueMin={tempFilters.minPrice}
+                          valueMax={tempFilters.maxPrice}
+                          onCommit={(minPrice, maxPrice) => {
+                            const next = { ...tempFilters, minPrice, maxPrice };
+                            if (minPrice === null) {
+                              delete next.minPrice;
+                              delete next.maxPrice;
+                            }
+                            change(next);
+                          }}
+                        />
+                      ) : (
+                        <ChipGroup
+                          group={group}
+                          filters={tempFilters}
+                          onToggle={(id) => change(toggleFilter(tempFilters, group.key, id, parentIds))}
+                        />
+                      )}
+                    </div>
+                  )}
+                </section>
+              );
+            })
           )}
         </div>
 
-        {/* Footer with Sticky Yellow Button */}
-        <div className="border-t bg-white sticky bottom-0">
-          {/* Apply Filters Button */}
+        <div className="flex gap-3 border-t border-black/[0.06] bg-white px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3">
           <button
-            onClick={handleApplyFilters}
-            className="w-full py-4 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold text-lg transition-colors duration-200"
-            disabled={updatingCount}
+            type="button"
+            onClick={handleClear}
+            className="rounded-xl border border-gray-300 px-4 py-3.5 text-[14px] font-semibold text-gray-900 transition-colors active:bg-gray-100"
           >
-            {updatingCount ? "Loading..." : `Show ${tempProductCount} products`}
+            {filterText("clearShort")}
+          </button>
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={updatingCount}
+            className="flex-1 rounded-xl bg-[#FDC700] py-3.5 text-[15px] font-bold text-[#141409] transition-colors active:bg-[#e7b700] disabled:opacity-70"
+          >
+            {updatingCount
+              ? filterText("loadingShort")
+              : filterText("showProducts").replace("{n}", tempProductCount)}
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+function ChipGroup({ group, filters, onToggle }) {
+  const [expanded, setExpanded] = useState(false);
+  const label = (item) => filterLabel(group.key, item.slug || item.id, item.name);
+
+  const items = expanded
+    ? group.items
+    : group.items.filter((i, idx) => idx < VISIBLE_LIMIT || isSelected(filters, group.key, i.id));
+  const hiddenCount = group.items.length - VISIBLE_LIMIT;
+
+  // Subcategories of the selected parent category, shown as their own row.
+  const activeParent =
+    group.key === "categoryIds"
+      ? group.items.find((i) => i.children?.length && isSelected(filters, group.key, i.id))
+      : null;
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2">
+        {items.map((item) => (
+          <Chip
+            key={item.id}
+            selected={isSelected(filters, group.key, item.id)}
+            onClick={() => onToggle(item.id)}
+            icon={iconForFilterItem(group.key, item)}
+          >
+            {label(item)}
+          </Chip>
+        ))}
+        {hiddenCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="rounded-full px-3 py-2 text-[13px] font-semibold text-gray-900 underline decoration-[#FDC700] decoration-2 underline-offset-4"
+          >
+            {expanded ? filterText("showLess") : filterText("showAll").replace("{n}", group.items.length)}
+          </button>
+        )}
+      </div>
+
+      {activeParent && (
+        <div className="mt-4 rounded-xl bg-[#f8f7f4] p-3">
+          <p className="mb-2.5 text-[12px] font-bold uppercase tracking-[0.06em] text-gray-500">
+            {filterText("subcategory")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {activeParent.children.map((child) => (
+              <Chip
+                key={child.id}
+                selected={isSelected(filters, group.key, child.id)}
+                onClick={() => onToggle(child.id)}
+                icon={iconForSlug(child.slug)}
+              >
+                {filterLabel("categoryIds", child.slug, child.name)}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Chip({ selected, onClick, icon: Icon, children }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] transition-colors ${
+        selected
+          ? "border-[#141409] bg-[#141409] font-semibold text-white"
+          : "border-gray-200 bg-white text-gray-800 active:bg-gray-100"
+      }`}
+    >
+      {selected ? (
+        <FiCheck className="h-3.5 w-3.5 text-[#FDC700]" strokeWidth={3} aria-hidden />
+      ) : (
+        Icon && <Icon className="-my-1 -ml-1 h-6 w-6" />
+      )}
+      {children}
+    </button>
   );
 }

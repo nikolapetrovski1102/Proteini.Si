@@ -10,7 +10,7 @@ import { WaveEdge } from "./Decor";
  *  imageOpacity / blur – how strongly the image shows through
  *  overlay  – extra classes for a gradient layer over the image
  *  waveTop / waveBottom – colour of the neighbouring section, drawn as a wavy edge
- *  decor    – absolutely positioned decorative elements (sparkles, stickers)
+ *  decor    – absolutely positioned decorative elements (stickers)
  */
 export default function HomeSection({
   id,

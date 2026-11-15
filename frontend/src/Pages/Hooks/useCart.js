@@ -11,6 +11,8 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { api } from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
+import { track } from "../../services/analytics";
+import { metaAddToCart } from "../../services/metaPixel";
 import {
   celebrateAddToCart,
   showCartError,
@@ -195,6 +197,7 @@ const addLine = (cart, productId, quantity, product) => {
     variant_Weight_Grams: product?.variant_Weight_Grams || null,
     weight_Grams: product?.weight_Grams || null,
     loyaltyPercentage: product?.loyaltyPercentage ?? DEFAULT_LOYALTY_PERCENTAGE,
+    isGiftVoucher: Boolean(product?.isGiftVoucher),
   });
   return cart;
 };
@@ -241,6 +244,14 @@ export const useCart = () => {
 
   const addToCart = useCallback(
     async (productId, quantity, product = null) => {
+      track("cart_add");
+      metaAddToCart({
+        productId,
+        variantId: product?.variant_Id,
+        name: product?.name,
+        price: product?.price,
+        quantity,
+      });
       try {
         if (isAuthenticated) {
           const variantData = product ? variantPayload(product) : null;
@@ -289,6 +300,7 @@ export const useCart = () => {
             loyaltyPercentage,
             variant_Compare_Price: product.variant_Compare_Price || null,
             variant_Original_Price: product.variant_Original_Price || null,
+            isGiftVoucher: Boolean(product.isGiftVoucher),
           });
         } else {
           try {
@@ -306,6 +318,7 @@ export const useCart = () => {
                 productInfo?.loyaltyPercentage ?? DEFAULT_LOYALTY_PERCENTAGE,
               variant_Compare_Price: null,
               variant_Original_Price: null,
+              isGiftVoucher: Boolean(productInfo?.isGiftVoucher),
             });
           } catch (error) {
             console.error("Failed to fetch product details:", error);

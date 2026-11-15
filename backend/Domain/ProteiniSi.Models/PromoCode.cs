@@ -18,8 +18,15 @@ public class PromoCode
     [JsonPropertyName("IsActive")] public bool IsActive { get; set; }
     [JsonPropertyName("CreatedAt")] public DateTime CreatedAt { get; set; }
     [JsonPropertyName("UpdatedAt")] public DateTime UpdatedAt { get; set; }
+    [JsonPropertyName("AffiliateId")] public int? AffiliateId { get; set; }
+    [JsonPropertyName("AffiliateName")] public string? AffiliateName { get; set; }
     [JsonPropertyName("TimesUsed")] public int TimesUsed { get; set; }
     [JsonPropertyName("TotalDiscount")] public decimal TotalDiscount { get; set; }
+    [JsonPropertyName("AppliesTo")] public string AppliesTo { get; set; } = PromoScope.All;
+    [JsonIgnore] public string? ProductIdList { get; set; }
+    [JsonIgnore] public string? CategoryIdList { get; set; }
+    [JsonPropertyName("ProductIds")] public int[] ProductIds => PromoScope.ParseIds(ProductIdList);
+    [JsonPropertyName("CategoryIds")] public int[] CategoryIds => PromoScope.ParseIds(CategoryIdList);
 }
 
 public class PromoCodeEligibility
@@ -38,6 +45,7 @@ public class PromoCodeEligibility
     public bool IsActive { get; set; }
     public int TimesUsed { get; set; }
     public int CustomerTimesUsed { get; set; }
+    public string AppliesTo { get; set; } = PromoScope.All;
 }
 
 public class PromoCodeUsageRow
@@ -62,6 +70,33 @@ public class PromoCodeValues
     public DateTime? ValidFrom { get; init; }
     public DateTime? ValidUntil { get; init; }
     public bool IsActive { get; init; }
+    public PromoCodeScope Scope { get; init; } = PromoCodeScope.Everything;
+}
+
+/// <summary>Which products a promo code applies to.</summary>
+public record PromoCodeScope(string AppliesTo, IReadOnlyList<int> ProductIds, IReadOnlyList<int> CategoryIds)
+{
+    public static readonly PromoCodeScope Everything = new(PromoScope.All, [], []);
+}
+
+public static class PromoScope
+{
+    public const string All = "all";
+    public const string Products = "products";
+    public const string Categories = "categories";
+
+    public static bool IsAll(string? appliesTo) =>
+        string.IsNullOrWhiteSpace(appliesTo) || string.Equals(appliesTo, All, StringComparison.OrdinalIgnoreCase);
+
+    public static int[] ParseIds(string? list) =>
+        string.IsNullOrWhiteSpace(list)
+            ? []
+            : list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                  .Select(part => int.TryParse(part, out var id) ? id : 0)
+                  .Where(id => id > 0)
+                  .Distinct()
+                  .Order()
+                  .ToArray();
 }
 
 public enum PromotionWriteResult

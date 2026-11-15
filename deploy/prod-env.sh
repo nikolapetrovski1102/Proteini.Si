@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fill /etc/proteinisi/prod.env with the secrets prod is still missing, copied from stage.env
-# (PasswordKey, cPay merchant + key, MKhost SMTP), and set the values that must differ on prod.
+# (PasswordKey, cPay merchant + key, MKhost SMTP, Google sign-in), and set the values that must differ on prod.
 #
 #   deploy/prod-env.sh            # from the laptop; edits the server over ssh
 #
@@ -31,7 +31,9 @@ for k in ["AppSettings__PasswordKey",
           "CPayConfiguration__PayToMerchant", "CPayConfiguration__MerchantName",
           "CPayConfiguration__SecretKey", "CPayConfiguration__Currency", "CPayConfiguration__Language",
           "MailSettings__host", "MailSettings__SMTPPort", "MailSettings__EnableSsl",
-          "MailSettings__sender_email", "MailSettings__sender_username", "MailSettings__sender_password"]:
+          "MailSettings__sender_email", "MailSettings__sender_username", "MailSettings__sender_password",
+          # Google sign-in: one OAuth client serves stage and prod (both origins are registered).
+          "Authentication__Google__ClientId", "Authentication__Google__ClientSecret"]:
     if k in stage:
         prod[k] = stage[k]
     else:
@@ -40,8 +42,8 @@ for k in ["AppSettings__PasswordKey",
 prod["CPayConfiguration__TestMode"] = "false"
 prod["AppSettings__BackendUrl"] = "https://proteini.mk"
 prod["AppSettings__FrontendUrl"] = "https://proteini.mk"
-for k in ("MailSettings__OrderNotificationEmail", "MailSettings__OrderCopyRecipients"):
-    prod.pop(k, None)
+prod["MailSettings__OrderNotificationEmail"] = "proteini@yahoo.com"
+prod["MailSettings__OrderCopyRecipients"] = "proteini@yahoo.com,vladimir.proteinisi@gmail.com"
 
 open(P, "w").write("".join(f"{k}={v}\n" for k, v in prod.items()))
 for k, v in prod.items():

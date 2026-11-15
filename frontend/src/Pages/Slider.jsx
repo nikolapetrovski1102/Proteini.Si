@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
-import { BrandLoader } from "./Components/Loaders/BrandLoader";
+import { InlineLoader } from "./Components/Loaders/BrandLoader";
 import { useNavigate } from "react-router-dom";
 
 const SLIDE_MS = 8000;
@@ -106,8 +106,21 @@ export default function Slider() {
 
   // The hero takes the banner's own shape (width 100%, height from its aspect ratio, capped at
   // the visible screen), so the whole banner is shown and nothing is cropped on the sides.
-  // Until the first image reports its size we assume the usual banner shape (3:1 desktop, 2:1 mobile).
-  const firstRatio = (sliders[0] && ratios[sliders[0].id]) || (isMobile ? 2 : 3);
+  // Until the first image reports its size we assume the usual banner shape (3:1 desktop, 1:1 phone),
+  // so the hero doesn't start short and jump (which would also trip the next section's animation).
+  const firstRatio = (sliders[0] && ratios[sliders[0].id]) || (isMobile ? 1 : 3);
+
+  // Mobile: the hero leaves room under it for the next section's title to peek in (--home-peek,
+  // measured by that section). Portrait banners (4:5) end in an empty dark strip under the CTA,
+  // so the slide is pinned to the top and that strip is what gets trimmed. It never shrinks past
+  // MOBILE_SAFE_RATIO (just under the CTA), so the headline and link always stay whole.
+  const MOBILE_SAFE_RATIO = 1080 / 1130;
+  const trimMobile = isMobile && firstRatio < 1;
+  const mobileHeight = (ratio) =>
+    `min(calc(100vw / ${ratio}), max(calc(100vw / ${MOBILE_SAFE_RATIO}), calc(100svh - var(--hero-top, var(--header-h, 0px)) - var(--tabbar-h, 0px) - var(--home-peek, 96px))))`;
+  const heroStyle = trimMobile
+    ? { height: mobileHeight(firstRatio) }
+    : { aspectRatio: firstRatio, maxHeight: "calc(100svh - var(--hero-top, var(--header-h)))" };
 
   // A slide whose shape differs from the hero is shown whole over a blurred copy of itself.
   const needsBackdrop = (slider) => {
@@ -119,9 +132,13 @@ export default function Slider() {
     return (
       <section
         className="home-section w-full flex items-center justify-center bg-[#141409]"
-        style={{ aspectRatio: isMobile ? 2 : 3, maxHeight: "calc(100svh - var(--hero-top, var(--header-h)))", minHeight: 220 }}
+        style={
+          isMobile
+            ? { height: `min(calc(100vw / 1), calc(100svh - var(--hero-top, var(--header-h, 0px)) - var(--tabbar-h, 0px) - var(--home-peek, 96px)))`, minHeight: 220 }
+            : { aspectRatio: 3, maxHeight: "calc(100svh - var(--hero-top, var(--header-h)))", minHeight: 220 }
+        }
       >
-        <BrandLoader variant="shaker" size={150} />
+        <InlineLoader size={40} />
       </section>
     );
   }
@@ -135,10 +152,7 @@ export default function Slider() {
     <section
       ref={sectionRef}
       className="home-section group/hero relative w-full overflow-hidden bg-[#141409] select-none"
-      style={{
-        aspectRatio: firstRatio,
-        maxHeight: "calc(100svh - var(--hero-top, var(--header-h)))",
-      }}
+      style={heroStyle}
       aria-roledescription="carousel"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -183,7 +197,7 @@ export default function Slider() {
                   setRatios((prev) => ({ ...prev, [slider.id]: w / h }));
                 }
               }}
-              className="relative h-full w-full object-contain"
+              className={`relative h-full w-full ${trimMobile && !backdrop ? "object-cover object-top" : "object-contain"}`}
             />
           </div>
         );
@@ -195,24 +209,24 @@ export default function Slider() {
             type="button"
             aria-label="Previous slide"
             onClick={prev}
-            className="group absolute left-4 top-1/2 z-[3] -translate-y-1/2 flex h-11 w-11 opacity-0 group-hover/hero:opacity-100 focus-visible:opacity-100 shadow-md items-center justify-center rounded-full bg-white/70 backdrop-blur transition hover:bg-white hover:scale-105 max-sm:hidden"
+            className="group absolute left-2 top-1/2 sm:left-4 z-[3] -translate-y-1/2 flex h-9 w-9 shadow-md items-center justify-center rounded-full bg-white/80 backdrop-blur transition hover:bg-white hover:scale-105 sm:h-11 sm:w-11"
           >
             <img
               src="/logos/left-arrow.svg"
               alt=""
-              className="h-5 w-5 transition group-hover:-translate-x-0.5"
+              className="h-4 w-4 transition group-hover:-translate-x-0.5 sm:h-5 sm:w-5"
             />
           </button>
           <button
             type="button"
             aria-label="Next slide"
             onClick={next}
-            className="group absolute right-4 top-1/2 z-[3] -translate-y-1/2 flex h-11 w-11 opacity-0 group-hover/hero:opacity-100 focus-visible:opacity-100 shadow-md items-center justify-center rounded-full bg-white/70 backdrop-blur transition hover:bg-white hover:scale-105 max-sm:hidden"
+            className="group absolute right-2 top-1/2 sm:right-4 z-[3] -translate-y-1/2 flex h-9 w-9 shadow-md items-center justify-center rounded-full bg-white/80 backdrop-blur transition hover:bg-white hover:scale-105 sm:h-11 sm:w-11"
           >
             <img
               src="/logos/right-arrow.svg"
               alt=""
-              className="h-5 w-5 transition group-hover:translate-x-0.5"
+              className="h-4 w-4 transition group-hover:translate-x-0.5 sm:h-5 sm:w-5"
             />
           </button>
 

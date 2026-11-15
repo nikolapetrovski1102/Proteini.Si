@@ -40,6 +40,8 @@ BEGIN
             SET Order_Status = 'completed', Updated_At = GETDATE()
             WHERE Order_Id = @OrderId;
 
+        EXEC dbo.usp_LoyaltyPoints_SyncOrder @OrderId = @OrderId;
+
         COMMIT TRANSACTION;
         SELECT 1 AS Result;
         RETURN;
@@ -69,10 +71,16 @@ BEGIN
     SET Status = 'redeemed', CompletedAt = SYSUTCDATETIME()
     WHERE OrderId = @OrderId AND Status = 'reserved';
 
-    DECLARE @Units TABLE (OrderItemId INT, Value DECIMAL(38, 10), UnitSequence INT, Email NVARCHAR(4000));
+    -- One voucher per unit bought. The buyer may name a gift recipient; without one the voucher is for the buyer.
+    DECLARE @Units TABLE (OrderItemId INT, Value DECIMAL(38, 10), UnitSequence INT, Email NVARCHAR(4000),
+                          BuyerName NVARCHAR(200), RecipientName NVARCHAR(200), RecipientEmail NVARCHAR(255),
+                          GiftMessage NVARCHAR(500));
 
-    INSERT INTO @Units (OrderItemId, Value, UnitSequence, Email)
-    SELECT oi.OrderItem_Id, oi.Product_Price, n.UnitSequence, o.Billing_Email
+    INSERT INTO @Units (OrderItemId, Value, UnitSequence, Email, BuyerName, RecipientName, RecipientEmail, GiftMessage)
+    SELECT oi.OrderItem_Id, oi.Product_Price, n.UnitSequence, o.Billing_Email, LEFT(o.Billing_FullName, 200),
+           NULLIF(LTRIM(RTRIM(o.Gift_Recipient_Name)), N''),
+           COALESCE(NULLIF(LTRIM(RTRIM(o.Gift_Recipient_Email)), N''), o.Billing_Email),
+           NULLIF(LTRIM(RTRIM(o.Gift_Message)), N'')
     FROM dbo.OrderItems oi
     INNER JOIN dbo.Products p ON p.Product_Id = oi.Product_Id AND p.IsGiftVoucher = 1
     INNER JOIN dbo.Orders o ON o.Order_Id = oi.Order_Id
@@ -85,12 +93,12 @@ BEGIN
 
     INSERT INTO dbo.GiftVouchers
         (Code, InitialValue, RemainingValue, Currency, Status, PurchasedOrderId,
-         PurchasedOrderItemId, UnitSequence, PurchaserEmail, RecipientEmail,
+         PurchasedOrderItemId, UnitSequence, PurchaserEmail, PurchaserName, RecipientEmail, RecipientName, GiftMessage,
          ValidFrom, ExpiresAt, CreatedAt, UpdatedAt)
     SELECT
         CONCAT('PTV-', CONVERT(VARCHAR(20), CRYPT_GEN_RANDOM(10), 2)),
         u.Value, u.Value, 'MKD', 'active', @OrderId,
-        u.OrderItemId, u.UnitSequence, u.Email, u.Email,
+        u.OrderItemId, u.UnitSequence, u.Email, u.BuyerName, u.RecipientEmail, u.RecipientName, u.GiftMessage,
         SYSUTCDATETIME(), NULL, SYSUTCDATETIME(), SYSUTCDATETIME()
     FROM @Units u
     WHERE NOT EXISTS (
@@ -98,24 +106,7 @@ BEGIN
         WHERE gv.PurchasedOrderItemId = u.OrderItemId AND gv.UnitSequence = u.UnitSequence
     );
 
-    IF @UserId IS NOT NULL
-    BEGIN
-        DECLARE @Points DECIMAL(38, 0) = FLOOR(@Subtotal * 0.02);
-
-        IF @Points > 0 AND NOT EXISTS (
-            SELECT 1 FROM dbo.LoyaltyPoints WITH (UPDLOCK, HOLDLOCK)
-            WHERE UserId = @UserId
-              AND PointsType = 'earned'
-              AND SourceType = 'order'
-              AND SourceId = @OrderId
-        )
-            INSERT INTO dbo.LoyaltyPoints
-                (UserId, Points, PointsType, SourceType, SourceId, Description, TransactionDate, ExpiryDate)
-            VALUES
-                (@UserId, @Points, 'earned', 'order', @OrderId,
-                 CONCAT(N'Earned ', CONVERT(NVARCHAR(40), @Points), N' points from order #', @OrderId),
-                 GETDATE(), DATEADD(MONTH, 12, GETDATE()));
-    END
+    EXEC dbo.usp_LoyaltyPoints_SyncOrder @OrderId = @OrderId;
 
     COMMIT TRANSACTION;
     SELECT 2 AS Result;

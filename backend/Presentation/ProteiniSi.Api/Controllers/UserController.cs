@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using ProteiniSi.Api.Extensions;
 using ProteiniSi.Contracts.Services;
 using ProteiniSi.Dtos;
 
@@ -28,6 +30,26 @@ public class UserController(IUserService service) : ControllerBase
     [HttpPost("ResendVerificationCode")]
     public async Task<IActionResult> ResendVerificationCode([FromBody] ResendVerificationCodeDto resendDto) =>
         Ok(await service.ResendVerificationCodeAsync(resendDto));
+
+    /// <summary>Signs in or registers with a Google authorization code.</summary>
+    [AllowAnonymous]
+    [HttpPost("ExternalSignIn")]
+    [EnableRateLimiting(CheckoutAbuseExtensions.SignInPolicy)]
+    public async Task<IActionResult> ExternalSignIn([FromBody] ExternalSignInDto request) =>
+        Ok(await service.ExternalSignInAsync(request));
+
+    /// <summary>Emails a one-time code for signing in (or registering) without a password.</summary>
+    [AllowAnonymous]
+    [HttpPost("EmailCode/Send")]
+    [EnableRateLimiting(CheckoutAbuseExtensions.SignInPolicy)]
+    public async Task<IActionResult> SendSignInCode([FromBody] EmailCodeSendDto request) =>
+        Ok(await service.SendSignInCodeAsync(request));
+
+    [AllowAnonymous]
+    [HttpPost("EmailCode/SignIn")]
+    [EnableRateLimiting(CheckoutAbuseExtensions.SignInPolicy)]
+    public async Task<IActionResult> SignInWithEmailCode([FromBody] EmailCodeSignInDto request) =>
+        Ok(await service.SignInWithEmailCodeAsync(request));
 
     [AllowAnonymous]
     [HttpPost("ForgotPassword")]

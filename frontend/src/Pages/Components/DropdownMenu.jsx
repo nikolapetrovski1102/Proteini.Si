@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { FiArrowRight, FiChevronDown, FiChevronRight } from "react-icons/fi";
+import { iconForLink } from "./shopIconMap";
+import Scribble from "./Scribble";
 
 const CLOSE_DELAY_MS = 140;
 
@@ -64,9 +66,7 @@ export default function DropdownMenu({
     closeTimer.current = setTimeout(() => setIsOpen(false), CLOSE_DELAY_MS);
   };
 
-  const titleClass = `site-nav relative flex h-full items-center gap-1.5 px-1 text-[14px] font-bold transition-colors after:absolute after:inset-x-1 after:bottom-0 after:h-[3px] after:rounded-full after:origin-center after:transition-all after:duration-300 active:scale-[0.97] ${
-    isOpen ? "after:scale-x-100 after:bg-[#FDC700]" : "after:scale-x-0 after:bg-[#FDC700]"
-  } ${
+  const titleClass = `site-nav relative flex h-full items-center gap-1.5 px-1 text-[17px] font-bold transition-colors active:scale-[0.97] ${
     highlight
       ? "nav-highlight text-[#BF243E] hover:text-[#9E1C32]"
       : isOpen
@@ -75,7 +75,7 @@ export default function DropdownMenu({
   }`;
 
   const chevron = (
-    <FiChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} strokeWidth={2.4} />
+    <FiChevronDown aria-hidden="true" className={`h-[18px] w-[18px] transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} strokeWidth={2.4} />
   );
 
   return (
@@ -94,12 +94,12 @@ export default function DropdownMenu({
     >
       {link ? (
         <Link to={link} className={titleClass} aria-expanded={isOpen} aria-haspopup="true">
-          {title}
+          <Scribble active={isOpen}>{title}</Scribble>
           {chevron}
         </Link>
       ) : (
         <button type="button" className={titleClass} aria-expanded={isOpen} aria-haspopup="true" onClick={() => (isOpen ? setIsOpen(false) : open())}>
-          {title}
+          <Scribble active={isOpen}>{title}</Scribble>
           {chevron}
         </button>
       )}
@@ -115,17 +115,27 @@ export default function DropdownMenu({
               <ul className="menu-stagger border-r border-black/[0.06] pr-6">
                 {categories.map((category, index) => {
                   const active = category.key === activeCategory?.key;
+                  const Icon = category.icon;
                   return (
                     <li key={category.key} style={{ "--i": index }}>
                       <Link
                         to={category.link}
                         onMouseEnter={() => setActiveKey(category.key)}
                         onFocus={() => setActiveKey(category.key)}
-                        className={`flex min-h-[38px] items-center justify-between gap-2 text-[14px] transition-all duration-200 active:scale-[0.97] ${
+                        className={`flex min-h-[46px] items-center justify-between gap-2 text-[14px] transition-all duration-200 active:scale-[0.97] ${
                           active ? "translate-x-1 font-bold text-gray-900" : "font-medium text-gray-600 hover:text-gray-900"
                         }`}
                       >
-                        {category.title}
+                        <span className="flex min-w-0 items-center gap-3">
+                          {Icon && (
+                            <Icon
+                              className={`h-8 w-8 shrink-0 text-gray-900 transition-transform duration-200 ${
+                                active ? "-rotate-6 scale-110" : ""
+                              }`}
+                            />
+                          )}
+                          <span className="truncate">{category.title}</span>
+                        </span>
                         <FiChevronRight
                           aria-hidden="true"
                           className={`h-4 w-4 transition-all duration-200 ${active ? "translate-x-0 opacity-100" : "-translate-x-2 opacity-0"}`}
@@ -137,18 +147,21 @@ export default function DropdownMenu({
               </ul>
 
               {activeCategory && (
-                <div key={activeCategory.key} className="menu-fade-up min-h-[280px]">
+                <div key={activeCategory.key} className="menu-fade min-h-[280px]">
                   <div className="gap-x-8" style={{ columnCount: 4 }}>
-                    {activeCategory.columns.flat().map((group) => (
+                    {activeCategory.columns.flat().map((group) => {
+                      const GroupIcon = iconForLink(group.link);
+                      return (
                       <div key={group.link || group.label} className="mb-5 break-inside-avoid">
-                        <Link to={group.link || "#"} className="inline-block text-[14px] font-bold text-gray-900 transition hover:underline active:scale-[0.97]">
+                        <Link to={group.link || "#"} className="inline-flex items-center gap-2 text-[14px] font-bold text-gray-900 transition hover:underline active:scale-[0.97]">
+                          {GroupIcon && <GroupIcon className="h-7 w-7 shrink-0" />}
                           {group.label}
                         </Link>
                         {group.subItems?.length > 0 && (
-                          <ul className="mt-1.5 space-y-1">
+                          <ul className={`mt-1.5 space-y-1 ${GroupIcon ? "pl-9" : ""}`}>
                             {group.subItems.map((subItem) => (
                               <li key={subItem.link}>
-                                <Link to={subItem.link} className="inline-block text-[13px] text-gray-500 transition hover:translate-x-0.5 hover:text-gray-900 active:scale-[0.97]">
+                                <Link to={subItem.link} className="inline-block text-[13px] font-medium text-gray-800 transition hover:translate-x-0.5 hover:text-black active:scale-[0.97]">
                                   {subItem.label}
                                 </Link>
                               </li>
@@ -156,7 +169,8 @@ export default function DropdownMenu({
                           </ul>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   {viewAllLabel && (
                     <Link

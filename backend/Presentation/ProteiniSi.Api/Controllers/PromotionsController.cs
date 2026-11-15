@@ -20,6 +20,15 @@ public class PromotionsController(IPromotionService service) : ControllerBase
     public async Task<IActionResult> Validate([FromBody] PromotionValidationDto dto) =>
         Ok(await service.ValidateAsync(dto));
 
+    /// <summary>What a referral code gives, so product cards can show its price before checkout.</summary>
+    [AllowAnonymous]
+    [HttpGet("preview/{code}")]
+    public async Task<IActionResult> Preview(string code)
+    {
+        var preview = await service.GetPreviewAsync(code);
+        return preview == null ? NotFound(new { message = "This promotion code is invalid or inactive." }) : Ok(preview);
+    }
+
     [HttpGet("admin/codes")]
     public async Task<IActionResult> GetCodes() => Ok(await service.GetCodesAsync());
 

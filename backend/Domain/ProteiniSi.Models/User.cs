@@ -27,6 +27,17 @@ public class User
     public bool EmailConfirmed { get; set; }
 }
 
+public enum ExternalSignInOutcome
+{
+    ExistingIdentity = 0,
+    LinkedToAccount = 1,
+    Created = 2,
+    EmailRequired = 3,
+    LinkNotAllowed = 4
+}
+
+public record ExternalSignInResult(ExternalSignInOutcome Outcome, int? UserId);
+
 public class ResetTokenInfo
 {
     public string? ResetToken { get; init; }

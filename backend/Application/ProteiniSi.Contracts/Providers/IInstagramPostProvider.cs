@@ -10,4 +10,5 @@ public interface IInstagramPostProvider
     Task<int> CreateAsync(CreateInstagramPostDto post);
     Task<bool> UpdateAsync(UpdateInstagramPostDto post);
     Task<bool> DeactivateAsync(int id);
+    Task<InstagramUpsertResult> UpsertFromFeedAsync(InstagramFeedPostDto post);
 }

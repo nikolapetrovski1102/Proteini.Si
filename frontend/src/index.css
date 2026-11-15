@@ -51,6 +51,21 @@ html[data-theme="dark"] .bg-white\/70 {
   background-color: rgba(41, 42, 46, 0.7) !important;
 }
 
+/* Shop SVG icons on dark backgrounds: light outlines, yellow shapes drawn as solid
+   glyphs (yellow outline too), and details sitting on the yellow in dark ink. */
+html[data-theme="dark"] .shop-icon {
+  color: var(--d-text);
+  --icon-accent: #f5c400;
+}
+
+html[data-theme="dark"] .shop-icon [fill^="var(--icon-accent"]:not([stroke="none"]) {
+  stroke: var(--icon-accent);
+}
+
+html[data-theme="dark"] .shop-icon .shop-icon-ink {
+  stroke: var(--d-bg);
+}
+
 /* Monochrome black <img> icons flip to white in dark mode. */
 html[data-theme="dark"] .theme-icon {
   filter: invert(1);
@@ -65,6 +80,26 @@ html[data-theme="dark"] .hover\:bg-gray-50:hover,
 html[data-theme="dark"] .hover\:bg-gray-100:hover,
 html[data-theme="dark"] .active\:bg-gray-200:active {
   background-color: var(--d-hover) !important;
+}
+
+/* Warm off-white surfaces (filter search, active-filter pills, sort/filter rows). */
+html[data-theme="dark"] .bg-\[\#f4f3ef\],
+html[data-theme="dark"] .bg-\[\#f8f7f4\] {
+  background-color: var(--d-raised) !important;
+}
+
+html[data-theme="dark"] .hover\:bg-\[\#f8f7f4\]:hover,
+html[data-theme="dark"] .active\:bg-\[\#e9e7e0\]:active {
+  background-color: var(--d-hover) !important;
+}
+
+/* Near-black hover fills (e.g. active-filter pills) vanish on charcoal; lift them instead. */
+html[data-theme="dark"] .hover\:bg-\[\#141409\]:hover {
+  background-color: var(--d-hover) !important;
+}
+
+html[data-theme="dark"] .focus-within\:ring-\[\#141409\]:focus-within {
+  --tw-ring-color: var(--d-muted);
 }
 
 html[data-theme="dark"] .focus-visible\:ring-\[\#141409\]:focus-visible {
@@ -97,6 +132,159 @@ html[data-theme="dark"] textarea,
 html[data-theme="dark"] select {
   background-color: var(--d-raised);
   color: var(--d-text);
+}
+
+/* Landing page: the warm recommended-products band sinks to the page charcoal so the cards lift off it. */
+html[data-theme="dark"] .landing-page .bg-\[\#f6f5f1\] {
+  background-color: #1a1b1e !important;
+}
+
+/* ───────────── Login / profile / admin pages in dark mode (AuthKit.jsx, ProfileKit.jsx, AdminKit.jsx) ───────────── */
+/* Warm off-white wells (inputs, segmented controls, info tiles) become a raised charcoal. */
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .bg-\[\#f6f5f1\] {
+  background-color: var(--d-raised) !important;
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .hover\:bg-\[\#efeee8\]:hover,
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .hover\:bg-\[\#f8f8f6\]:hover {
+  background-color: var(--d-hover) !important;
+}
+/* Product photos have white backgrounds, so their tile stays light. */
+html[data-theme="dark"] .profile-page .photo-tile {
+  background-color: #efeee9 !important;
+}
+
+/* Focused fields sink slightly instead of flashing white. */
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .focus\:bg-white:focus {
+  background-color: var(--d-bg) !important;
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) :is(input, select, textarea)::placeholder {
+  color: #7d8087;
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) select option {
+  background-color: var(--d-surface);
+  color: var(--d-text);
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) input:-webkit-autofill {
+  -webkit-text-fill-color: var(--d-text);
+  -webkit-box-shadow: 0 0 0 1000px var(--d-raised) inset;
+  caret-color: var(--d-text);
+}
+
+/* Hairline rings, borders and separators drawn in black alpha disappear on charcoal. */
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) :is(
+    .ring-black\/\[0\.05\],
+    .ring-black\/\[0\.06\],
+    .ring-black\/\[0\.08\],
+    .ring-black\/\[0\.1\],
+    .ring-black\/\[0\.12\],
+    .ring-black\/\[0\.14\]
+  ) {
+  --tw-ring-color: var(--d-border);
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) :is(
+    .hover\:ring-black\/30:hover,
+    .hover\:ring-black\/\[0\.14\]:hover
+  ) {
+  --tw-ring-color: #6b6e75;
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) :is(
+    .border-black\/\[0\.05\],
+    .border-black\/\[0\.06\],
+    .border-black\/\[0\.08\]
+  ) {
+  border-color: var(--d-border);
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .bg-black\/\[0\.08\] {
+  background-color: var(--d-border);
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) :is(
+    .bg-black\/\[0\.04\],
+    .bg-black\/\[0\.05\],
+    .bg-black\/\[0\.06\]
+  ) {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) :is(
+    .hover\:bg-black\/\[0\.04\]:hover,
+    .hover\:bg-black\/\[0\.05\]:hover,
+    .lg\:hover\:bg-black\/\[0\.04\]:hover,
+    .hover\:bg-black\/\[0\.1\]:hover
+  ) {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Ink focus/selection rings become light. */
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) :is(
+    .focus\:ring-\[\#141409\]:focus,
+    .focus-visible\:ring-\[\#141409\]:focus-visible,
+    .ring-\[\#141409\],
+    .ring-\[\#141409\]\/70
+  ) {
+  --tw-ring-color: var(--d-text);
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .ring-offset-2,
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .focus-visible\:ring-offset-2:focus-visible {
+  --tw-ring-offset-color: var(--d-surface);
+}
+
+/* Primary buttons: ink on charcoal has no contrast, so they turn brand yellow with ink text. */
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .ink-btn {
+  background-color: #fdc700;
+  color: #141409;
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .ink-btn:hover:not(:disabled) {
+  background-color: #ffd633;
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .ink-btn .text-\[\#FDC700\] {
+  color: #141409;
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .ink-btn:focus-visible {
+  --tw-ring-color: var(--d-text);
+}
+
+/* Selected tab / segment / nav item: a light chip instead of an ink one. */
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .ink-tab {
+  background-color: var(--d-text);
+  color: #141409;
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .ink-tab .text-\[\#FDC700\] {
+  color: #141409;
+}
+
+/* Ink icons sitting on surfaces (not on yellow) switch to brand yellow. */
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell)
+  .text-\[\#141409\]:not(.bg-\[\#FDC700\], .bg-\[\#FDC700\] *, .bg-\[\#141409\] *, .ink-btn *, .ink-tab *) {
+  color: #fdc700;
+}
+
+/* Google button text and the empty password-meter segments. */
+html[data-theme="dark"] .auth-page .text-\[\#1f1f1f\] {
+  color: var(--d-text);
+}
+html[data-theme="dark"] .auth-page {
+  --pw-empty: var(--d-border);
+}
+
+/* Link underline hover colour. */
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .hover\:decoration-\[\#141409\]:hover {
+  text-decoration-color: var(--d-text);
+}
+
+/* Status colours (alerts, order/points chips) need lighter tones on dark. */
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .text-\[\#a3161d\] {
+  color: #ff8a8f !important;
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .text-\[\#2f5e14\] {
+  color: #a8dc7c !important;
+}
+html[data-theme="dark"] :is(.auth-page, .profile-page, .admin-shell) .text-\[\#5c4800\] {
+  color: #ffe066 !important;
+}
+
+/* Favourite remove button: ink hover fill vanishes on charcoal. */
+html[data-theme="dark"] .profile-page .hover\:bg-\[\#141409\]:hover {
+  background-color: var(--d-text) !important;
+  color: #141409 !important;
 }
 
 /* For the thumbnails container */
@@ -272,22 +460,15 @@ html[data-theme="dark"] .product-description a {
 
 /* ───────────── Home page: full-screen hero, snap scrolling, reveals ───────────── */
 :root {
-  --header-h: 57px;
+  --header-h: 69px;
 }
 @media (min-width: 1025px) {
   :root {
-    --header-h: 73px;
+    --header-h: 89px;
   }
 }
 
-html.home-snap {
-  scroll-snap-type: y proximity;
-  scroll-padding-top: var(--header-h);
-  scroll-behavior: smooth;
-}
-
 .home-section {
-  scroll-snap-align: start;
   scroll-margin-top: var(--header-h);
 }
 
@@ -309,6 +490,198 @@ html.home-snap {
   opacity: 1;
   /* no transform once shown, so fixed-position modals inside stay viewport-relative */
   transform: none;
+}
+
+/* ── "New in the shop": three large cards, staggered reveal (see NewInTheShop.jsx) ── */
+/* The row is its own layer above the ribbon (.drawn-wave-clip, z 1). Mobile Safari turns the
+   swipe row into a separate composited layer, which otherwise lets the ribbon paint over the
+   cards; with an explicit z-index the ribbon is always behind the cards and products. */
+.nis-row {
+  position: relative;
+  z-index: 2;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.nis-row::-webkit-scrollbar {
+  display: none;
+}
+/* Entrance uses transitions, not filled animations: once settled (opacity 1, no transform)
+   the card is no longer an isolated layer. */
+.nis-head,
+.nis-card,
+.nis-img-wrap,
+.nis-info {
+  opacity: 0;
+}
+.nis-head {
+  transform: translate3d(0, 20px, 0);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nis-card {
+  --nis-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --nis-delay: calc(var(--i, 0) * 130ms + 120ms);
+  transform: translate3d(0, 56px, 0);
+  transition:
+    opacity 0.8s var(--nis-ease) var(--nis-delay),
+    transform 1s var(--nis-ease) var(--nis-delay);
+}
+.nis-img-wrap {
+  transform: scale(1.1);
+  transition:
+    opacity 0.9s var(--nis-ease) calc(var(--nis-delay) + 80ms),
+    transform 1.3s var(--nis-ease) calc(var(--nis-delay) + 80ms);
+}
+.nis-info {
+  transform: translate3d(0, 14px, 0);
+  transition:
+    opacity 0.7s var(--nis-ease) calc(var(--nis-delay) + 220ms),
+    transform 0.8s var(--nis-ease) calc(var(--nis-delay) + 220ms);
+}
+.nis-head.is-visible,
+.nis-card.is-visible,
+.nis-card.is-visible .nis-img-wrap,
+.nis-card.is-visible .nis-info {
+  opacity: 1;
+  transform: none;
+}
+/* Product photo on the half-transparent tile: multiply melts white photo backgrounds into
+   the tile and the section behind it. A soft oval
+   "floor" shadow grounds the product for JPGs and transparent PNGs alike. */
+.nis-img {
+  position: relative;
+  mix-blend-mode: multiply;
+  transition: transform 0.9s var(--nis-ease);
+}
+.nis-floor {
+  position: absolute;
+  left: 24%;
+  right: 24%;
+  bottom: 9%;
+  height: 6%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(20, 20, 9, 0.2), rgba(20, 20, 9, 0));
+  transition:
+    transform 0.9s var(--nis-ease),
+    opacity 0.9s var(--nis-ease);
+}
+/* The tile lifts with `top`, not transform: a transformed tile becomes an isolated layer and the
+   multiplied photo would then show a light patch over the half-transparent background. */
+.nis-tile {
+  top: 0;
+  transition:
+    top 0.6s var(--nis-ease),
+    box-shadow 0.6s var(--nis-ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .nis-card:hover .nis-tile {
+    top: -6px;
+    box-shadow: 0 28px 48px -24px rgba(20, 20, 9, 0.35);
+  }
+  .nis-card:hover .nis-img {
+    transform: translate3d(0, -8px, 0) scale(1.04);
+  }
+  .nis-card:hover .nis-floor {
+    transform: scaleX(0.82);
+    opacity: 0.6;
+  }
+}
+.nis-card:active .nis-tile {
+  top: 2px;
+  transition-duration: 0.2s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nis-head,
+  .nis-card,
+  .nis-img-wrap,
+  .nis-info,
+  .nis-img,
+  .nis-tile {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+/* Cut-out product photos (useCutoutImage.js) are drawn as-is so they hide the ribbon behind
+   them; multiply would let it show through light packaging. */
+.nis-img.nis-img--cutout {
+  mix-blend-mode: normal;
+}
+
+/* Cart's mobile checkout bar (Cart.jsx): roomier total and button once the phone is ≥ 380px wide.
+   Plain CSS because tailwind's min-[…] variants don't work with this project's screens config. */
+@media (min-width: 380px) {
+  .cart-bar-total {
+    font-size: 1.125rem;
+  }
+  .cart-bar-btn {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* Ribbon drawn behind the "New in the shop" cards (DrawnWave.jsx). Sits above the translucent
+   tile background (z auto) and below the product image (z 2); revealed left to right. */
+.drawn-wave-clip {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.drawn-wave {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  will-change: transform;
+  stroke-width: clamp(14px, 2vw, 26px);
+  clip-path: inset(-60% 100% -60% -5%);
+}
+.drawn-wave.is-drawn {
+  animation: drawn-wave-reveal var(--wave-dur, 2s) cubic-bezier(0.55, 0.05, 0.25, 1) var(--wave-delay, 1s) both;
+}
+@keyframes drawn-wave-reveal {
+  from {
+    clip-path: inset(-60% 100% -60% -5%);
+  }
+  to {
+    clip-path: inset(-60% -5% -60% -5%);
+  }
+}
+
+/* Hand-drawn underline under link text (Scribble.jsx), revealed left to right. */
+.scribble {
+  position: relative;
+  display: inline-block;
+}
+.scribble-line {
+  position: absolute;
+  top: calc(100% + 1px);
+  height: 10px;
+  pointer-events: none;
+  transform-origin: left center;
+  clip-path: inset(-80% 100% -80% -10%);
+}
+.scribble-line.is-drawn {
+  animation: scribble-draw var(--sc-dur, 0.7s) cubic-bezier(0.6, 0.05, 0.3, 1) var(--sc-delay, 0s) both;
+}
+@keyframes scribble-draw {
+  from {
+    clip-path: inset(-80% 100% -80% -10%);
+  }
+  to {
+    clip-path: inset(-80% -10% -80% -10%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawn-wave,
+  .scribble-line {
+    animation: none !important;
+    clip-path: none !important;
+  }
 }
 
 /* Full-screen brand loader overlay (see BrandLoader.jsx). Pale brand yellow over a soft white veil. */
@@ -488,6 +861,18 @@ html[data-theme="dark"] .sale-backdrop {
     box-shadow 0.6s var(--card-ease);
   will-change: transform;
   backface-visibility: hidden;
+  /* Own stacking context so overflow + radius keep clipping the composited layers inside. */
+  isolation: isolate;
+}
+/* The info panel and the zooming image get their own layers on hover, which browsers then stop
+   clipping to the card's rounded corners — so they carry the card's radius themselves. */
+.home-card > .card-info {
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
+}
+.home-card > a:first-child {
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
 }
 .home-card-img {
   transform: translate3d(0, 0, 0) scale(1);
@@ -601,10 +986,6 @@ html[data-theme="dark"] .home-tint-overlay {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.home-snap {
-    scroll-behavior: auto;
-    scroll-snap-type: none;
-  }
   .reveal,
   .reveal.is-visible {
     opacity: 1;
@@ -642,6 +1023,10 @@ html[data-theme="dark"] .mobile-tab-bar .ring-white {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
+@keyframes menu-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 @keyframes menu-from-right {
   from { opacity: 0; transform: translateX(24px); }
   to { opacity: 1; transform: none; }
@@ -668,6 +1053,7 @@ html[data-theme="dark"] .mobile-tab-bar .ring-white {
 }
 
 .menu-fade-up { animation: menu-fade-up 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.menu-fade { animation: menu-fade 160ms ease-out both; }
 .menu-from-right { animation: menu-from-right 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .menu-from-left { animation: menu-from-left 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .menu-sheet-in { animation: menu-sheet-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both; }
@@ -683,6 +1069,7 @@ html[data-theme="dark"] .mobile-tab-bar .ring-white {
 
 @media (prefers-reduced-motion: reduce) {
   .menu-fade-up,
+  .menu-fade,
   .menu-from-right,
   .menu-from-left,
   .menu-sheet-in,
@@ -692,4 +1079,379 @@ html[data-theme="dark"] .mobile-tab-bar .ring-white {
   .menu-stagger > * {
     animation: none !important;
   }
+}
+
+/* ───────────── Admin (see Pages/Admin/AdminKit.jsx) ───────────── */
+@keyframes admin-toast-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.admin-toast-in { animation: admin-toast-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+/* Admin dark mode. The shared wells/rings/ink-btn rules live in the login/profile/admin block
+   above; these cover what only the back office uses. Modals portal to <body>, so their root
+   carries .admin-shell too. */
+html[data-theme="dark"] .admin-shell .bg-\[\#faf9f6\] {
+  background-color: var(--d-raised) !important;
+}
+html[data-theme="dark"] .admin-shell .bg-white\/95 {
+  background-color: rgba(41, 42, 46, 0.95) !important;
+}
+html[data-theme="dark"] .admin-shell :is(
+    .hover\:bg-\[\#efede6\]:hover,
+    .hover\:bg-\[\#f6f5f1\]:hover,
+    .hover\:bg-white:hover
+  ) {
+  background-color: var(--d-hover) !important;
+}
+
+/* Remaining black-alpha hairlines, dividers and fills. */
+html[data-theme="dark"] .admin-shell :is(
+    .border-black\/\[0\.1\],
+    .border-black\/\[0\.12\],
+    .border-black\/10
+  ) {
+  border-color: var(--d-border);
+}
+html[data-theme="dark"] .admin-shell :is(.border-black\/25, .border-black\/30, .hover\:border-black\/30:hover) {
+  border-color: #6b6e75;
+}
+html[data-theme="dark"] .admin-shell :is(
+    .divide-black\/\[0\.04\],
+    .divide-black\/\[0\.05\],
+    .divide-black\/\[0\.06\]
+  ) > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--d-border);
+}
+html[data-theme="dark"] .admin-shell :is(.hover\:ring-black\/20:hover, .hover\:ring-black\/25:hover) {
+  --tw-ring-color: #6b6e75;
+}
+html[data-theme="dark"] .admin-shell :is(.bg-black\/10, .bg-black\/\[0\.15\]) {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+/* Hover fills are !important so they also show on bg-white / cream elements, whose dark
+   surface colour is itself forced with !important (e.g. secondary buttons). */
+html[data-theme="dark"] .admin-shell :is(
+    .hover\:bg-black\/\[0\.02\]:hover,
+    .hover\:bg-black\/\[0\.03\]:hover
+  ) {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+html[data-theme="dark"] .admin-shell :is(
+    .hover\:bg-black\/\[0\.04\]:hover,
+    .hover\:bg-black\/\[0\.05\]:hover
+  ) {
+  background-color: rgba(255, 255, 255, 0.09) !important;
+}
+html[data-theme="dark"] .admin-shell .hover\:bg-black\/\[0\.06\]:hover {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+}
+html[data-theme="dark"] .admin-shell .bg-white.hover\:bg-black\/\[0\.04\]:hover {
+  background-color: var(--d-hover) !important;
+}
+
+/* Gray text is forced light with !important, so hover/group-hover text needs the same weight
+   or it never changes (and the light-mode dark grays would vanish on charcoal). */
+html[data-theme="dark"] .admin-shell :is(
+    .hover\:text-gray-900:hover,
+    .hover\:text-gray-800:hover,
+    .hover\:text-gray-700:hover,
+    .group:hover .group-hover\:text-gray-900,
+    .group:hover .group-hover\:text-gray-700
+  ) {
+  color: #ffffff !important;
+}
+/* Dashboard shortcut tiles: the icon well turns yellow on hover, so its icon goes ink. */
+html[data-theme="dark"] .admin-shell .group:hover .group-hover\:bg-\[\#FDC700\] {
+  background-color: #fdc700 !important;
+}
+html[data-theme="dark"] .admin-shell .group:hover .group-hover\:text-\[\#141409\] {
+  color: #141409 !important;
+}
+
+/* Focused search well sinks instead of flashing white. */
+html[data-theme="dark"] .admin-shell .focus-within\:bg-white:focus-within {
+  background-color: var(--d-bg) !important;
+}
+html[data-theme="dark"] .admin-shell .peer:focus-visible ~ .peer-focus-visible\:ring-\[\#141409\]\/30 {
+  --tw-ring-color: rgba(236, 236, 238, 0.35);
+}
+html[data-theme="dark"] .admin-shell .peer-focus-visible\:ring-offset-2 {
+  --tw-ring-offset-color: var(--d-surface);
+}
+/* Native checkboxes (product list selection). */
+html[data-theme="dark"] .admin-shell .accent-\[\#141409\] {
+  accent-color: #fdc700;
+}
+
+/* Ink outlines and soft ink focus halos become light. */
+html[data-theme="dark"] .admin-shell :is(.border-\[\#141409\], .focus-within\:border-\[\#141409\]:focus-within) {
+  border-color: var(--d-text);
+}
+html[data-theme="dark"] .admin-shell :is(
+    .ring-\[\#141409\]\/10,
+    .focus-within\:ring-\[\#141409\]\/10:focus-within,
+    .focus\:ring-\[\#141409\]\/15:focus,
+    .focus-visible\:ring-\[\#141409\]\/30:focus-visible
+  ) {
+  --tw-ring-color: rgba(236, 236, 238, 0.2);
+}
+
+/* Faint decorative icons (row arrows, drag handles) stay faint instead of glowing; the
+   group-hover rules above still lift them to white. */
+html[data-theme="dark"] .admin-shell .text-gray-300 {
+  color: #6b6e75;
+}
+
+/* Ink fills (active nav item, selected segment/chip, avatar, "Main" badge, checked box, ink
+   badge) vanish on charcoal, so they become a light chip with ink text, as on profile pages. */
+html[data-theme="dark"] .admin-shell .bg-\[\#141409\]:not(.ink-btn, .admin-ink-panel) {
+  background-color: var(--d-text) !important;
+  color: #141409 !important;
+}
+html[data-theme="dark"] .admin-shell .bg-\[\#141409\]:not(.ink-btn, .admin-ink-panel)
+  :is(.text-white, .text-white\/70, .hover\:text-white:hover, .text-\[\#FDC700\]) {
+  color: #141409 !important;
+}
+html[data-theme="dark"] .admin-shell .bg-\[\#141409\]:not(.ink-btn, .admin-ink-panel) .text-white\/60 {
+  color: rgba(20, 20, 9, 0.62) !important;
+}
+html[data-theme="dark"] .admin-shell .bg-\[\#141409\]:not(.ink-btn, .admin-ink-panel) .hover\:bg-white\/15:hover {
+  background-color: rgba(20, 20, 9, 0.12);
+}
+/* Toggles: on = yellow track with an ink knob, off = faint track with a light knob. */
+html[data-theme="dark"] .admin-shell .h-6.w-10.rounded-full.bg-\[\#141409\],
+html[data-theme="dark"] .admin-shell .peer:checked ~ .peer-checked\:bg-\[\#141409\] {
+  background-color: #fdc700 !important;
+}
+html[data-theme="dark"] .admin-shell .h-6.w-10.rounded-full > .bg-white,
+html[data-theme="dark"] .admin-shell .peer ~ .bg-white.rounded-full {
+  background-color: var(--d-muted) !important;
+}
+html[data-theme="dark"] .admin-shell .h-6.w-10.rounded-full > .bg-\[\#FDC700\],
+html[data-theme="dark"] .admin-shell .peer:checked ~ .peer-checked\:bg-\[\#FDC700\] {
+  background-color: #141409 !important;
+}
+
+/* Big ink panels (dashboard hero, bulk-action bar, toasts) stay dark but sit deeper than the
+   page with a hairline so they still read as surfaces. */
+html[data-theme="dark"] .admin-shell .admin-ink-panel {
+  background-color: #141416;
+  box-shadow:
+    inset 0 0 0 1px var(--d-border),
+    0 16px 32px -12px rgba(0, 0, 0, 0.6);
+}
+
+/* White pill buttons floating over photos turn dark-glass so light icons stay visible. */
+html[data-theme="dark"] .admin-shell .bg-white\/90 {
+  background-color: rgba(31, 32, 35, 0.85);
+}
+html[data-theme="dark"] .admin-shell .bg-white\/90.hover\:bg-white:hover {
+  background-color: var(--d-raised) !important;
+}
+
+/* Status tones: light tints and dark text swap to deep tints with light text. */
+html[data-theme="dark"] .admin-shell :is(.text-\[\#b3191f\], .hover\:text-\[\#b3191f\]:hover, .hover\:text-red-700:hover) {
+  color: #ff8a8f !important;
+}
+html[data-theme="dark"] .admin-shell :is(.text-\[\#a86a00\], .text-yellow-600, .text-yellow-700, .text-yellow-800) {
+  color: #ffd34d !important;
+}
+html[data-theme="dark"] .admin-shell :is(.text-orange-800, .text-orange-900) {
+  color: #ffb27a !important;
+}
+html[data-theme="dark"] .admin-shell .text-sky-800 {
+  color: #9fd6ff !important;
+}
+html[data-theme="dark"] .admin-shell .text-pink-800 {
+  color: #f9a8d4 !important;
+}
+html[data-theme="dark"] .admin-shell .text-green-700 {
+  color: #a8dc7c !important;
+}
+html[data-theme="dark"] .admin-shell :is(.bg-sky-50, .bg-sky-100, .bg-blue-100) {
+  background-color: rgba(56, 189, 248, 0.14) !important;
+}
+html[data-theme="dark"] .admin-shell :is(.bg-orange-50, .bg-orange-100) {
+  background-color: rgba(251, 146, 60, 0.14) !important;
+}
+html[data-theme="dark"] .admin-shell .bg-pink-100 {
+  background-color: rgba(244, 114, 182, 0.14) !important;
+}
+html[data-theme="dark"] .admin-shell .bg-green-100 {
+  background-color: rgba(141, 198, 88, 0.14) !important;
+}
+html[data-theme="dark"] .admin-shell .bg-yellow-50 {
+  background-color: rgba(253, 199, 0, 0.1) !important;
+}
+html[data-theme="dark"] .admin-shell .ring-orange-200 {
+  --tw-ring-color: rgba(251, 146, 60, 0.35);
+}
+html[data-theme="dark"] .admin-shell .border-yellow-300 {
+  border-color: rgba(253, 199, 0, 0.4);
+}
+html[data-theme="dark"] .admin-shell .border-green-400 {
+  border-color: rgba(141, 198, 88, 0.45);
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-toast-in { animation: none; }
+}
+
+/* ── Tip article body (admin HTML or built-in tips) ── */
+.tip-article {
+  color: #374151;
+  font-size: 17px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.tip-article > :first-child { margin-top: 0; }
+.tip-article > p:first-child {
+  font-size: 19px;
+  line-height: 1.7;
+  color: #111827;
+}
+.tip-article p,
+.tip-article ul,
+.tip-article ol { margin: 0 0 1.25rem; }
+.tip-article h2,
+.tip-article h3,
+.tip-article h4 {
+  color: #111827;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.tip-article h2 {
+  font-family: Oswald, Montserrat, sans-serif;
+  font-size: 1.75rem;
+  margin: 2.75rem 0 1rem;
+}
+.tip-article h3 { font-size: 1.2rem; margin: 2rem 0 0.75rem; }
+.tip-article h4 { font-size: 1.05rem; margin: 1.5rem 0 0.5rem; }
+.tip-article strong,
+.tip-article b { color: #111827; font-weight: 700; }
+.tip-article ul,
+.tip-article ol { padding-left: 1.4rem; }
+.tip-article ul { list-style: none; padding-left: 0; }
+.tip-article ul > li {
+  position: relative;
+  padding-left: 1.5rem;
+  margin-bottom: 0.6rem;
+}
+.tip-article ul > li::before {
+  content: "";
+  position: absolute;
+  left: 0.15rem;
+  top: 0.7em;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: #fdc700;
+}
+.tip-article ol { list-style: decimal; }
+.tip-article ol > li { margin-bottom: 0.75rem; padding-left: 0.35rem; }
+.tip-article ol > li::marker { color: #111827; font-weight: 800; }
+.tip-article blockquote {
+  margin: 2rem 0;
+  padding: 1.1rem 1.4rem;
+  border-left: 4px solid #fdc700;
+  border-radius: 0 1rem 1rem 0;
+  background: #fffbea;
+  color: #3a3a32;
+  font-weight: 500;
+}
+
+html[data-theme="dark"] .tip-article { color: var(--d-muted); }
+html[data-theme="dark"] .tip-article * {
+  color: inherit !important;
+  background-color: transparent !important;
+}
+html[data-theme="dark"] .tip-article > p:first-child,
+html[data-theme="dark"] .tip-article h2,
+html[data-theme="dark"] .tip-article h3,
+html[data-theme="dark"] .tip-article h4,
+html[data-theme="dark"] .tip-article strong,
+html[data-theme="dark"] .tip-article b {
+  color: var(--d-text) !important;
+}
+html[data-theme="dark"] .tip-article blockquote {
+  background-color: var(--d-surface) !important;
+  color: var(--d-text) !important;
+}
+html[data-theme="dark"] .tip-article ul > li::before {
+  background-color: #fdc700 !important;
+}
+
+/* Dual-thumb price slider: two stacked range inputs, only the thumbs take pointer events. */
+.price-range input[type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.price-range input[type="range"]::-webkit-slider-runnable-track {
+  background: transparent;
+}
+.price-range input[type="range"]::-moz-range-track {
+  background: transparent;
+}
+.price-range input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid #141409;
+  box-shadow: 0 1px 3px rgba(20, 20, 9, 0.2);
+  cursor: grab;
+  transition: transform 0.15s ease;
+}
+.price-range input[type="range"]::-moz-range-thumb {
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid #141409;
+  box-shadow: 0 1px 3px rgba(20, 20, 9, 0.2);
+  cursor: grab;
+}
+.price-range input[type="range"]:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.12);
+}
+.price-range input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(253, 199, 0, 0.6);
+}
+.price-range input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px rgba(253, 199, 0, 0.6);
+}
+.price-range input[type="range"]:focus {
+  outline: none;
+}
+
+@keyframes filter-sheet-in {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.filter-sheet-in {
+  animation: filter-sheet-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .filter-sheet-in { animation: none; }
+}
+
+/* ───────────── #proteinisi Instagram section (see ShareYourExperience.jsx) ───────────── */
+html[data-theme="dark"] .ig-section .ig-heading {
+  color: var(--d-text);
+}
+html[data-theme="dark"] .ig-section .ig-muted {
+  color: var(--d-muted);
+}
+html[data-theme="dark"] .ig-section .ig-glow {
+  opacity: 0.5;
 }

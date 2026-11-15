@@ -22,7 +22,9 @@ BEGIN
            ci.Display_Name,
            p.Name AS Product_Name,
            p.Img AS Product_Img,
-           pv.Price AS Variant_Original_Price,
+           p.IsGiftVoucher,
+           -- Regular price, so a sale shows the old price struck through (plain products too, not only variants).
+           CASE WHEN p.IsGiftVoucher = 1 THEN NULL ELSE CEILING(COALESCE(pv.Price, p.Price)) END AS Variant_Original_Price,
            CASE
                WHEN p.ProductsOnSale = 1
                 AND (p.SaleEndDate IS NULL OR p.SaleEndDate >= CAST(GETDATE() AS date))
@@ -39,7 +41,8 @@ BEGIN
     LEFT JOIN dbo.ProductVariants pv ON ci.Variant_Id = pv.Variant_Id AND pv.IsActive = 1
     LEFT JOIN dbo.Packaging pkg ON pv.Packaging_Id = pkg.Packaging_Id
     CROSS APPLY (
-        SELECT CAST(
+        -- Whole denars, always rounded up, exactly as the shop shows the price.
+        SELECT CAST(CEILING(
             CASE
                 WHEN p.IsGiftVoucher = 1 THEN ci.Price
                 WHEN ci.Variant_Id IS NULL
@@ -57,7 +60,7 @@ BEGIN
                  AND pv.Compare_Price < pv.Price
                     THEN pv.Compare_Price
                 ELSE COALESCE(pv.Price, ci.Price)
-            END AS decimal(18, 2)
+            END) AS decimal(18, 2)
         ) AS EffectivePrice
     ) currentPrice
     WHERE ci.Cart_Id = @CartId;

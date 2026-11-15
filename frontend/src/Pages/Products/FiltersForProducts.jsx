@@ -1,414 +1,259 @@
 // src/Pages/Products/FiltersForProducts.jsx
-import { useState, useEffect } from "react";
-import { api } from "../../services/api";
+import { useState } from "react";
+import { FiCheck, FiChevronDown, FiSearch, FiSliders } from "react-icons/fi";
 import PriceRangeFilter from "./PriceRangeFilter";
+import { useLanguage } from "../translation/LanguageContext";
+import { filterLabel, filterText } from "../../utils/filterLabels";
+import { FILTER_GROUP_ICONS, iconForFilterItem, iconForSlug } from "../Components/shopIconMap";
+import {
+  useFilterGroups,
+  visibleGroups,
+  isSelected,
+  toggleFilter,
+  selectedCount,
+  activeFilterCount,
+} from "./filterGroups";
 
-export default function FiltersForProducts({
-  onFilterChange,
-  selectedFilters = {},
-}) {
-  const [filterGroups, setFilterGroups] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [openCategories, setOpenCategories] = useState({});
-  const [parentCategoriesWithChildren, setParentCategoriesWithChildren] =
-    useState({});
+const VISIBLE_LIMIT = 6;
+const SEARCH_THRESHOLD = 10;
+const OPEN_BY_DEFAULT = new Set(["categoryIds", "priceRange", "status", "brandIds"]);
 
-  // Fetch filter options from API
-  useEffect(() => {
-    const fetchFilterOptions = async () => {
-      try {
-        const data = await api.getFilterOptions();
+export default function FiltersForProducts({ onFilterChange, selectedFilters = {} }) {
+  useLanguage(); // re-render labels when the language changes
+  const { groups: allGroups, parentIds, apparelIds, loading } = useFilterGroups();
+  const [openOverrides, setOpenOverrides] = useState({});
 
-        // Build parent-child relationships
-        const categoriesWithChildren = {};
+  const filters = selectedFilters || {};
+  const groups = visibleGroups(allGroups, filters, apparelIds);
+  const total = activeFilterCount(filters, groups);
 
-        const parentCategories = data.categories.filter(
-          (cat) => cat.parent_Category_Id === null,
-        );
+  const toggle = (key, id) => onFilterChange(toggleFilter(filters, key, id, parentIds));
 
-        parentCategories.forEach((parent) => {
-          categoriesWithChildren[parent.category_Id] = {
-            parent: parent,
-            children: data.categories.filter(
-              (cat) => cat.parent_Category_Id === parent.category_Id,
-            ),
-          };
-        });
-
-        setParentCategoriesWithChildren(categoriesWithChildren);
-
-        const filterOnlyParents = (items) => {
-          if (!items || items.length === 0) return [];
-          return items.filter((item) => item.parent_Category_Id === null);
-        };
-
-        const transformedFilters = [
-          {
-            title: "Product category",
-            key: "categoryIds",
-            items: filterOnlyParents(data.categories).map((cat) => ({
-              id: cat.category_Id,
-              name: cat.category_Name,
-              slug: cat.category_Slug,
-            })),
-          },
-          {
-            title: "Sport",
-            key: "sportIds",
-            items: data.sports.map((sport) => ({
-              id: sport.sport_Id,
-              name: sport.sport_Name,
-              slug: sport.sport_Slug,
-            })),
-          },
-          {
-            title: "Goals",
-            key: "goalIds",
-            items: data.goals.map((goal) => ({
-              id: goal.goal_Id,
-              name: goal.goal_Name,
-              slug: goal.goal_Slug,
-            })),
-          },
-          {
-            title: "Use",
-            key: "useTimingIds",
-            items: data.useTimings.map((timing) => ({
-              id: timing.useTiming_Id,
-              name: timing.useTiming_Name,
-              slug: timing.useTiming_Slug,
-            })),
-          },
-          {
-            title: "Product flavour",
-            key: "flavorIds",
-            items: data.flavors.map((flavor) => ({
-              id: flavor.flavor_Id,
-              name: flavor.flavor_Name,
-              slug: flavor.flavor_Slug,
-            })),
-          },
-          {
-            title: "Brands",
-            key: "brandIds",
-            items: data.brands.map((brand) => ({
-              id: brand.brand_Id,
-              name: brand.brand_Name,
-              slug: brand.brand_Slug,
-            })),
-          },
-          {
-            title: "Price",
-            key: "priceRange",
-            items: [],
-            min: Number(data.priceBounds?.min ?? 0),
-            max: Math.max(Number(data.priceBounds?.max ?? 10000), 1000),
-          },
-          {
-            title: "Product status",
-            key: "status",
-            items: [
-              { id: "inStock", name: "Products in stock" },
-              { id: "onSale", name: "Products on sale" },
-              { id: "newProducts", name: "New products" },
-              { id: "outlet", name: "Outlet products" },
-              { id: "upcomingPromotions", name: "Upcoming promotions" },
-            ],
-          },
-          {
-            title: "Other",
-            key: "tagIds",
-            items: data.tags.map((tag) => ({
-              id: tag.tag_Id,
-              name: tag.tag_Name,
-              slug: tag.tag_Slug,
-            })),
-          },
-        ];
-
-        setFilterGroups(transformedFilters);
-
-        const initialOpenState = {};
-        transformedFilters.forEach((_, index) => {
-          initialOpenState[index] = true;
-        });
-        setOpenCategories(initialOpenState);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching filter options:", error);
-        setLoading(false);
-      }
-    };
-
-    fetchFilterOptions();
-  }, []);
-
-  const toggleCategory = (index) => {
-    setOpenCategories((prev) => ({ ...prev, [index]: !prev[index] }));
-  };
-
-  const handleFilterChange = (filterKey, itemId, isChecked, item = null) => {
-    if (typeof onFilterChange !== "function") {
-      console.warn("onFilterChange prop is not a function");
-      return;
-    }
-
-    let newFilters = { ...(selectedFilters || {}) };
-
-    // Special handling for categoryIds
-    if (filterKey === "categoryIds") {
-      // Check if this is a PARENT category (has children) or a child
-      const hasChildren =
-        parentCategoriesWithChildren[itemId]?.children?.length > 0;
-
-      if (hasChildren) {
-        // PARENT category - only allow one parent at a time
-        if (isChecked) {
-          // When checking a parent, replace all existing with just this parent
-          newFilters.categoryIds = [itemId];
-        } else {
-          // When unchecking a parent, remove it AND all its children
-          newFilters.categoryIds = [];
-        }
-        onFilterChange(newFilters);
-        return;
-      } else {
-        // CHILD category (subcategory)
-        if (!newFilters.categoryIds) {
-          newFilters.categoryIds = [];
-        }
-
-        // Find the parent of this child
-        let parentId = null;
-        for (const [pId, data] of Object.entries(
-          parentCategoriesWithChildren,
-        )) {
-          if (data.children.some((child) => child.category_Id === itemId)) {
-            parentId = parseInt(pId);
-            break;
-          }
-        }
-
-        if (isChecked) {
-          // When checking a child, ONLY add the child (not the parent)
-          if (!newFilters.categoryIds.includes(itemId)) {
-            newFilters.categoryIds.push(itemId);
-          }
-        } else {
-          // When unchecking a child, just remove the child
-          newFilters.categoryIds = newFilters.categoryIds.filter(
-            (id) => id !== itemId,
-          );
-        }
-        onFilterChange(newFilters);
-        return;
-      }
-    }
-
-    // Rest of the function for other filter types...
-    if (filterKey === "priceRange") {
-      if (isChecked) {
-        newFilters.minPrice = item.min;
-        newFilters.maxPrice = item.max;
-      } else {
-        newFilters.minPrice = null;
-        newFilters.maxPrice = null;
-      }
-    } else if (filterKey === "status") {
-      newFilters[itemId] = isChecked;
-    } else {
-      if (!newFilters[filterKey]) {
-        newFilters[filterKey] = [];
-      }
-
-      if (isChecked) {
-        newFilters[filterKey].push(itemId);
-      } else {
-        newFilters[filterKey] = newFilters[filterKey].filter(
-          (id) => id !== itemId,
-        );
-      }
-    }
-
-    onFilterChange(newFilters);
-  };
-
-  const isChecked = (filterKey, itemId, item = null) => {
-    if (!selectedFilters) return false;
-
-    if (filterKey === "priceRange") {
-      return (
-        selectedFilters.minPrice === item.min &&
-        selectedFilters.maxPrice === item.max
-      );
-    } else if (filterKey === "status") {
-      return selectedFilters[itemId] === true;
-    } else {
-      const filterArray = selectedFilters[filterKey];
-      if (Array.isArray(filterArray)) {
-        return filterArray.includes(itemId);
-      }
-      return false;
-    }
-  };
-
-  const handlePriceCommit = (minPrice, maxPrice) => {
-    onFilterChange({
-      ...(selectedFilters || {}),
-      minPrice,
-      maxPrice,
+  const clearAll = () => {
+    const next = { ...filters };
+    groups.forEach((g) => {
+      if (g.isPrice) {
+        delete next.minPrice;
+        delete next.maxPrice;
+      } else if (g.key === "status") g.items.forEach((i) => delete next[i.id]);
+      else delete next[g.key];
     });
+    onFilterChange(next);
   };
-
-  if (loading) {
-    return (
-      <div className="max-w-[220px] w-full flex flex-col">
-        <div className="flex justify-between mb-[30px] pr-[20px] pb-[10px] pl-[10px] border-b border-[#E5E5E5]">
-          <p className="text-[14px]">FILTER</p>
-        </div>
-        <div className="pl-[10px]">Loading filters...</div>
-      </div>
-    );
-  }
 
   return (
-    <div className="max-w-[220px] w-full flex flex-col">
-      <div className="flex justify-between mb-[30px] pr-[20px] pb-[10px] pl-[10px] border-b border-[#E5E5E5]">
-        <p className="text-[14px]">FILTER</p>
-        <img src="/logos/filter.svg" alt="Filter" width={16} height={16} />
-      </div>
-
-      {filterGroups.map((group, index) => (
-        <div key={index}>
-          <div className="pl-[10px] pb-[20px] mb-[20px] border-b border-[#E5E5E5]">
-            <div
-              className="flex justify-between cursor-pointer"
-              onClick={() => toggleCategory(index)}
-            >
-              <p className="text-[12px] font-bold">{group.title}</p>
-              <img
-                src={
-                  openCategories[index]
-                    ? "/logos/arrow-up-2.svg"
-                    : "/logos/arrow-down-2.svg"
-                }
-                alt={openCategories[index] ? "Arrow Up" : "Arrow Down"}
-                width={18}
-                height={18}
-                className="mr-[14px]"
-              />
-            </div>
-
-            <div
-              className={`flex flex-col max-w-[190px] mr-[18px] transition-all duration-300 ease-in-out pr-2.5 ${
-                openCategories[index]
-                  ? "opacity-100 max-h-[140px] mt-[18px]"
-                  : "opacity-0 max-h-0 pt-0 overflow-hidden"
-              } ${
-                openCategories[index]
-                  ? "hover:overflow-y-auto overflow-y-hidden scrollbar-thin"
-                  : ""
-              }`}
-            >
-              {group.key === "priceRange" ? (
-                <PriceRangeFilter
-                  min={group.min}
-                  max={group.max}
-                  valueMin={selectedFilters.minPrice}
-                  valueMax={selectedFilters.maxPrice}
-                  onCommit={handlePriceCommit}
-                />
-              ) : group.items.map((item, itemIndex) => (
-                <div
-                  key={itemIndex}
-                  className="flex items-center gap-1 mb-[13px]"
-                >
-                  <input
-                    type="checkbox"
-                    id={`${group.key}-${item.id || itemIndex}`}
-                    name={item.name}
-                    checked={isChecked(group.key, item.id, item)}
-                    onChange={(e) =>
-                      handleFilterChange(
-                        group.key,
-                        item.id,
-                        e.target.checked,
-                        item,
-                      )
-                    }
-                  />
-                  <label
-                    htmlFor={`${group.key}-${item.id || itemIndex}`}
-                    className="ml-[10px] text-[12px] leading-[15px] text-nowrap"
-                  >
-                    {item.name}
-                  </label>
-                </div>
-              ))}
-            </div>
+    <aside className="sticky top-[96px] w-[264px] shrink-0 self-start">
+      <div className="flex max-h-[calc(100vh-120px)] flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.06]">
+        <div className="flex items-center justify-between gap-3 border-b border-black/[0.06] px-5 py-4">
+          <div className="flex items-center gap-2">
+            <FiSliders className="h-4 w-4 text-gray-900" aria-hidden />
+            <h2 className="font-display text-[18px] font-semibold uppercase leading-none tracking-wide text-gray-900">
+              {filterText("filter")}
+            </h2>
+            {total > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#FDC700] px-1.5 text-[11px] font-bold leading-none text-[#141409]">
+                {total}
+              </span>
+            )}
           </div>
+          {total > 0 && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="text-[12px] font-semibold text-gray-500 underline-offset-2 transition-colors hover:text-gray-900 hover:underline"
+            >
+              {filterText("clearShort")}
+            </button>
+          )}
+        </div>
 
-          {/* Subcategories dropdown - SEPARATE section UNDER each parent */}
-          {group.key === "categoryIds" &&
-            group.items.map((item) => {
-              const children = parentCategoriesWithChildren[item.id]?.children;
-              const isParentChecked = isChecked(group.key, item.id, item);
-
-              if (!children || children.length === 0) return null;
-
+        <div className="scrollbar-thin flex-1 overflow-y-auto">
+          {loading ? (
+            <FilterSkeleton />
+          ) : (
+            groups.map((group) => {
+              const count = selectedCount(filters, group);
+              const open = openOverrides[group.key] ?? (OPEN_BY_DEFAULT.has(group.key) || count > 0);
+              const GroupIcon = FILTER_GROUP_ICONS[group.key];
               return (
-                <div
-                  key={`sub-${item.id}`}
-                  className={`transition-all duration-300 ease-in-out ${
-                    isParentChecked
-                      ? "opacity-100 max-h-[200px] mb-[20px]"
-                      : "opacity-0 max-h-0 overflow-hidden p-0 m-0"
-                  }`}
-                >
-                  <div className="pl-[10px] pb-[20px] border-b border-[#E5E5E5]">
-                    <div className="flex justify-between mb-[18px]">
-                      <p className="text-[12px] font-bold">
-                        Product subcategory
-                      </p>
-                    </div>
+                <section key={group.key} className="border-b border-black/[0.06] last:border-b-0">
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() => setOpenOverrides((o) => ({ ...o, [group.key]: !open }))}
+                    className="flex w-full items-center justify-between gap-2 px-5 py-3.5 text-left transition-colors hover:bg-[#f8f7f4]"
+                  >
+                    <span className="flex items-center gap-2.5 text-[13px] font-bold text-gray-900">
+                      {GroupIcon && <GroupIcon className="h-7 w-7 shrink-0" />}
+                      {filterText(group.key)}
+                      {count > 0 && (
+                        <span className="rounded-full bg-[#141409] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                          {count}
+                        </span>
+                      )}
+                    </span>
+                    <FiChevronDown
+                      aria-hidden
+                      className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+                    />
+                  </button>
 
-                    <div className="flex flex-col max-w-[190px] mr-[18px] pr-2.5 max-h-[140px] hover:overflow-y-auto overflow-y-hidden scrollbar-thin">
-                      {children.map((child) => (
-                        <div
-                          key={child.category_Id}
-                          className="flex items-center gap-1 mb-[13px]"
-                        >
-                          <input
-                            type="checkbox"
-                            id={`sub-${group.key}-${child.category_Id}`}
-                            name={child.category_Name}
-                            checked={isChecked(
-                              group.key,
-                              child.category_Id,
-                              child,
-                            )}
-                            onChange={(e) =>
-                              handleFilterChange(
-                                group.key,
-                                child.category_Id,
-                                e.target.checked,
-                                child,
-                              )
+                  <div
+                    className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                      open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                    }`}
+                  >
+                    <div className="overflow-hidden" inert={!open}>
+                      <div className="px-5 pb-4 pt-0.5">
+                        {group.isPrice ? (
+                          <PriceRangeFilter
+                            min={group.min}
+                            max={group.max}
+                            valueMin={filters.minPrice}
+                            valueMax={filters.maxPrice}
+                            onCommit={(minPrice, maxPrice) =>
+                              onFilterChange({ ...filters, minPrice, maxPrice })
                             }
                           />
-                          <label
-                            htmlFor={`sub-${group.key}-${child.category_Id}`}
-                            className="ml-[10px] text-[12px] leading-[15px] text-nowrap cursor-pointer"
-                          >
-                            {child.category_Name}
-                          </label>
-                        </div>
-                      ))}
+                        ) : (
+                          <OptionList group={group} filters={filters} onToggle={toggle} />
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                </section>
               );
-            })}
+            })
+          )}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function OptionList({ group, filters, onToggle }) {
+  const [expanded, setExpanded] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const label = (item) => filterLabel(group.key, item.slug || item.id, item.name);
+  const searchable = group.items.length > SEARCH_THRESHOLD;
+  const q = query.trim().toLowerCase();
+
+  let items = group.items;
+  if (q) {
+    items = items.filter((i) => label(i).toLowerCase().includes(q));
+  } else if (!expanded) {
+    // Keep selected options visible even when the list is collapsed.
+    items = items.filter((i, idx) => idx < VISIBLE_LIMIT || isSelected(filters, group.key, i.id));
+  }
+  const hiddenCount = group.items.length - VISIBLE_LIMIT;
+
+  return (
+    <div>
+      {searchable && (
+        <label className="mb-2 flex items-center gap-2 rounded-lg bg-[#f4f3ef] px-3 py-2 focus-within:ring-1 focus-within:ring-[#141409]">
+          <FiSearch className="h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={filterText("searchIn")}
+            className="w-full min-w-0 bg-transparent text-[12px] text-gray-900 outline-none placeholder:text-gray-400"
+          />
+        </label>
+      )}
+
+      <ul className={`-mx-2 ${expanded || q ? "scrollbar-thin max-h-[280px] overflow-y-auto" : ""}`}>
+        {items.map((item) => {
+          const checked = isSelected(filters, group.key, item.id);
+          const children = item.children || [];
+          return (
+            <li key={item.id}>
+              <CheckRow
+                id={`f-${group.key}-${item.id}`}
+                checked={checked}
+                onChange={() => onToggle(group.key, item.id)}
+                icon={iconForFilterItem(group.key, item)}
+              >
+                {label(item)}
+              </CheckRow>
+              {checked && children.length > 0 && (
+                <ul className="mb-1 ml-[17px] border-l-2 border-[#FDC700] pl-2">
+                  {children.map((child) => (
+                    <li key={child.id}>
+                      <CheckRow
+                        id={`f-${group.key}-${child.id}`}
+                        checked={isSelected(filters, group.key, child.id)}
+                        onChange={() => onToggle(group.key, child.id)}
+                        icon={iconForSlug(child.slug)}
+                        small
+                      >
+                        {filterLabel("categoryIds", child.slug, child.name)}
+                      </CheckRow>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          );
+        })}
+        {q && items.length === 0 && (
+          <li className="px-2 py-1.5 text-[12px] text-gray-400">{filterText("noMatches")}</li>
+        )}
+      </ul>
+
+      {!q && hiddenCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1.5 text-[12px] font-semibold text-gray-900 underline decoration-[#FDC700] decoration-2 underline-offset-4 transition-colors hover:decoration-[#141409]"
+        >
+          {expanded ? filterText("showLess") : filterText("showAll").replace("{n}", group.items.length)}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CheckRow({ id, checked, onChange, small = false, icon: Icon, children }) {
+  return (
+    <label
+      htmlFor={id}
+      className="group flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-[5px] transition-colors hover:bg-[#f8f7f4]"
+    >
+      <input id={id} type="checkbox" checked={checked} onChange={onChange} className="peer sr-only" />
+      <span
+        aria-hidden
+        className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[#FDC700] peer-focus-visible:ring-offset-1 ${
+          checked ? "border-[#141409] bg-[#141409]" : "border-gray-300 bg-white group-hover:border-gray-500"
+        }`}
+      >
+        {checked && <FiCheck className="h-3 w-3 text-[#FDC700]" strokeWidth={3.5} />}
+      </span>
+      {Icon && <Icon className={`shrink-0 text-gray-900 ${small ? "h-5 w-5" : "h-6 w-6"}`} />}
+      <span
+        className={`min-w-0 truncate leading-[18px] ${small ? "text-[12px]" : "text-[13px]"} ${
+          checked ? "font-semibold text-gray-900" : "text-gray-700 group-hover:text-gray-900"
+        }`}
+      >
+        {children}
+      </span>
+    </label>
+  );
+}
+
+function FilterSkeleton() {
+  return (
+    <div className="space-y-5 px-5 py-5" aria-busy="true" aria-label={filterText("loading")}>
+      {[0, 1, 2].map((g) => (
+        <div key={g} className="space-y-3">
+          <div className="h-3 w-24 rounded-full bg-gray-100" />
+          {[0, 1, 2, 3].map((r) => (
+            <div key={r} className="flex items-center gap-2.5">
+              <div className="h-[18px] w-[18px] rounded-[5px] bg-gray-100" />
+              <div className="h-2.5 rounded-full bg-gray-100" style={{ width: `${50 + ((r * 17) % 40)}%` }} />
+            </div>
+          ))}
         </div>
       ))}
     </div>

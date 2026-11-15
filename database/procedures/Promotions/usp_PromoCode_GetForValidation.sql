@@ -21,6 +21,7 @@ BEGIN
            pc.ValidFrom,
            pc.ValidUntil,
            pc.IsActive,
+           pc.AppliesTo,
            (SELECT COUNT(*) FROM dbo.PromoCodeUsages u WHERE u.PromoCodeId = pc.PromoCodeId) AS TimesUsed,
            (SELECT COUNT(*) FROM dbo.PromoCodeUsages u
             WHERE u.PromoCodeId = pc.PromoCodeId

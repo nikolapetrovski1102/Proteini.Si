@@ -9,7 +9,15 @@ import {
 } from "react-icons/fi";
 import { useLanguage } from "../translation/LanguageContext";
 import { api } from "../../services/api";
-import { COUNTRIES } from "../Components/countries";
+import {
+  CityPostCodeSelector,
+  LockedCountryInput,
+  PhoneInputWithCountry,
+  StreetAddressAutocomplete,
+  findMatchingCity,
+  useCheckoutLocations,
+  validatePhoneWithCountry,
+} from "../Components/AddressFields";
 import {
   Notice,
   ProfileHeader,
@@ -28,7 +36,7 @@ const EMPTY_NATURAL = {
   User_Address: "",
   User_PostCode: "",
   User_City: "",
-  User_Country: "",
+  User_Country: "North Macedonia",
   User_Phone: "",
 };
 
@@ -38,7 +46,7 @@ const EMPTY_COMPANY = {
   Company_TaxNumber: "",
   Company_PostCode: "",
   Company_City: "",
-  Company_Country: "",
+  Company_Country: "North Macedonia",
   Company_Phone: "",
 };
 
@@ -49,24 +57,6 @@ function Input({ label, id, className = "", ...props }) {
         {label}
       </label>
       <input id={id} className={inputClass} {...props} />
-    </div>
-  );
-}
-
-function CountrySelect({ label, id, translate, className = "", ...props }) {
-  return (
-    <div className={className}>
-      <label htmlFor={id} className="mb-1.5 block text-[13px] font-semibold text-gray-800">
-        {label}
-      </label>
-      <select id={id} className={`${inputClass} appearance-none`} {...props}>
-        <option value="">{translate("selectACountry")}</option>
-        {COUNTRIES.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>
     </div>
   );
 }
@@ -88,6 +78,7 @@ function SectionCard({ icon, title, children, className = "" }) {
 
 export default function ProfileDefault() {
   const { translate } = useLanguage();
+  const { phoneCountries, cities } = useCheckoutLocations();
   const [user, setUser] = useState(null);
   const [accountType, setAccountType] = useState("natural");
   const [naturalForm, setNaturalForm] = useState(EMPTY_NATURAL);
@@ -108,7 +99,7 @@ export default function ProfileDefault() {
         Company_TaxNumber: c.company_TaxNumber || "",
         Company_PostCode: c.company_PostCode || "",
         Company_City: c.company_City || "",
-        Company_Country: c.company_Country || "",
+        Company_Country: "North Macedonia",
         Company_Phone: c.company_Phone || "",
       });
     } else {
@@ -117,7 +108,7 @@ export default function ProfileDefault() {
         User_Address: data.user_Address || "",
         User_PostCode: data.user_PostCode || "",
         User_City: data.user_City || "",
-        User_Country: data.user_Country || "",
+        User_Country: "North Macedonia",
         User_Phone: data.user_Phone || "",
       });
     }
@@ -149,24 +140,48 @@ export default function ProfileDefault() {
     e.preventDefault();
     setSaving(true);
     try {
-      const billingData =
-        accountType === "company"
-          ? {
-              company_Name: companyForm.Company_Name,
-              company_Address: companyForm.Company_Address,
-              company_TaxNumber: companyForm.Company_TaxNumber,
-              company_PostCode: companyForm.Company_PostCode,
-              company_City: companyForm.Company_City,
-              company_Country: companyForm.Company_Country,
-              company_Phone: companyForm.Company_Phone,
-            }
-          : {
-              user_Address: naturalForm.User_Address,
-              user_PostCode: naturalForm.User_PostCode,
-              user_City: naturalForm.User_City,
-              user_Country: naturalForm.User_Country,
-              user_Phone: naturalForm.User_Phone,
-            };
+      const isCompany = accountType === "company";
+      const rawPhone = isCompany ? companyForm.Company_Phone : naturalForm.User_Phone;
+      const rawCity = isCompany ? companyForm.Company_City : naturalForm.User_City;
+      const rawZip = isCompany ? companyForm.Company_PostCode : naturalForm.User_PostCode;
+
+      let normalizedPhone = rawPhone;
+      if (rawPhone?.trim()) {
+        const phoneCheck = validatePhoneWithCountry(rawPhone, phoneCountries);
+        if (!phoneCheck.valid) {
+          flash("error", translate("invalidPhoneFormat"));
+          setSaving(false);
+          return;
+        }
+        normalizedPhone = phoneCheck.e164;
+      }
+
+      if (rawCity?.trim() || rawZip?.trim()) {
+        const matchedCity = findMatchingCity(rawCity, rawZip, cities);
+        if (!matchedCity || !matchedCity.postCodes?.some((p) => p.postCode === rawZip.trim())) {
+          flash("error", translate("invalidCityOrPostCode"));
+          setSaving(false);
+          return;
+        }
+      }
+
+      const billingData = isCompany
+        ? {
+            company_Name: companyForm.Company_Name,
+            company_Address: companyForm.Company_Address,
+            company_TaxNumber: companyForm.Company_TaxNumber,
+            company_PostCode: companyForm.Company_PostCode,
+            company_City: companyForm.Company_City,
+            company_Country: "North Macedonia",
+            company_Phone: normalizedPhone,
+          }
+        : {
+            user_Address: naturalForm.User_Address,
+            user_PostCode: naturalForm.User_PostCode,
+            user_City: naturalForm.User_City,
+            user_Country: "North Macedonia",
+            user_Phone: normalizedPhone,
+          };
 
       const response = await api.updateBillingInfo(billingData);
       if (response.status) {
@@ -231,7 +246,7 @@ export default function ProfileDefault() {
 
         <SectionCard icon={FiUser} title={translate("billingInformation")}>
           <form onSubmit={handleSave}>
-            <div role="radiogroup" aria-label={translate("accountType")} className="mb-6 inline-grid grid-cols-2 rounded-full bg-[#f6f5f1] p-1 ring-1 ring-black/[0.05]">
+            <div role="radiogroup" aria-label={translate("accountType")} className="mb-6 inline-grid grid-cols-2 rounded-xl bg-[#f6f5f1] p-1 ring-1 ring-black/[0.05]">
               {[
                 ["natural", FiUser, "naturalPerson"],
                 ["company", FiBriefcase, "company"],
@@ -242,8 +257,8 @@ export default function ProfileDefault() {
                   role="radio"
                   aria-checked={accountType === key}
                   onClick={() => setAccountType(key)}
-                  className={`inline-flex min-h-[40px] items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition sm:px-5 ${
-                    accountType === key ? "bg-[#141409] text-white" : "text-gray-600 hover:text-gray-900"
+                  className={`inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition sm:px-5 ${
+                    accountType === key ? "ink-tab bg-[#141409] text-white" : "text-gray-600 hover:text-gray-900"
                   }`}
                 >
                   {createElement(icon, { size: 15, className: accountType === key ? "text-[#FDC700]" : "" })}
@@ -254,21 +269,87 @@ export default function ProfileDefault() {
 
             {accountType === "natural" ? (
               <div className="grid gap-4 sm:grid-cols-2">
-                <Input id="bill-address" label={translate("address")} className="sm:col-span-2" autoComplete="street-address" value={naturalForm.User_Address} onChange={setNatural("User_Address")} placeholder={translate("enterAddress")} />
-                <Input id="bill-city" label={translate("city")} autoComplete="address-level2" value={naturalForm.User_City} onChange={setNatural("User_City")} placeholder={translate("enterCity")} />
-                <Input id="bill-post" label={translate("postCode")} autoComplete="postal-code" value={naturalForm.User_PostCode} onChange={setNatural("User_PostCode")} placeholder={translate("enterPostCode")} />
-                <CountrySelect id="bill-country" label={translate("country")} translate={translate} value={naturalForm.User_Country} onChange={setNatural("User_Country")} />
-                <Input id="bill-phone" type="tel" label={translate("phone")} autoComplete="tel" value={naturalForm.User_Phone} onChange={setNatural("User_Phone")} placeholder={translate("enterPhoneNumber")} />
+                <div className="sm:col-span-2">
+                  <CityPostCodeSelector
+                    city={naturalForm.User_City}
+                    postCode={naturalForm.User_PostCode}
+                    onSelectCityAndPostCode={(nextCity, nextZip) =>
+                      setNaturalForm((f) => ({
+                        ...f,
+                        User_City: nextCity,
+                        User_PostCode: nextZip,
+                      }))
+                    }
+                    cities={cities}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 block text-[13px] font-semibold text-gray-800">
+                    {translate("address")}
+                  </label>
+                  <StreetAddressAutocomplete
+                    value={naturalForm.User_Address}
+                    onChange={(val) => setNaturalForm((f) => ({ ...f, User_Address: val }))}
+                    city={naturalForm.User_City}
+                    placeholder={translate("enterAddress")}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <LockedCountryInput label={translate("country")} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 block text-[13px] font-semibold text-gray-800">
+                    {translate("phone")}
+                  </label>
+                  <PhoneInputWithCountry
+                    value={naturalForm.User_Phone}
+                    onChange={(val) => setNaturalForm((f) => ({ ...f, User_Phone: val }))}
+                    phoneCountries={phoneCountries}
+                  />
+                </div>
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
                 <Input id="co-name" label={translate("companyName")} className="sm:col-span-2" autoComplete="organization" value={companyForm.Company_Name} onChange={setCompany("Company_Name")} />
-                <Input id="co-tax" label={translate("taxNumber")} value={companyForm.Company_TaxNumber} onChange={setCompany("Company_TaxNumber")} placeholder="123456789" />
-                <Input id="co-phone" type="tel" label={translate("phone")} autoComplete="tel" value={companyForm.Company_Phone} onChange={setCompany("Company_Phone")} />
-                <Input id="co-address" label={translate("companyAddress")} className="sm:col-span-2" autoComplete="street-address" value={companyForm.Company_Address} onChange={setCompany("Company_Address")} placeholder={translate("enterAddress")} />
-                <Input id="co-city" label={translate("city")} autoComplete="address-level2" value={companyForm.Company_City} onChange={setCompany("Company_City")} placeholder="Skopje" />
-                <Input id="co-post" label={translate("postCode")} autoComplete="postal-code" value={companyForm.Company_PostCode} onChange={setCompany("Company_PostCode")} placeholder="1000" />
-                <CountrySelect id="co-country" label={translate("country")} translate={translate} className="sm:col-span-2" value={companyForm.Company_Country} onChange={setCompany("Company_Country")} />
+                <Input id="co-tax" label={translate("taxNumber")} className="sm:col-span-2" value={companyForm.Company_TaxNumber} onChange={setCompany("Company_TaxNumber")} placeholder="123456789" />
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 block text-[13px] font-semibold text-gray-800">
+                    {translate("phone")}
+                  </label>
+                  <PhoneInputWithCountry
+                    value={companyForm.Company_Phone}
+                    onChange={(val) => setCompanyForm((f) => ({ ...f, Company_Phone: val }))}
+                    phoneCountries={phoneCountries}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <CityPostCodeSelector
+                    city={companyForm.Company_City}
+                    postCode={companyForm.Company_PostCode}
+                    onSelectCityAndPostCode={(nextCity, nextZip) =>
+                      setCompanyForm((f) => ({
+                        ...f,
+                        Company_City: nextCity,
+                        Company_PostCode: nextZip,
+                      }))
+                    }
+                    cities={cities}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 block text-[13px] font-semibold text-gray-800">
+                    {translate("companyAddress")}
+                  </label>
+                  <StreetAddressAutocomplete
+                    value={companyForm.Company_Address}
+                    onChange={(val) => setCompanyForm((f) => ({ ...f, Company_Address: val }))}
+                    city={companyForm.Company_City}
+                    placeholder={translate("enterAddress")}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <LockedCountryInput label={translate("country")} />
+                </div>
               </div>
             )}
 

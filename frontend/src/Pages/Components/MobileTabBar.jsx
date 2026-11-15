@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { FiGrid, FiHome, FiShoppingBag, FiTag, FiUser } from "react-icons/fi";
+import { FiGrid, FiHome, FiShoppingBag, FiUser } from "react-icons/fi";
 
 // Pages that own the bottom of the screen themselves (checkout, payment, admin).
 const HIDDEN_ON = [/^\/checkout/, /^\/mock-payment/, /^\/payment\//, /^\/admin/];
@@ -52,12 +52,11 @@ function Tab({ to, onClick, active, label, icon, badge, iconProps }) {
   );
 }
 
-/** Phone and tablet navigation: five tabs pinned to the bottom, above the home indicator. */
+/** Phone and tablet navigation: four tabs pinned to the bottom, above the home indicator. */
 export default function MobileTabBar({
   cartCount,
   loggedIn,
   isMenuOpen,
-  menuSegment,
   onOpenMenu,
   onCloseMenu,
   translate,
@@ -78,8 +77,8 @@ export default function MobileTabBar({
   const onOffers = pathname === "/all-products" && OFFER_QUERY.test(search);
   const tabs = {
     home: !isMenuOpen && pathname === "/",
-    shop: isMenuOpen ? menuSegment !== "offers" : !onOffers && SHOP_PATHS.test(pathname),
-    offers: isMenuOpen ? menuSegment === "offers" : onOffers,
+    // Offers live inside the Shop sheet (its Offers segment), so Shop covers them too.
+    shop: isMenuOpen || onOffers || SHOP_PATHS.test(pathname),
     cart: !isMenuOpen && pathname === "/cart",
     account: !isMenuOpen && (pathname.startsWith("/profile") || pathname === "/login"),
   };
@@ -94,7 +93,7 @@ export default function MobileTabBar({
     }
   };
 
-  // Shop and Offers open the menu sheet on their segment; tapping the open one closes it.
+  // Shop opens the menu sheet (Products | Brands | Offers); tapping it again closes it.
   const toggleSegment = (segment, active) => () => {
     if (isMenuOpen && active) onCloseMenu();
     else onOpenMenu(segment);
@@ -108,12 +107,6 @@ export default function MobileTabBar({
       <div className="mx-auto flex max-w-[640px] items-stretch px-1">
         <Tab to="/" active={tabs.home} onClick={scrollTopIfCurrent(tabs.home)} label={translate("home")} icon={FiHome} />
         <Tab onClick={toggleSegment("products", isMenuOpen && tabs.shop)} active={tabs.shop} label={translate("headerShop")} icon={FiGrid} />
-        <Tab
-          onClick={toggleSegment("offers", isMenuOpen && tabs.offers)}
-          active={tabs.offers}
-          label={translate("offers")}
-          icon={FiTag}
-        />
         <Tab
           to="/cart"
           active={tabs.cart}

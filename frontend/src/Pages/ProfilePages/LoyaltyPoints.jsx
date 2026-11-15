@@ -11,7 +11,6 @@ import {
 import { api } from "../../services/api";
 import { useCart } from "../Hooks/useCart";
 import { useLanguage } from "../translation/LanguageContext";
-import { Sparkle } from "../HomePages/sections/Decor";
 import {
   ProfileHeader,
   ProfileLoading,
@@ -112,9 +111,6 @@ export default function LoyaltyPoints() {
       <div className="space-y-5">
         {/* balance */}
         <section className="relative overflow-hidden rounded-3xl bg-[#FDC700] p-6 sm:p-8">
-          <Sparkle color="#141409" className="absolute right-[8%] top-[14%] h-7 w-7 rotate-12" />
-          <Sparkle color="#ffffff" className="absolute right-[20%] top-[38%] h-4 w-4" />
-          <Sparkle color="#E3262F" className="absolute bottom-[14%] right-[12%] h-5 w-5" />
           <p className="relative text-[11px] font-semibold uppercase tracking-[0.08em] text-[#141409]/70">
             {translate("availableLoyaltyPoints")}
           </p>

@@ -2,6 +2,15 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const IMAGE_BASE_URL = import.meta.env.VITE_IMAGE_BASE_URL;
 
+// Site language ("mk" or "al"), sent with orders and sign-ins so customer emails use it.
+const siteLanguage = () => {
+  try {
+    return localStorage.getItem("language") === "al" ? "al" : "mk";
+  } catch {
+    return "mk";
+  }
+};
+
 // Dapper's dynamic rows keep SQL column names (for example `FreeGiftId`),
 // while the React application consistently uses camelCase (`freeGiftId`).
 // Normalize those records at the API boundary so existing promotions and gifts
@@ -60,14 +69,14 @@ export const api = {
   // Registration no longer signs the user in: the backend emails a 6-digit
   // code and answers { status, requiresVerification, email, retryAfterSeconds }.
   async register(userData) {
-    const data = await this.postAuth("Register", userData, "Registration failed");
+    const data = await this.postAuth("Register", { language: siteLanguage(), ...userData }, "Registration failed");
     this.storeSession(data);
     return data;
   },
 
   // An unconfirmed account rejects with 403 and error.data.requiresVerification.
   async login(credentials) {
-    const data = await this.postAuth("Login", credentials, "Login failed");
+    const data = await this.postAuth("Login", { language: siteLanguage(), ...credentials }, "Login failed");
     this.storeSession(data);
     if (data.status && data.token && !data.user) {
       await api.fetchCurrentUser();
@@ -92,6 +101,37 @@ export const api = {
       { user_Email: email, language },
       "Could not send a new code",
     );
+  },
+
+  // Google authorization code (popup flow) -> signed-in session.
+  async externalSignIn({ provider, token }) {
+    const data = await this.postAuth(
+      "ExternalSignIn",
+      { provider, token, language: siteLanguage() },
+      "Sign-in failed",
+    );
+    this.storeSession(data);
+    return data;
+  },
+
+  // Passwordless: emails a 6-digit code; answers { retryAfterSeconds, isNewAccount }.
+  async sendSignInCode({ email, language }) {
+    return this.postAuth(
+      "EmailCode/Send",
+      { user_Email: email, language },
+      "Could not send a code",
+    );
+  },
+
+  // Signs in with the code; a new account also needs the full name.
+  async signInWithEmailCode({ email, code, fullName }) {
+    const data = await this.postAuth(
+      "EmailCode/SignIn",
+      { user_Email: email, code, user_FullName: fullName || null, language: siteLanguage() },
+      "Sign-in failed",
+    );
+    this.storeSession(data);
+    return data;
   },
 
   // Add this new method to fetch current user
@@ -373,6 +413,17 @@ export const api = {
     return data;
   },
 
+  // One request per page load for the shop (header menu + filters); the admin keeps calling getFilterOptions.
+  getShopFilterOptions() {
+    if (!this._shopFilterOptions) {
+      this._shopFilterOptions = this.getFilterOptions().catch((error) => {
+        this._shopFilterOptions = null;
+        throw error;
+      });
+    }
+    return this._shopFilterOptions;
+  },
+
   async getFilterOptions() {
     try {
       const token = this.getToken();
@@ -396,6 +447,23 @@ export const api = {
       console.error("Get filter options error:", error);
       throw error;
     }
+  },
+  /** Recommendations for a product page: [{ product_Id, reason: "together" | "similar", ... }]. Public. */
+  async getRelatedProducts(productId, limit = 8) {
+    const response = await fetch(`${API_BASE_URL}/products/${productId}/related?limit=${limit}`);
+    if (!response.ok) throw new Error("Failed to fetch related products");
+    return await response.json();
+  },
+  /**
+   * The home page "Because you ordered" rows for the signed-in customer:
+   * [{ product_Id, reason: "anchor" | "reorder" | "similar", orderedAt, position }]. Empty without real orders.
+   */
+  async getCustomerRecommendations(limit = 8) {
+    const response = await fetch(`${API_BASE_URL}/products/for-me?limit=${limit}`, {
+      headers: { Authorization: `Bearer ${this.getToken()}` },
+    });
+    if (!response.ok) throw new Error("Failed to fetch customer recommendations");
+    return await response.json();
   },
   async getProductById(id) {
     try {
@@ -434,11 +502,14 @@ export const api = {
         flavorIds: filters.flavorIds?.filter((id) => id > 0) || [],
         brandIds: filters.brandIds?.filter((id) => id > 0) || [],
         tagIds: filters.tagIds?.filter((id) => id > 0) || [],
+        sizes: (filters.sizes || []).filter((s) => typeof s === "string" && s.trim()),
+        productIds: filters.productIds?.filter((id) => id > 0) || [],
         minPrice: filters.minPrice > 0 ? filters.minPrice : null,
         maxPrice: filters.maxPrice > 0 ? filters.maxPrice : null,
         inStock: filters.inStock || false,
         onSale: filters.onSale || false,
         newProducts: filters.newProducts || false,
+        bestSellers: filters.bestSellers || false,
         outlet: filters.outlet || false,
         upcomingPromotions: filters.upcomingPromotions || false,
         giftVouchers: filters.giftVouchers || false,
@@ -519,17 +590,117 @@ export const api = {
     };
   },
 
-  async validatePromotionCode(code, subtotal, customerEmail = null) {
+  // items: [{ productId, price, quantity }] so codes limited to some products only discount those.
+  async validatePromotionCode(code, subtotal, customerEmail = null, items = []) {
     const response = await fetch(`${API_BASE_URL}/Promotions/validate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, subtotal, customerEmail }),
+      body: JSON.stringify({ code, subtotal, customerEmail, items }),
     });
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.message || "Invalid promotion code");
     }
     return data;
+  },
+
+  /** What a remembered affiliate/referral code gives, for showing its price before checkout. */
+  async getPromotionPreview(code) {
+    const response = await fetch(`${API_BASE_URL}/Promotions/preview/${encodeURIComponent(code)}`);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(data.message || "Promotion code not available");
+      error.status = response.status;
+      throw error;
+    }
+    return data;
+  },
+
+  async resolveShortLink(slug) {
+    const response = await fetch(
+      `${API_BASE_URL}/Affiliates/r/${encodeURIComponent(slug)}`,
+      { cache: "no-store" },
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || "Link not found");
+    return data;
+  },
+
+  /* ---------------------------------------------- affiliates & short links */
+
+  affiliateRangeQuery(from, to) {
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    const query = params.toString();
+    return query ? `?${query}` : "";
+  },
+
+  async getAdminAffiliates(from, to) {
+    return this.requestPromotionAdmin(`/Affiliates/admin${this.affiliateRangeQuery(from, to)}`);
+  },
+
+  async getAdminAffiliate(id, from, to) {
+    return this.requestPromotionAdmin(`/Affiliates/admin/${id}${this.affiliateRangeQuery(from, to)}`);
+  },
+
+  async quickCreateAffiliate(payload) {
+    return this.requestPromotionAdmin("/Affiliates/admin/quick", "POST", payload);
+  },
+
+  async saveAdminAffiliate(payload, id = null) {
+    return this.requestPromotionAdmin(
+      id ? `/Affiliates/admin/${id}` : "/Affiliates/admin",
+      id ? "PUT" : "POST",
+      payload,
+    );
+  },
+
+  async deleteAdminAffiliate(id) {
+    return this.requestPromotionAdmin(`/Affiliates/admin/${id}`, "DELETE");
+  },
+
+  async addAffiliateCode(affiliateId, code) {
+    return this.requestPromotionAdmin(`/Affiliates/admin/${affiliateId}/codes`, "POST", code);
+  },
+
+  async setPromoCodeAffiliate(promoCodeId, affiliateId) {
+    return this.requestPromotionAdmin(
+      `/Affiliates/admin/codes/${promoCodeId}/owner`,
+      "PUT",
+      { affiliateId: affiliateId || null },
+    );
+  },
+
+  async getAdminShortLinks(from, to) {
+    return this.requestPromotionAdmin(`/Affiliates/admin/links${this.affiliateRangeQuery(from, to)}`);
+  },
+
+  async saveAdminShortLink(payload, id = null) {
+    return this.requestPromotionAdmin(
+      id ? `/Affiliates/admin/links/${id}` : "/Affiliates/admin/links",
+      id ? "PUT" : "POST",
+      payload,
+    );
+  },
+
+  async deleteAdminShortLink(id) {
+    return this.requestPromotionAdmin(`/Affiliates/admin/links/${id}`, "DELETE");
+  },
+
+  async downloadAffiliateReport(from, to) {
+    const response = await fetch(
+      `${API_BASE_URL}/Affiliates/admin/report.csv${this.affiliateRangeQuery(from, to)}`,
+      { headers: { Authorization: `Bearer ${this.getToken()}` } },
+    );
+    if (!response.ok) throw new Error("Failed to export the affiliate report");
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `affiliates-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   },
 
   async getShippingSettings() {
@@ -547,6 +718,18 @@ export const api = {
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || "Failed to resolve category URL");
     return normalizeDynamicRecord(data);
+  },
+
+  // Home page "Ново во продавница" section as set up in admin (title, source, count, hand-picked products).
+  async getHomeShowcase() {
+    const response = await fetch(`${API_BASE_URL}/HomeShowcase`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Failed to load the home showcase");
+    return normalizeDynamicRecord(data.data || data);
+  },
+
+  async updateHomeShowcase(showcase) {
+    return this.requestPromotionAdmin("/HomeShowcase", "PUT", showcase);
   },
 
   async updateShippingSettings(settings) {
@@ -587,6 +770,18 @@ export const api = {
       "PUT",
       update,
     );
+  },
+
+  async lookupGiftVoucher(code) {
+    const result = await this.requestPromotionAdmin(
+      `/GiftVouchers/admin/lookup?code=${encodeURIComponent(code)}`,
+    );
+    return result.data;
+  },
+
+  async redeemGiftVoucher(redeem) {
+    const result = await this.requestPromotionAdmin("/GiftVouchers/admin/redeem", "POST", redeem);
+    return result.data;
   },
 
   async downloadGiftVoucherReport() {
@@ -804,10 +999,50 @@ export const api = {
   },
   // Add to api.js
 
+  // Guests paying cash on delivery confirm their email with a code first.
+  async postOrderJson(path, body, fallbackMessage) {
+    const response = await fetch(`${API_BASE_URL}/order/${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
+    }
+
+    if (!response.ok) {
+      const error = new Error(data.message || fallbackMessage);
+      error.data = data;
+      error.status = response.status;
+      throw error;
+    }
+    return data;
+  },
+
+  async sendGuestCheckoutCode({ email, name, language, marketingConsent }) {
+    return this.postOrderJson(
+      "guest-verification/send",
+      { email, name, language, marketingConsent },
+      "Could not send the code",
+    );
+  },
+
+  async confirmGuestCheckoutCode({ email, code }) {
+    return this.postOrderJson(
+      "guest-verification/confirm",
+      { email, code },
+      "Could not confirm the code",
+    );
+  },
+
   // Order endpoints
   async createOrder(orderData) {
     try {
-      const response = await this.post("/order/create", orderData);
+      const response = await this.post("/order/create", { language: siteLanguage(), ...orderData });
 
       // Check if response is HTML (cPay form)
       if (
@@ -2585,6 +2820,25 @@ export const api = {
       throw error;
     }
   },
+
+  // Automatic Instagram sync: { configured, last } and "sync now"
+  async getInstagramSyncStatus() {
+    const response = await fetch(`${API_BASE_URL}/InstagramPosts/sync`, {
+      headers: { Authorization: `Bearer ${this.getToken()}` },
+    });
+    if (!response.ok) throw new Error("Failed to load Instagram sync status");
+    return response.json();
+  },
+
+  async syncInstagramPosts() {
+    const response = await fetch(`${API_BASE_URL}/InstagramPosts/sync`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.getToken()}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || "Instagram sync failed");
+    return data;
+  },
   // ============= YOUTUBE VIDEOS ENDPOINTS =============
 
   // Get all active YouTube videos (for public display)
@@ -4060,6 +4314,131 @@ export const api = {
     return data;
   },
 
+  /* ------------------------------------------------------------- discounts (admin) */
+
+  /** [{ discount_Id, name, discount_Type, percentage, applies_To, target_Ids, items, starts_On, ends_On, is_Active, product_Count, live_Count }] */
+  getAdminDiscounts() {
+    return this._discountRequest("", { method: "GET" }, "Failed to load discounts");
+  },
+
+  /** [{ product_Id, variant_Id (0 = no variants), product_Name, brand_Name, flavor_Name, packaging_Name, weight_Grams, price }] */
+  getAdminDiscountItems() {
+    return this._discountRequest("/items", { method: "GET" }, "Failed to load products");
+  },
+
+  createAdminDiscount(discount) {
+    return this._discountRequest("", { method: "POST", body: JSON.stringify(discount) }, "Failed to create discount");
+  },
+
+  updateAdminDiscount(id, discount) {
+    return this._discountRequest(`/${id}`, { method: "PUT", body: JSON.stringify(discount) }, "Failed to update discount");
+  },
+
+  deleteAdminDiscount(id) {
+    return this._discountRequest(`/${id}`, { method: "DELETE" }, "Failed to delete discount");
+  },
+
+  async _discountRequest(path, options, fallback) {
+    const response = await fetch(`${API_BASE_URL}/admin/discounts${path}`, {
+      ...options,
+      headers: { Authorization: `Bearer ${this.getToken()}`, "Content-Type": "application/json" },
+    });
+    const text = await response.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+    if (!response.ok) {
+      const message = typeof data === "string" ? data : data?.error || data?.message || data?.title;
+      throw new Error(message || fallback);
+    }
+    return data;
+  },
+
+  /* ---------------------------------------------------------------- brands (admin) */
+
+  async _brandRequest(path, options, fallback) {
+    const response = await fetch(`${API_BASE_URL}/admin/brands${path}`, {
+      ...options,
+      headers: { Authorization: `Bearer ${this.getToken()}`, ...(options?.headers || {}) },
+    });
+    const text = await response.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+    if (!response.ok) {
+      const message = typeof data === "string" ? data : data?.error || data?.message;
+      throw new Error(message || fallback);
+    }
+    return data;
+  },
+
+  /**
+   * Admin "Pinned in shop": { placements: [{ scope, target_Id, product_Id, position }],
+   * products: [{ product_Id, name, img, brand_Id, quantity, categoryIds }] }.
+   */
+  async getProductPlacements() {
+    const response = await fetch(`${API_BASE_URL}/admin/product-placements`, {
+      headers: { Authorization: `Bearer ${this.getToken()}` },
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.error || data?.message || "Failed to load pinned products");
+    return data;
+  },
+
+  /** Replaces the pins of one listing: { scope: "category" | "brand" | "all", targetId, productIds }. */
+  async saveProductPlacements(placement) {
+    const response = await fetch(`${API_BASE_URL}/admin/product-placements`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${this.getToken()}`, "Content-Type": "application/json" },
+      body: JSON.stringify(placement),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.error || data?.message || "Failed to save pinned products");
+    return data;
+  },
+
+  /** [{ brand_Id, brand_Name, brand_Slug, logo_Url, header_Image_Url, is_Featured, display_Order, product_Count }] */
+  getAdminBrands() {
+    return this._brandRequest("", { method: "GET" }, "Failed to load brands");
+  },
+
+  _brandForm(brand) {
+    const form = new FormData();
+    form.append("Name", brand.name);
+    form.append("Slug", brand.slug || "");
+    form.append("IsFeatured", brand.isFeatured ? "true" : "false");
+    form.append("DisplayOrder", String(Number(brand.displayOrder) || 0));
+    if (brand.logo) form.append("Logo", brand.logo);
+    if (brand.headerImage) form.append("HeaderImage", brand.headerImage);
+    if (brand.removeLogo) form.append("RemoveLogo", "true");
+    if (brand.removeHeaderImage) form.append("RemoveHeaderImage", "true");
+    return form;
+  },
+
+  async createAdminBrand(brand) {
+    const data = await this._brandRequest("", { method: "POST", body: this._brandForm(brand) }, "Failed to create brand");
+    this._shopFilterOptions = null;
+    return data;
+  },
+
+  async updateAdminBrand(id, brand) {
+    const data = await this._brandRequest(`/${id}`, { method: "PUT", body: this._brandForm(brand) }, "Failed to update brand");
+    this._shopFilterOptions = null;
+    return data;
+  },
+
+  async deleteAdminBrand(id) {
+    const data = await this._brandRequest(`/${id}`, { method: "DELETE" }, "Failed to delete brand");
+    this._shopFilterOptions = null;
+    return data;
+  },
+
   async deleteAdminCategory(categoryId) {
     const response = await fetch(
       `${API_BASE_URL}/admin/taxonomy/categories/${categoryId}`,
@@ -4191,5 +4570,230 @@ export const api = {
     link.download = type === "users" ? "registered-users.csv" : "newsletter-subscribers.csv";
     link.click();
     URL.revokeObjectURL(url);
+  },
+
+  // ---- Automated marketing emails ----
+
+  async unsubscribeMarketingEmails({ email, token }) {
+    const response = await fetch(`${API_BASE_URL}/Marketing/email-unsubscribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, token }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || "Unsubscribe failed");
+    return data;
+  },
+
+  async marketingAdminRequest(path, { method = "GET", body } = {}) {
+    const headers = { Authorization: `Bearer ${this.getToken()}` };
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const response = await fetch(`${API_BASE_URL}/Marketing/admin/${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.status === false) {
+      throw new Error(data.message || "Request failed");
+    }
+    return data;
+  },
+
+  getMarketingEmailTemplates() {
+    return this.marketingAdminRequest("email-templates");
+  },
+
+  updateMarketingEmailTemplate(code, template) {
+    return this.marketingAdminRequest(`email-templates/${code}`, { method: "PUT", body: template });
+  },
+
+  previewMarketingEmailTemplate(code, draft) {
+    return this.marketingAdminRequest(`email-templates/${code}/preview`, { method: "POST", body: draft });
+  },
+
+  sendMarketingTestEmail(code, draft) {
+    return this.marketingAdminRequest(`email-templates/${code}/test`, { method: "POST", body: draft });
+  },
+
+  getMarketingEmailLog(top = 100) {
+    return this.marketingAdminRequest(`email-log?top=${top}`);
+  },
+
+  // ---- Checkout & Admin Delivery Locations + Free Street Autocomplete ----
+
+  _checkoutLocationsPromise: null,
+
+  async getCheckoutLocations(forceRefresh = false) {
+    if (!forceRefresh && this._checkoutLocationsPromise) {
+      return this._checkoutLocationsPromise;
+    }
+
+    this._checkoutLocationsPromise = (async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/locations/checkout-options`);
+        const json = await response.json();
+        if (response.ok && json?.data) {
+          return {
+            shippingCountries: normalizeDynamicRows(json.data.shippingCountries || []),
+            phoneCountries: normalizeDynamicRows(json.data.phoneCountries || []),
+            cities: (json.data.cities || []).map((c) => {
+              const norm = normalizeDynamicRecord(c);
+              return {
+                ...norm,
+                postCodes: normalizeDynamicRows(norm.postCodes || []),
+              };
+            }),
+          };
+        }
+      } catch (err) {
+        console.warn("Falling back to built-in checkout locations:", err);
+      }
+      return null;
+    })();
+
+    return this._checkoutLocationsPromise;
+  },
+
+  clearCheckoutLocationsCache() {
+    this._checkoutLocationsPromise = null;
+  },
+
+  async getAdminDeliveryLocations() {
+    const response = await fetch(`${API_BASE_URL}/locations/admin`, {
+      headers: { Authorization: `Bearer ${this.getToken()}` },
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(json.message || "Failed to load delivery locations");
+    }
+    const raw = json.data || {};
+    return {
+      countries: normalizeDynamicRows(raw.countries || []),
+      cities: (raw.cities || []).map((c) => {
+        const norm = normalizeDynamicRecord(c);
+        return {
+          ...norm,
+          postCodes: normalizeDynamicRows(norm.postCodes || []),
+        };
+      }),
+    };
+  },
+
+  async updateCityDeliver(cityId, deliver) {
+    const response = await fetch(
+      `${API_BASE_URL}/locations/admin/cities/${cityId}/deliver`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${this.getToken()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ deliver: Boolean(deliver) }),
+      },
+    );
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(json.message || "Failed to update city delivery flag");
+    }
+    this.clearCheckoutLocationsCache();
+    return json;
+  },
+
+  async bulkUpdateCityDeliver(isTown, deliver) {
+    const response = await fetch(
+      `${API_BASE_URL}/locations/admin/cities/bulk-deliver`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${this.getToken()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ isTown: Boolean(isTown), deliver: Boolean(deliver) }),
+      },
+    );
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(json.message || "Failed to bulk update cities");
+    }
+    this.clearCheckoutLocationsCache();
+    return json;
+  },
+
+  async updateCountryAllowPhone(countryId, allowPhone) {
+    const response = await fetch(
+      `${API_BASE_URL}/locations/admin/countries/${countryId}/allow-phone`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${this.getToken()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ allowPhone: Boolean(allowPhone) }),
+      },
+    );
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(json.message || "Failed to update country phone permission");
+    }
+    this.clearCheckoutLocationsCache();
+    return json;
+  },
+
+  // Free street autocomplete via Komoot Photon (OpenStreetMap data, zero API key required),
+  // bounded to North Macedonia (bbox 20.45,40.85,23.05,42.38). Non-blocking: returns [] if offline.
+  async searchStreetAddresses(query, cityName = "", signal = undefined) {
+    const trimmed = (query || "").trim();
+    if (trimmed.length < 3) return [];
+
+    try {
+      const searchQuery = cityName ? `${trimmed}, ${cityName}` : trimmed;
+      const params = new URLSearchParams({
+        q: searchQuery,
+        bbox: "20.45,40.85,23.05,42.38",
+        limit: "6",
+      });
+      const response = await fetch(
+        `https://photon.komoot.io/api/?${params.toString()}`,
+        { signal },
+      );
+      if (!response.ok) return [];
+
+      const data = await response.json();
+      const features = Array.isArray(data?.features) ? data.features : [];
+      const seen = new Set();
+      const results = [];
+
+      for (const feat of features) {
+        const props = feat?.properties || {};
+        if (
+          props.countrycode &&
+          String(props.countrycode).toUpperCase() !== "MK"
+        ) {
+          continue;
+        }
+        const street = props.street || props.name || "";
+        if (!street) continue;
+
+        const houseNumber = props.housenumber ? ` ${props.housenumber}` : "";
+        const locality = props.city || props.town || props.village || props.district || "";
+        const postcode = props.postcode || "";
+        const primary = `${street}${houseNumber}`.trim();
+        const key = `${primary.toLowerCase()}|${locality.toLowerCase()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        results.push({
+          street: primary,
+          city: locality,
+          postCode: postcode,
+          label: locality ? `${primary} (${locality})` : primary,
+        });
+      }
+
+      return results;
+    } catch {
+      return [];
+    }
   },
 };

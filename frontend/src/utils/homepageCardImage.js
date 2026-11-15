@@ -1,10 +1,10 @@
 const BACKEND_ORIGIN = "https://proteini.mk";
 
 const legacyHomepageImages = {
-  "/img/gym-1.jpg": "/img/homepage-cards/gain-muscle-mass.webp",
-  "/img/gym-2.jpg": "/img/homepage-cards/lose-weight.webp",
-  "/img/gym-3.jpg": "/img/homepage-cards/vitality-lifestyle.webp",
-  "/img/gym-4.jpg": "/img/homepage-cards/improve-form-endurance.webp",
+  "/img/gym-1.jpg": "/img/homepage-cards/goal-muscle-mass.webp",
+  "/img/gym-2.jpg": "/img/homepage-cards/goal-weight-loss.webp",
+  "/img/gym-3.jpg": "/img/homepage-cards/goal-vitality.webp",
+  "/img/gym-4.jpg": "/img/homepage-cards/goal-endurance.webp",
   "/img/gym-6.jpg": "/img/homepage-cards/running.webp",
   "/img/gym-7.jpg": "/img/homepage-cards/team-sports.webp",
   "/img/gym-8.jpg": "/img/homepage-cards/fitness-bodybuilding.webp",

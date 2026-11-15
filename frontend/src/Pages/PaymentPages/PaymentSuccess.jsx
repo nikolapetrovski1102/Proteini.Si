@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "../../services/api";
 import { clearGuestCart } from "../Hooks/useCart";
+import { clearReferralCode } from "../../utils/referral";
 import { BrandLoader } from "../Components/Loaders/BrandLoader";
+import { metaPurchase } from "../../services/metaPixel";
 
 export default function PaymentSuccess() {
   const [searchParams] = useSearchParams();
@@ -35,6 +37,12 @@ export default function PaymentSuccess() {
 
         if (response.status && response.order) {
           setStatus("success");
+          metaPurchase(
+            orderId,
+            response.items || [],
+            response.order.Total_Amount ?? response.order.total_Amount,
+          );
+          clearReferralCode();
           // The cart is only cleared once the payment has succeeded.
           if (api.isAuthenticated()) {
             await api.clearCart().catch((e) => console.error("Failed to clear cart:", e));

@@ -1,0 +1,10 @@
+[Unit]
+Description=Check every 15 minutes for Proteini.mk marketing emails that are due
+
+[Timer]
+OnCalendar=*:0/15
+AccuracySec=1min
+Unit=proteinisi-marketing@prod.service
+
+[Install]
+WantedBy=timers.target

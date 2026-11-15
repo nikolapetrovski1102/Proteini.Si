@@ -14,15 +14,19 @@ import {
   FiZap,
 } from "react-icons/fi";
 import { api } from "../../services/api";
-import { FREE_DELIVERY_THRESHOLD } from "../../utils/deliveryPricing";
+import { FREE_DELIVERY_THRESHOLD, getShippableSubtotal } from "../../utils/deliveryPricing";
+import { maxRedeemablePoints, nextLoyaltyUnlock } from "../../utils/loyaltyRules";
 import { isPendingCartItem, useCart } from "../Hooks/useCart";
 import { useQuickPurchase } from "../Hooks/useQuickPurchase";
 import { useLanguage } from "../translation/LanguageContext";
 import HomeProductCard from "../HomePages/HomeProductCard";
 import HomeProductRail from "../HomePages/HomeProductRail";
-import { Sparkle, Starburst } from "../HomePages/sections/Decor";
+import { Starburst } from "../HomePages/sections/Decor";
+import ReferralOfferCard from "../Components/ReferralOfferCard";
+import { useReferralOffer } from "../../utils/referralOffer";
+import { formatMkd as formatPrice } from "../../utils/formatPrice";
+import Price from "../Components/Price";
 
-const formatPrice = (value) => `MKD ${Number(value || 0).toFixed(2)}`;
 const REMOVE_ANIMATION_MS = 200; // keep in sync with .cart-row in index.css
 
 const ADVANTAGES = [
@@ -36,26 +40,129 @@ const ADVANTAGES = [
 const headingClass =
   "font-display font-bold uppercase tracking-tight leading-[0.95] text-gray-900 [text-wrap:balance]";
 
-/** Free-delivery threshold from the shop settings (falls back to the default). */
-function useFreeDeliveryThreshold() {
-  const [threshold, setThreshold] = useState(FREE_DELIVERY_THRESHOLD);
+/**
+ * What the visitor's affiliate code takes off this cart, checked by the server exactly like checkout
+ * does (minimum order, products it applies to). 0 while it doesn't apply.
+ */
+function useReferralCartDiscount(offer, items, total) {
+  // The lines as a string, so a new cart object with the same contents doesn't ask again.
+  const linesKey = JSON.stringify(
+    items
+      .filter((item) => !isPendingCartItem(item))
+      .map((item) => ({
+        productId: item.product_Id,
+        price: Number(item.price) || 0,
+        quantity: Number(item.quantity) || 1,
+      })),
+  );
+  const requestKey = offer?.code && total > 0 && linesKey !== "[]" ? `${offer.code}|${total}|${linesKey}` : null;
+  // Kept with the cart it was checked for, so a changed cart never shows the old amount.
+  const [checked, setChecked] = useState({ key: null, amount: 0 });
+
+  useEffect(() => {
+    if (!requestKey) return undefined;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      api
+        .validatePromotionCode(offer.code, total, null, JSON.parse(linesKey))
+        .then((result) => Number(result?.discountAmount) || 0, () => 0)
+        .then((amount) => !cancelled && setChecked({ key: requestKey, amount }));
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [requestKey]); // eslint-disable-line react-hooks/exhaustive-deps -- requestKey covers code, total and lines
+
+  return checked.key === requestKey ? checked.amount : 0;
+}
+
+/** Shop settings (free-delivery threshold, loyalty rules); the threshold falls back to the default. */
+function useShopSettings() {
+  const [settings, setSettings] = useState(null);
   useEffect(() => {
     let cancelled = false;
     api
       .getShippingSettings()
-      .then((settings) => {
-        const value = Number(
-          settings?.freeDeliveryThreshold ?? settings?.FreeDeliveryThreshold,
-        );
-        if (!cancelled && Number.isFinite(value) && value >= 0)
-          setThreshold(value);
-      })
+      .then((value) => !cancelled && setSettings(value || null))
       .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
-  return threshold;
+  const value = Number(settings?.freeDeliveryThreshold ?? settings?.FreeDeliveryThreshold);
+  const threshold = Number.isFinite(value) && value >= 0 ? value : FREE_DELIVERY_THRESHOLD;
+  return { settings, threshold };
+}
+
+/** Points the signed-in user can spend (0 for guests). */
+function useAvailablePoints(enabled) {
+  const [points, setPoints] = useState(0);
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let cancelled = false;
+    api
+      .getAvailableLoyaltyPoints()
+      .then((response) => !cancelled && setPoints(Number(response?.availablePoints) || 0))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+  return enabled ? points : 0;
+}
+
+/**
+ * Loyalty nudge under the free-delivery bar: how much more to spend before points can be used (or more of them),
+ * or how many can be used now. Guests are told to sign in, since only accounts collect points.
+ */
+function LoyaltyProgress({ total, settings, points, signedIn, translate }) {
+  if (!signedIn) {
+    return (
+      <p className="mb-4 flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-[13px] text-gray-600 ring-1 ring-black/[0.06] sm:px-5">
+        <FiStar className="h-4 w-4 flex-shrink-0 text-[#141409]" />
+        <span>
+          <Link to="/login" className="font-semibold text-gray-900 underline underline-offset-2">
+            {translate("loyaltyGuestSignIn")}
+          </Link>{" "}
+          {translate("loyaltyGuestHint")}
+        </span>
+      </p>
+    );
+  }
+
+  const usable = maxRedeemablePoints(settings, total, points);
+  const next = nextLoyaltyUnlock(settings, total, points);
+  if (!next && usable <= 0) return null;
+
+  const text = next
+    ? translate(usable > 0 ? "loyaltyUnlockMoreHint" : "loyaltyUnlockHint")
+        .replace("{amount}", formatPrice(next.remaining))
+        .replace("{points}", next.points)
+    : translate("loyaltyUsableNow").replace("{points}", usable);
+  const [before, after] = text.split(next ? formatPrice(next.remaining) : "\u0000");
+
+  return (
+    <div className="mb-4 flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-black/[0.06] sm:p-5">
+      <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#141409] text-[#FDC700]">
+        <FiStar size={18} />
+      </span>
+      <p className="text-sm font-semibold text-gray-900 sm:text-[15px]">
+        {next ? (
+          <>
+            {before}
+            <span className="whitespace-nowrap font-extrabold"><Price value={next.remaining} /></span>
+            {after}
+          </>
+        ) : (
+          text
+        )}
+        <span className="mt-0.5 block text-[11px] font-normal text-gray-500">
+          {translate("loyaltyBalance").replace("{points}", Math.floor(points))}
+        </span>
+      </p>
+    </div>
+  );
 }
 
 function CartSkeleton() {
@@ -112,7 +219,7 @@ function FreeDeliveryProgress({ total, threshold, translate }) {
             <>
               {before}
               <span className="whitespace-nowrap font-extrabold">
-                {formatPrice(remaining)}
+                <Price value={remaining} />
               </span>
               {after}
             </>
@@ -250,11 +357,20 @@ function CartItemRow({
               <div className="text-right">
                 {item.quantity > 1 && (
                   <p className="text-[11px] text-gray-500 tabular-nums">
-                    {item.quantity} × {formatPrice(item.price)}
+                    {item.quantity} × <Price value={item.price} />
                   </p>
                 )}
-                <p className="whitespace-nowrap text-[15px] font-extrabold tabular-nums text-gray-900 sm:text-lg">
-                  {formatPrice(item.subtotal)}
+                {Number(item.variant_Original_Price) > Number(item.price) && (
+                  <p className="whitespace-nowrap text-xs text-gray-400 line-through tabular-nums">
+                    <Price value={item.variant_Original_Price * item.quantity} />
+                  </p>
+                )}
+                <p
+                  className={`whitespace-nowrap text-[15px] font-extrabold tabular-nums sm:text-lg ${
+                    Number(item.variant_Original_Price) > Number(item.price) ? "text-[#E3262F]" : "text-gray-900"
+                  }`}
+                >
+                  <Price value={item.subtotal} />
                 </p>
               </div>
             </div>
@@ -268,24 +384,8 @@ function CartItemRow({
 function EmptyCart({ translate, onShop }) {
   return (
     <div className="relative overflow-hidden rounded-3xl bg-[#FDC700] px-6 py-14 text-center sm:py-20">
-      <Sparkle
-        color="#141409"
-        className="absolute left-[8%] top-[14%] h-7 w-7 rotate-12"
-      />
-      <Sparkle
-        color="#ffffff"
-        className="absolute bottom-[16%] left-[14%] h-5 w-5"
-      />
-      <Sparkle
-        color="#E3262F"
-        className="absolute right-[10%] top-[20%] h-9 w-9"
-      />
-      <Sparkle
-        color="#141409"
-        className="absolute bottom-[12%] right-[16%] h-4 w-4"
-      />
 
-      <div className="relative mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#141409] text-[#FDC700] shadow-[4px_4px_0_rgba(20,20,9,0.18)]">
+      <div className="relative mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#141409] text-[#FDC700]">
         <FiShoppingBag size={34} />
       </div>
       <p className="relative mb-3 font-display text-3xl font-bold uppercase leading-[0.95] tracking-tight text-[#141409] sm:text-4xl">
@@ -297,7 +397,7 @@ function EmptyCart({ translate, onShop }) {
       <button
         type="button"
         onClick={onShop}
-        className="group relative inline-flex min-h-[48px] items-center gap-2 rounded-full bg-[#141409] px-7 text-sm font-bold text-white transition hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        className="group relative inline-flex min-h-[48px] items-center gap-2 rounded-lg bg-[#141409] px-7 text-sm font-bold text-white transition hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
       >
         {translate("keepShopping")}
         <FiArrowRight className="text-[#FDC700] transition-transform group-hover:translate-x-0.5" />
@@ -306,7 +406,7 @@ function EmptyCart({ translate, onShop }) {
   );
 }
 
-function OrderSummary({ cart, deliveryFree, translate, onCheckout, onShop }) {
+function OrderSummary({ cart, deliveryFree, nothingToDeliver = false, translate, onCheckout, onShop, referralCode, referralDiscount = 0 }) {
   return (
     <div className="rounded-2xl bg-white p-5 ring-1 ring-black/[0.06] shadow-[0_24px_48px_-32px_rgba(20,20,9,0.4)] sm:p-6">
       <h2 className={`${headingClass} mb-5 text-2xl`}>
@@ -321,29 +421,42 @@ function OrderSummary({ cart, deliveryFree, translate, onCheckout, onShop }) {
             </span>
           </dt>
           <dd className="font-semibold tabular-nums text-gray-900">
-            {formatPrice(cart.total)}
+            <Price value={cart.total} />
           </dd>
         </div>
-        <div className="flex justify-between gap-4">
-          <dt className="text-gray-600">{translate("shipping")}</dt>
-          <dd
-            className={
-              deliveryFree
-                ? "font-bold text-[#5f9a2c]"
-                : "text-right text-gray-500"
-            }
-          >
-            {deliveryFree
-              ? translate("freeLabel")
-              : translate("calculatedAtCheckout")}
-          </dd>
-        </div>
+        {!nothingToDeliver && (
+          <div className="flex justify-between gap-4">
+            <dt className="text-gray-600">{translate("shipping")}</dt>
+            <dd
+              className={
+                deliveryFree
+                  ? "font-bold text-[#5f9a2c]"
+                  : "text-right text-gray-500"
+              }
+            >
+              {deliveryFree
+                ? translate("freeLabel")
+                : translate("calculatedAtCheckout")}
+            </dd>
+          </div>
+        )}
+        {referralDiscount > 0 && (
+          <div className="flex justify-between gap-4">
+            <dt className="text-gray-600">
+              {translate("referralYourDiscount")}{" "}
+              <span className="font-semibold text-[#8a5a00]">{referralCode}</span>
+            </dt>
+            <dd className="font-semibold tabular-nums text-[#E3262F]">
+              − <Price value={referralDiscount} />
+            </dd>
+          </div>
+        )}
         <div className="flex items-baseline justify-between gap-4 border-t border-dashed border-gray-300 pt-4">
           <dt className="font-display text-lg font-bold uppercase tracking-tight text-gray-900">
             {translate("total")}
           </dt>
           <dd className="text-2xl font-extrabold tabular-nums text-gray-900">
-            {formatPrice(cart.total)}
+            <Price value={Math.max(cart.total - referralDiscount, 0)} />
           </dd>
         </div>
       </dl>
@@ -351,7 +464,7 @@ function OrderSummary({ cart, deliveryFree, translate, onCheckout, onShop }) {
       <button
         type="button"
         onClick={onCheckout}
-        className="group mt-6 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#141409] text-[15px] font-bold text-white transition duration-300 hover:bg-black hover:shadow-[0_12px_24px_-12px_rgba(20,20,9,0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDC700] active:scale-[0.98]"
+        className="group mt-6 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-lg bg-[#141409] text-[15px] font-bold text-white transition duration-300 hover:bg-black hover:shadow-[0_12px_24px_-12px_rgba(20,20,9,0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDC700] active:scale-[0.98]"
       >
         {translate("proceedTocheckout")}
         <FiArrowRight className="text-[#FDC700] transition-transform group-hover:translate-x-1" />
@@ -359,7 +472,7 @@ function OrderSummary({ cart, deliveryFree, translate, onCheckout, onShop }) {
       <button
         type="button"
         onClick={onShop}
-        className="mt-2 flex min-h-[44px] w-full items-center justify-center rounded-full text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+        className="mt-2 flex min-h-[44px] w-full items-center justify-center rounded-lg text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
       >
         {translate("keepShopping")}
       </button>
@@ -374,10 +487,6 @@ function OrderSummary({ cart, deliveryFree, translate, onCheckout, onShop }) {
 function Advantages({ translate }) {
   return (
     <div className="relative overflow-hidden rounded-2xl bg-[#141409] p-5 text-white sm:p-6">
-      <Sparkle
-        color="#FDC700"
-        className="absolute right-5 top-5 h-6 w-6 opacity-90"
-      />
       <p className="mb-5 max-w-[85%] font-display text-xl font-bold uppercase leading-[1] tracking-tight">
         {translate("advOfShoppingOnPS")}
       </p>
@@ -487,7 +596,7 @@ function JustForMe({ translate, language }) {
           <button
             type="button"
             onClick={showAll}
-            className="group flex min-h-[40px] flex-shrink-0 items-center gap-1.5 rounded-full border border-gray-300 bg-white/70 px-4 text-[12px] font-bold text-gray-800 transition hover:border-black hover:bg-black hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141409] sm:text-[13px]"
+            className="group flex flex-shrink-0 items-center gap-1.5 border-b border-current pb-0.5 text-[12px] font-bold text-gray-800 transition hover:text-black hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141409] sm:text-[13px]"
           >
             {translate("showAll")}
             <FiArrowRight className="transition-transform group-hover:translate-x-0.5" />
@@ -530,9 +639,17 @@ export default function Cart() {
   const navigate = useNavigate();
   const { cart, loading, updateQuantity, removeFromCart } = useCart();
   const { translate, language } = useLanguage();
-  const threshold = useFreeDeliveryThreshold();
+  const { settings: shopSettings, threshold } = useShopSettings();
+  const signedIn = api.isAuthenticated();
+  const availablePoints = useAvailablePoints(signedIn);
   const [removingIds, setRemovingIds] = useState(() => new Set());
   const removeTimers = useRef([]);
+  const referralOffer = useReferralOffer();
+  const referralDiscount = useReferralCartDiscount(
+    referralOffer,
+    cart?.items || [],
+    Number(cart?.total) || 0,
+  );
 
   useEffect(() => () => removeTimers.current.forEach(clearTimeout), []);
 
@@ -564,7 +681,10 @@ export default function Cart() {
   const items = cart?.items || [];
   const isCartEmpty = items.length === 0;
   const total = Number(cart?.total) || 0;
-  const deliveryFree = total >= threshold;
+  // Gift vouchers are emailed: they cost no delivery and do not count towards free delivery.
+  const shippableTotal = getShippableSubtotal(total, items);
+  const nothingToDeliver = !isCartEmpty && shippableTotal <= 0;
+  const deliveryFree = nothingToDeliver || shippableTotal >= threshold;
 
   return (
     <div
@@ -597,9 +717,18 @@ export default function Cart() {
               />
             ) : (
               <>
-                <FreeDeliveryProgress
+                {!nothingToDeliver && (
+                  <FreeDeliveryProgress
+                    total={shippableTotal}
+                    threshold={threshold}
+                    translate={translate}
+                  />
+                )}
+                <LoyaltyProgress
                   total={total}
-                  threshold={threshold}
+                  settings={shopSettings}
+                  points={availablePoints}
+                  signedIn={signedIn}
                   translate={translate}
                 />
                 <ul>
@@ -619,13 +748,17 @@ export default function Cart() {
           </div>
 
           <aside className="space-y-4 lg:sticky lg:top-[calc(var(--header-h)+24px)]">
+            <ReferralOfferCard offer={referralOffer} compact />
             {!isCartEmpty && (
               <OrderSummary
                 cart={cart}
                 deliveryFree={deliveryFree}
+                nothingToDeliver={nothingToDeliver}
                 translate={translate}
                 onCheckout={() => goTo("/checkout")}
                 onShop={() => goTo("/all-products")}
+                referralCode={referralOffer?.code}
+                referralDiscount={referralDiscount}
               />
             )}
             <Advantages translate={translate} />
@@ -638,21 +771,22 @@ export default function Cart() {
       {/* Phones/tablets: total + checkout always within thumb reach, above the tab bar */}
       {!isCartEmpty && (
         <div className="fixed inset-x-0 z-40 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-12px_24px_-18px_rgba(20,20,9,0.35)] backdrop-blur lg:hidden bottom-[var(--bottom-nav-h,0px)]">
-          <div className="mx-auto flex max-w-[640px] items-center gap-4">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500">
+          <div className="mx-auto flex max-w-[640px] items-center gap-3 sm:gap-4">
+            <div className="flex-shrink-0">
+              <p className="text-[11px] font-semibold uppercase leading-none tracking-[0.08em] text-gray-500">
                 {translate("total")}
               </p>
-              <p className="whitespace-nowrap text-lg font-extrabold tabular-nums text-gray-900">
-                {formatPrice(total)}
+              <p className="mt-1 whitespace-nowrap cart-bar-total text-base font-extrabold leading-none tabular-nums text-gray-900">
+                <Price value={Math.max(total - referralDiscount, 0)} />
               </p>
             </div>
+            {/* Long labels (e.g. "Продолжете со плаќање") wrap to two centred lines on narrow phones instead of being cut off */}
             <button
               type="button"
               onClick={() => goTo("/checkout")}
-              className="group ml-auto flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full bg-[#141409] px-5 text-sm font-bold text-white transition active:scale-[0.98]"
+              className="group flex min-h-[48px] min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-[#141409] px-3 py-2 text-[13px] font-bold leading-tight text-white transition active:scale-[0.98] cart-bar-btn"
             >
-              <span className="truncate">{translate("proceedTocheckout")}</span>
+              <span className="min-w-0 text-center [text-wrap:balance]">{translate("proceedTocheckout")}</span>
               <FiArrowRight className="flex-shrink-0 text-[#FDC700]" />
             </button>
           </div>

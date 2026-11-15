@@ -9,6 +9,7 @@ import {
   Field,
   PasswordInput,
   PasswordStrength,
+  authTitleClass,
   headingClass,
   linkButtonClass,
   primaryButtonClass,
@@ -107,7 +108,7 @@ export default function ResetPassword() {
         </div>
       ) : (
         <form onSubmit={handleSubmit}>
-          <h1 className={`${headingClass} text-[40px] sm:text-5xl`}>
+          <h1 className={authTitleClass}>
             {translate("resetTitle")}
           </h1>
           <p className="mt-3 text-[15px] leading-relaxed text-gray-600">

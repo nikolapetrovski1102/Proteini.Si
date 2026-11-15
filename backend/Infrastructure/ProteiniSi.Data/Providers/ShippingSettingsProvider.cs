@@ -1,3 +1,4 @@
+using System.Text.Json;
 using ProteiniSi.Contracts.Providers;
 using ProteiniSi.Dtos;
 using ProteiniSi.Models;
@@ -17,6 +18,16 @@ public class ShippingSettingsProvider(ISqlHelper sql) : IShippingSettingsProvide
             settings.FreeDeliveryThreshold,
             settings.HomeDeliveryEnabled,
             settings.CardPaymentEnabled,
-            UpdatedBy = updatedBy
+            UpdatedBy = updatedBy,
+            settings.CourierCodThreshold,
+            settings.CourierCodFixedFee,
+            settings.CourierCodPercent,
+            settings.LoyaltyMinBalance,
+            LoyaltyRedeemTiers = settings.LoyaltyRedeemTiers == null
+                ? null
+                : JsonSerializer.Serialize(settings.LoyaltyRedeemTiers
+                    .OrderBy(t => t.MinOrder)
+                    .Select(t => new { minOrder = t.MinOrder, maxPoints = Math.Floor(t.MaxPoints) })),
+            settings.TrackingUrlTemplate
         });
 }

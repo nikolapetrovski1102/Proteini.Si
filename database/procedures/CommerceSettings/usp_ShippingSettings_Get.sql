@@ -7,7 +7,9 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    SELECT FlatDeliveryFee, CashOnDeliveryFee, FreeDeliveryThreshold, HomeDeliveryEnabled, CardPaymentEnabled
+    SELECT FlatDeliveryFee, CashOnDeliveryFee, FreeDeliveryThreshold, HomeDeliveryEnabled, CardPaymentEnabled,
+           CourierCodThreshold, CourierCodFixedFee, CourierCodPercent,
+           LoyaltyMinBalance, LoyaltyRedeemTiers, TrackingUrlTemplate
     FROM dbo.ShippingSettings
     WHERE ShippingSettingsId = 1;
 END

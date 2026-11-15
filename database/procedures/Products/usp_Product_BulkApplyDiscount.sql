@@ -10,7 +10,7 @@ BEGIN
     SET NOCOUNT ON;
 
     UPDATE dbo.Products
-    SET SalePrice = ROUND(Price * @DiscountMultiplier, 2),
+    SET SalePrice = CEILING(Price * @DiscountMultiplier), -- whole denars, rounded up
         ProductsOnSale = 1,
         UpdatedAt = GETDATE()
     WHERE Product_Id IN (SELECT Id FROM @ProductIds);

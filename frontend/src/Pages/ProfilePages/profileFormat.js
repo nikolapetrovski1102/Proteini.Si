@@ -1,4 +1,4 @@
-export const formatPrice = (value) => `MKD ${Number(value || 0).toFixed(2)}`;
+export { formatMkd as formatPrice } from "../../utils/formatPrice";
 
 const LOCALES = { mk: "mk-MK", al: "sq-AL" };
 

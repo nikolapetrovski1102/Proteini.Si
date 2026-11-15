@@ -96,6 +96,23 @@ public class UserProvider(ISqlHelper sql) : IUserProvider
             ConfirmedAt = confirmedAt
         }) > 0;
 
+    public Task SetLanguageAsync(int userId, string language) =>
+        sql.ExecuteAsync(StoredProcedures.Users.SetLanguage, new { UserId = userId, Language = language });
+
+    public async Task<ExternalSignInResult> SignInExternalAsync(string? provider, string? providerKey, string? email, string? fullName, bool allowLink)
+    {
+        var row = await sql.QuerySingleOrDefaultAsync<RegisterResultRow>(StoredProcedures.Users.SignInExternal, new
+        {
+            Provider = provider,
+            ProviderKey = providerKey,
+            Email = email,
+            FullName = fullName,
+            AllowLink = allowLink
+        });
+
+        return new ExternalSignInResult((ExternalSignInOutcome)row!.Result, row.UserId);
+    }
+
     private sealed class RegisterResultRow
     {
         public int Result { get; init; }

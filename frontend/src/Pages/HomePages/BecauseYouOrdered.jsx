@@ -1,81 +1,78 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { FiRotateCcw } from "react-icons/fi";
 import { api } from "../../services/api";
 import { useLanguage } from "../translation/LanguageContext";
-import { isSaleActive } from "../../utils/salePricing";
+import { useQuickPurchase } from "../Hooks/useQuickPurchase";
+import { formatDate } from "../ProfilePages/profileFormat";
 import HomeSection from "./sections/HomeSection";
+import HomeProductCard, { productHref } from "./HomeProductCard";
+import HomeProductRail from "./HomeProductRail";
 import Reveal from "./sections/Reveal";
+import Scribble from "../Components/Scribble";
 
-const MAX_ORDERS_SCANNED = 3;
-const MAX_REORDER = 4;
 const MAX_SIMILAR = 8;
 
-const productIdOf = (p) => p?.product_Id ?? p?.Product_Id ?? p?.id;
+const inStock = (p) => p.isGiftVoucher || Number(p.quantity) > 0;
 
-// Collapse a variant row onto its parent product so we recommend the product page, not one flavour.
-const baseProductId = (product) =>
-  product?.isVariant && product?.parent_Product_Id ? product.parent_Product_Id : productIdOf(product);
+// The shop filter returns one row per packaging; keep one per product, preferring a packaging that is in stock.
+const bestRowPerProduct = (rows = []) => {
+  const byId = new Map();
+  rows.forEach((row) => {
+    const current = byId.get(row.product_Id);
+    if (!current || (!inStock(current) && inStock(row))) byId.set(row.product_Id, row);
+  });
+  return byId;
+};
 
+/*
+ * Ids, groups and order come from usp_Product_GetForCustomer (latest real orders, categories, goals, paired
+ * categories, brands, bought-together); the cards' data from the shop filter, like the shop grid.
+ */
 async function loadPersonalisedRows() {
-  const history = await api.getOrderHistory();
-  const orders = (history?.orders || [])
-    .filter((o) => (o.Order_Status || "").toLowerCase() !== "cancelled")
-    .sort((a, b) => new Date(b.Order_Date) - new Date(a.Order_Date))
-    .slice(0, MAX_ORDERS_SCANNED);
-  if (orders.length === 0) return null;
+  const rows = await api.getCustomerRecommendations(MAX_SIMILAR);
+  const anchorRow = rows.find((row) => row.reason === "anchor");
+  if (!anchorRow) return null;
 
-  const [confirmations, products] = await Promise.all([
-    Promise.all(orders.map((o) => api.getOrderConfirmation(o.Order_Id).catch(() => null))),
-    api.getProducts(),
-  ]);
+  const data = await api.getFilteredProducts({ productIds: rows.map((row) => row.product_Id), pageSize: 100 });
+  const byId = bestRowPerProduct(data?.products);
+  const pick = (reason) =>
+    rows
+      .filter((row) => row.reason === reason)
+      .map((row) => byId.get(row.product_Id))
+      .filter(Boolean);
 
-  const byId = new Map(products.map((p) => [productIdOf(p), p]));
+  const anchor = byId.get(anchorRow.product_Id);
+  if (!anchor) return null;
 
-  // Ordered product ids, most recent first, de-duplicated and mapped to parent products.
-  const orderedIds = [];
-  for (const confirmation of confirmations) {
-    for (const item of confirmation?.items || []) {
-      const product = byId.get(item.Product_Id);
-      const id = product ? baseProductId(product) : item.Product_Id;
-      if (id != null && !orderedIds.includes(id)) orderedIds.push(id);
-    }
-  }
-
-  const ordered = orderedIds.map((id) => byId.get(id)).filter((p) => p && !p.isGiftVoucher);
-  if (ordered.length === 0) return null;
-
-  const orderedSet = new Set(orderedIds);
-  const categories = new Set(ordered.map((p) => p.category).filter(Boolean));
-  const brands = new Set(ordered.map((p) => p.brandName).filter(Boolean));
-
-  const similar = products
-    .filter((p) => !p.isVariant && !p.isGiftVoucher && !orderedSet.has(productIdOf(p)))
-    .map((p) => ({
-      p,
-      score: (categories.has(p.category) ? 2 : 0) + (brands.has(p.brandName) ? 1 : 0),
-    }))
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, MAX_SIMILAR)
-    .map((x) => x.p);
-
-  return { anchor: ordered[0], reorder: ordered.slice(0, MAX_REORDER), similar };
+  return {
+    anchor,
+    anchorDate: anchorRow.orderedAt,
+    reorder: pick("reorder"),
+    similar: pick("similar"),
+  };
 }
 
 export default function BecauseYouOrdered() {
   const { translate, language } = useLanguage();
+  const { quickPurchase, prefetchQuickPurchase, quickPurchaseSheet } = useQuickPurchase();
   const [rows, setRows] = useState(null);
-  const scrollRef = useRef(null);
+  const [favorites, setFavorites] = useState(() => new Set());
   const isAuthenticated = api.isAuthenticated();
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) return undefined;
     let cancelled = false;
     loadPersonalisedRows()
       .then((result) => {
         if (!cancelled) setRows(result);
       })
       .catch((err) => console.error("Because you ordered:", err));
+    // One request for the whole list instead of a check per card.
+    api.getFavorites().then((response) => {
+      if (cancelled || !response?.success) return;
+      setFavorites(new Set((response.data || []).map((fav) => fav.productId)));
+    });
     return () => {
       cancelled = true;
     };
@@ -83,120 +80,158 @@ export default function BecauseYouOrdered() {
 
   if (!isAuthenticated || !rows) return null;
 
-  const nameOf = (p) => (language === "al" && p.nameAl ? p.nameAl : p.name);
-  const items = [
-    ...rows.reorder.map((p) => ({ p, kind: "reorder" })),
-    ...rows.similar.map((p) => ({ p, kind: "similar" })),
-  ];
-
-  const scroll = (dir) => {
-    const el = scrollRef.current;
-    if (el) el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
+  const handleToggleFavorite = async (productId, event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      const response = await api.toggleFavorite(productId);
+      if (!response.success) return;
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (next.has(productId)) next.delete(productId);
+        else next.add(productId);
+        return next;
+      });
+    } catch (err) {
+      console.error("Error toggling favorite:", err);
+    }
   };
+
+  const { anchor, anchorDate, reorder, similar } = rows;
+  const nameOf = (p) => (language === "al" && p.nameAl ? p.nameAl : p.name);
+  const cards = [
+    ...reorder.map((p) => ({ p, tag: translate("orderAgain") })),
+    ...similar.map((p) => ({ p, tag: null })),
+  ];
 
   return (
     <HomeSection
       id="because-you-ordered"
-      tint="bg-gradient-to-br from-[#e8f4fb] via-[#f4f9fc] to-white"
+      tint="bg-[#141409]"
       image="/img/gym-11.jpg"
-      imageOpacity={0.12}
-      blur={6}
-      overlay="bg-gradient-to-b from-transparent via-white/30 to-white/80"
-      className="py-14 sm:py-20"
+      imageOpacity={0.35}
+      blur={3}
+      overlay="bg-gradient-to-b from-[#141409]/70 via-[#141409]/80 to-[#141409]"
+      className="home-tint-keep py-12 sm:py-20"
+      reveal={false}
     >
       <div className="mx-auto w-full max-w-[1240px] px-4 sm:px-[25px]">
-        <div className="mb-8 flex items-end justify-between gap-4">
-          <div>
-            <span className="mb-2 inline-block rounded-full bg-[#2096D8]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#2096D8]">
-              {translate("pickedForYou")}
-            </span>
-            <h2 className="font-display font-bold uppercase tracking-tight text-[28px] leading-[0.95] sm:text-5xl">
-              {translate("becauseYouOrdered")}{" "}
-              <span className="text-[#2096D8]">{nameOf(rows.anchor)}</span>
-            </h2>
-          </div>
-          <div className="hidden gap-2 sm:flex">
-            <button
-              type="button"
-              aria-label="Scroll left"
-              onClick={() => scroll(-1)}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-300 bg-white transition hover:border-black"
-            >
-              <img src="/logos/left-arrow.svg" alt="" className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              aria-label="Scroll right"
-              onClick={() => scroll(1)}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-300 bg-white transition hover:border-black"
-            >
-              <img src="/logos/right-arrow.svg" alt="" className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+        <Reveal className="mb-5 sm:mb-8">
+          <span className="inline-block font-display text-[13px] font-semibold uppercase tracking-[0.12em] text-white sm:text-[15px]">
+            <Scribble>{translate("pickedForYou")}</Scribble>
+          </span>
+          <h2 className="mt-3 font-display font-bold uppercase tracking-tight text-[30px] leading-[0.95] text-white [text-wrap:balance] sm:text-5xl">
+            {translate("becauseYouOrdered")}
+          </h2>
+        </Reveal>
 
-        <div
-          ref={scrollRef}
-          className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 sm:gap-5"
-          style={{ scrollbarWidth: "none" }}
-        >
-          {items.map(({ p, kind }, i) => (
-            <Reveal key={`${kind}-${productIdOf(p)}`} delay={Math.min(i, 6) * 70} className="snap-start">
-              <PersonalCard product={p} kind={kind} name={nameOf(p)} translate={translate} />
-            </Reveal>
-          ))}
+        <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-8">
+          <Reveal variant="left" className="lg:pt-[34px]">
+            <LastOrderCard
+              product={anchor}
+              name={nameOf(anchor)}
+              date={formatDate(anchorDate, language)}
+              translate={translate}
+              onReorder={() => quickPurchase(anchor)}
+              onReorderIntent={() => prefetchQuickPurchase(anchor)}
+            />
+          </Reveal>
+
+          {cards.length > 0 && (
+            <div className="min-w-0">
+              <p className="mb-1 text-[12px] font-bold uppercase tracking-[0.14em] text-white/60 sm:mb-2">
+                {translate("youMayAlsoLike")}
+              </p>
+              <HomeProductRail label="recommended products" controls="bottom" tone="dark">
+                {cards.map(({ p, tag }) => (
+                  <HomeProductCard
+                    key={p.product_Id}
+                    product={p}
+                    tag={tag}
+                    large
+                    showStock
+                    language={language}
+                    onQuickPurchase={() => quickPurchase(p)}
+                    onQuickPurchaseIntent={() => prefetchQuickPurchase(p)}
+                    onToggleFavorite={handleToggleFavorite}
+                    isFavorite={favorites.has(p.product_Id)}
+                    translate={translate}
+                  />
+                ))}
+              </HomeProductRail>
+            </div>
+          )}
         </div>
       </div>
+
+      {quickPurchaseSheet}
     </HomeSection>
   );
 }
 
-function PersonalCard({ product, kind, name, translate }) {
-  const price = Number(product.price) || 0;
-  const salePrice = isSaleActive(product) ? Number(product.compare_Price) || 0 : 0;
-  const onSale = salePrice > 0 && salePrice < price;
+/*
+ * The product the recommendations are based on: photo, when it was ordered and a one-tap
+ * reorder. A horizontal strip on phones, a tall card beside the rail on desktop.
+ */
+function LastOrderCard({ product, name, date, translate, onReorder, onReorderIntent }) {
+  const soldOut = !inStock(product);
+  const href = productHref(product);
 
   return (
-    <Link
-      to={`/product/${productIdOf(product)}`}
-      onClick={() => window.scrollTo(0, 0)}
-      className="group flex w-[170px] flex-shrink-0 flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5 transition duration-300 hover:-translate-y-1 hover:shadow-xl sm:w-[260px]"
-    >
-      <div className="relative aspect-square overflow-hidden bg-gray-50">
+    <article className="flex gap-4 overflow-hidden rounded-2xl bg-[#FDC700] p-3 text-[#141409] shadow-[0_18px_40px_-20px_rgba(0,0,0,0.8)] sm:p-4 lg:flex-col lg:p-5">
+      <Link
+        to={href}
+        className="group relative block aspect-square w-[112px] flex-shrink-0 overflow-hidden rounded-xl bg-gradient-to-b from-[#f8f7f4] to-[#efede7] sm:w-[140px] lg:aspect-[5/4] lg:w-full"
+      >
         {product.img ? (
           <img
-            src={product.img}
+            src={String(product.img)}
             alt={name}
             loading="lazy"
-            className="h-full w-full object-contain p-3 transition duration-500 group-hover:scale-105"
+            decoding="async"
+            className={`h-full w-full object-contain p-3 mix-blend-multiply transition-transform duration-500 group-hover:scale-105 lg:p-5 ${
+              soldOut ? "opacity-45 grayscale" : ""
+            }`}
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-gray-400">No image</div>
+          <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">{translate("noImage")}</div>
         )}
-        <span
-          className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
-            kind === "reorder" ? "bg-[#FDC700] text-black" : "bg-[#2096D8] text-white"
-          }`}
+      </Link>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#141409]">
+          {translate("yourLastOrder")}
+        </span>
+        {date && <span className="mt-0.5 text-[12px] font-semibold text-[#141409]/60">{date}</span>}
+        <Link
+          to={href}
+          className="mt-1.5 line-clamp-2 text-[15px] font-bold leading-5 hover:underline sm:text-[17px] sm:leading-6"
         >
-          {translate(kind === "reorder" ? "orderAgain" : "youMayAlsoLike")}
-        </span>
-      </div>
-      <div className="flex flex-1 flex-col p-4">
-        <span className="text-[10px] uppercase tracking-wide text-gray-500">{product.category || ""}</span>
-        <span className="mt-1 line-clamp-2 min-h-[40px] text-[13px] font-semibold leading-5 sm:text-[15px]">
           {name}
-        </span>
-        <div className="mt-auto pt-3">
-          {onSale ? (
-            <div className="flex items-baseline gap-2">
-              <span className="font-bold text-red-600">MKD {salePrice.toFixed(2)}</span>
-              <span className="text-xs text-gray-400 line-through">{price.toFixed(2)}</span>
-            </div>
+        </Link>
+        {(product.brandName || product.category) && (
+          <span className="mt-1 truncate text-[12px] text-[#141409]/65">{product.brandName || product.category}</span>
+        )}
+
+        <div className="mt-auto pt-3 lg:pt-4">
+          {soldOut ? (
+            <span className="flex w-full items-center justify-center rounded-lg bg-[#141409]/10 py-2.5 text-[13px] font-bold text-[#141409]/70">
+              {translate("outOfStock")}
+            </span>
           ) : (
-            <span className="font-bold">MKD {price.toFixed(2)}</span>
+            <button
+              type="button"
+              onClick={onReorder}
+              onPointerEnter={onReorderIntent}
+              onPointerDown={onReorderIntent}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#141409] py-2.5 text-[13px] font-bold text-white transition hover:bg-black active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <FiRotateCcw size={15} className="text-[#FDC700]" />
+              {translate("orderAgain")}
+            </button>
           )}
         </div>
       </div>
-    </Link>
+    </article>
   );
 }

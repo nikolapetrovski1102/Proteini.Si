@@ -1,6 +1,6 @@
 export default function GeneralProvisions() {
   return (
-    <div className="w-full flex justify-center items-center">
+    <div className="w-full flex justify-center items-center pb-16 sm:pb-20">
       <div className="w-full max-w-[1240px] mx-4">
         <h1 className="text-[20px] mb-4 font-bold">General Provisions</h1>
         <p className="text-[16px] mb-4 font-bold">Data of the Controller</p>
@@ -22,7 +22,7 @@ export default function GeneralProvisions() {
           and place: 4270 Jesenice, Slovenija <br /> VAT number: SI 44085206{" "}
           <br />
           Registration number: 2024691000 <br /> Contact e-mail:
-          info@proteini.si <br /> Contact telephone number: +386 (0)40 248 248{" "}
+          info@proteini.mk <br /> Contact telephone number: +386 (0)40 248 248{" "}
           <br />
           Data on the entry in the register or any other public records:
           18.11.2004
@@ -481,13 +481,13 @@ export default function GeneralProvisions() {
           emails at any time: <strong>1.</strong> by clicking the "Unsubscribe"
           link included in each message, or <strong>2.</strong> by submitting a
           request to unsubscribe from receiving marketing communications to the
-          email address <strong>info@proteini.si</strong>. Each MARKETING SMS
+          email address <strong>info@proteini.mk</strong>. Each MARKETING SMS
           message contains instructions on how to unsubscribe. You may
           unsubscribe from receiving marketing SMS messages at any time:{" "}
           <strong>1.</strong> by replying "STOP" to the received SMS message, or{" "}
           <strong>2.</strong> by submitting a request to unsubscribe from
           receiving marketing SMS messages to the email address{" "}
-          <strong>info@proteini.si</strong>. Unsubscription process for
+          <strong>info@proteini.mk</strong>. Unsubscription process for
           marketing SMS messages: Your unsubscription will take effect within 3
           working days of receipt of your request. Upon completion of the
           unsubscription, your contact details will be immediately blocked for

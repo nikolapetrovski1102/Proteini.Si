@@ -10,6 +10,6 @@ BEGIN
     SELECT Id, PostUrl, ImagePath, Description, LikeCount, PostedBy, PostedDate, CreatedAt
     FROM dbo.InstagramPosts
     WHERE IsActive = 1
-    ORDER BY CreatedAt DESC;
+    ORDER BY COALESCE(PostedDate, CreatedAt) DESC, Id DESC;
 END
 GO

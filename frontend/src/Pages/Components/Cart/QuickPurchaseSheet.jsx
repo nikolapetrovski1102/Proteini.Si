@@ -10,9 +10,9 @@ import {
   getCartWeightGrams,
   getVariantWeightGrams,
 } from "../../../utils/variantWeight";
+import Price from "../Price";
 
 const CLOSE_MS = 260; // keep in sync with .qp-sheet transitions in index.css
-const formatMkd = (value) => `MKD ${(Number(value) || 0).toFixed(2)}`;
 
 const isAvailable = (variant) => Boolean(variant?.isActive && variant.quantity > 0);
 
@@ -178,7 +178,7 @@ function SheetBody({ product, language, translate, onClose, addToCart }) {
   };
 
   const chip = (active, disabled) =>
-    `rounded-full border px-3.5 py-2 text-[13px] font-semibold transition-colors ${
+    `rounded-lg border px-3.5 py-2 text-[13px] font-semibold transition-colors ${
       active
         ? "border-[#141409] bg-[#141409] text-white"
         : disabled
@@ -198,10 +198,10 @@ function SheetBody({ product, language, translate, onClose, addToCart }) {
           <p className="line-clamp-2 text-[15px] font-bold leading-snug text-gray-900 sm:text-base">{name}</p>
           <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2">
             <span className={`text-lg font-extrabold ${unitPrice < regularPrice ? "text-[#E3262F]" : "text-gray-900"}`}>
-              {formatMkd(unitPrice * quantity)}
+              <Price value={unitPrice * quantity} />
             </span>
             {unitPrice < regularPrice && (
-              <span className="text-xs text-gray-400 line-through">{formatMkd(regularPrice * quantity)}</span>
+              <span className="text-xs text-gray-400 line-through"><Price value={regularPrice * quantity} /></span>
             )}
           </div>
         </div>
@@ -312,7 +312,7 @@ function SheetBody({ product, language, translate, onClose, addToCart }) {
           type="button"
           onClick={add}
           disabled={!canAdd}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FDC700] py-3.5 text-[15px] font-bold text-[#141409] transition active:scale-[0.98] enabled:hover:bg-[#f0bc00] disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#FDC700] py-3.5 text-[15px] font-bold text-[#141409] transition active:scale-[0.98] enabled:hover:bg-[#f0bc00] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <FiShoppingBag size={17} />
           {details && stock <= 0 ? translate("outOfStock") : translate("addToCart")}

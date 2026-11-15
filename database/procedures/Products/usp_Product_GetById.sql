@@ -67,7 +67,15 @@ BEGIN
         p.ProductsInTheOutlet,
         p.JustForMe,
         b.Brand_Name AS BrandName,
-        f.Flavor_Name AS FlavorName
+        f.Flavor_Name AS FlavorName,
+        CAST(CASE WHEN EXISTS (
+            SELECT 1
+            FROM dbo.ProductCategoryMapping apparelPcm
+            INNER JOIN dbo.ProductCategories apparelCategory ON apparelCategory.Category_Id = apparelPcm.Category_Id
+            LEFT JOIN dbo.ProductCategories apparelParent ON apparelParent.Category_Id = apparelCategory.Parent_Category_Id
+            WHERE apparelPcm.Product_Id = p.Product_Id
+              AND (apparelCategory.Is_Apparel = 1 OR apparelParent.Is_Apparel = 1)
+        ) THEN 1 ELSE 0 END AS BIT) AS IsApparel
     FROM dbo.Products p
     LEFT JOIN dbo.Brands b ON p.Brand_Id = b.Brand_Id
     LEFT JOIN dbo.Flavors f ON p.Flavor_Id = f.Flavor_Id

@@ -1,90 +1,83 @@
 .branches-page {
   --branch-bg: #fff;
   --branch-text: #171717;
-  --branch-muted: #646464;
-  --branch-border: #e4e4e4;
-  --branch-soft: #f7f7f7;
+  --branch-muted: #6b6b6b;
+  --branch-border: #e6e6e6;
+  --branch-soft: #f6f6f6;
+  --branch-link: #1677ad;
   color: var(--branch-text);
   background: var(--branch-bg);
   letter-spacing: 0;
 }
 
-.branches-inner { max-width: 1440px; margin: 0 auto; padding: 36px 40px 64px; }
-.branches-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding-bottom: 26px; border-bottom: 1px solid var(--branch-border); }
-.branches-brand { font-size: 12px; font-weight: 700; color: var(--branch-muted); margin-bottom: 8px; }
-.branches-heading h1 { font-size: 30px; line-height: 1.2; font-weight: 700; }
-.branches-tabs { display: flex; gap: 4px; padding: 4px; background: var(--branch-soft); border: 1px solid var(--branch-border); border-radius: 4px; }
-.branches-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 8px 18px; color: var(--branch-muted); border-radius: 2px; font-size: 14px; font-weight: 600; }
-.branches-tabs button[aria-pressed="true"] { background: #ffcc00; color: #171717; }
-.branches-page svg { width: 18px; height: 18px; flex-shrink: 0; }
-.branches-page :is(button, a):focus-visible { outline: 2px solid #2096d8; outline-offset: 3px; }
-.branches-layout { display: grid; grid-template-columns: 310px minmax(0, 1fr); gap: 32px; margin-top: 28px; align-items: start; }
-.branches-directory { min-width: 0; border: 1px solid var(--branch-border); border-top: 3px solid #ffcc00; }
-.branches-directory-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 18px; border-bottom: 1px solid var(--branch-border); }
-.branches-directory-heading h2 { font-size: 15px; font-weight: 700; }
-.branches-directory-heading > span { font-size: 13px; color: var(--branch-muted); font-variant-numeric: tabular-nums; }
-.branches-list { max-height: 620px; overflow-y: auto; scrollbar-width: thin; }
-.branches-location { width: 100%; display: flex; align-items: start; gap: 12px; text-align: left; padding: 18px 14px; border-left: 3px solid transparent; }
-.branches-location + .branches-location { border-top: 1px solid var(--branch-border); }
+.branches-inner { max-width: 1280px; margin: 0 auto; padding: 40px 40px 80px; }
+
+/* Heading + text tabs sitting on the rule */
+.branches-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--branch-border); }
+.branches-heading h1 { font-size: 32px; line-height: 1.15; font-weight: 700; padding-bottom: 18px; }
+.branches-tabs { display: flex; gap: 28px; }
+.branches-tabs button { position: relative; padding: 0 0 18px; font-size: 15px; font-weight: 500; color: var(--branch-muted); background: none; }
+.branches-tabs button:hover { color: var(--branch-text); }
+.branches-tabs button[aria-pressed="true"] { color: var(--branch-text); font-weight: 700; }
+.branches-tabs button[aria-pressed="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--branch-text); }
+
+.branches-page :is(button, a):focus-visible { outline: 2px solid var(--branch-link); outline-offset: 3px; }
+
+.branches-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 48px; margin-top: 32px; align-items: start; }
+
+/* Location list: plain rows */
+.branches-list { list-style: none; margin: 0; padding: 0; max-height: 640px; overflow-y: auto; scrollbar-width: thin; border-top: 1px solid var(--branch-border); }
+.branches-list li { border-bottom: 1px solid var(--branch-border); }
+.branches-location { width: 100%; display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 14px 12px; background: none; }
+.branches-location strong { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.branches-location span { font-size: 13px; color: var(--branch-muted); }
 .branches-location:hover { background: var(--branch-soft); }
-.branches-location[aria-pressed="true"] { background: var(--branch-soft); border-left-color: #ffcc00; }
-.branches-pin { margin-top: 3px; color: var(--branch-muted); }
-.branches-location[aria-pressed="true"] .branches-pin { color: #2096d8; }
-.branches-location-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; overflow-wrap: anywhere; }
-.branches-location-copy strong { font-size: 14px; font-weight: 700; }
-.branches-location-copy > span { font-size: 12px; color: var(--branch-muted); }
-.branches-location-copy small { font-size: 12px; line-height: 1.5; color: var(--branch-muted); }
-.branches-chevron { width: 14px !important; margin-top: 3px; color: var(--branch-muted); }
+.branches-location[aria-pressed="true"] { background: var(--branch-soft); }
+.branches-location[aria-pressed="true"] strong { font-weight: 700; }
+
+/* Detail */
 .branches-detail { min-width: 0; }
-.branches-detail-heading { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin-bottom: 22px; }
+.branches-detail-heading { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 20px; }
 .branches-detail-heading > div { min-width: 0; }
-.branches-detail-heading p { font-size: 12px; color: var(--branch-muted); margin-bottom: 5px; }
-.branches-detail-heading h2 { font-size: 23px; line-height: 1.3; font-weight: 700; overflow-wrap: anywhere; }
-.branches-detail-heading address { font-size: 13px; font-style: normal; color: var(--branch-muted); margin-top: 8px; overflow-wrap: anywhere; }
-.branches-directions { display: inline-flex; align-items: center; justify-content: center; gap: 9px; background: #2096d8; color: #fff; min-height: 44px; padding: 12px 16px; font-size: 13px; font-weight: 600; flex-shrink: 0; border-radius: 2px; }
-.branches-directions:hover { background: #1677ad; }
-.branches-map { height: 360px; background: var(--branch-soft); border: 1px solid var(--branch-border); }
+.branches-detail-heading h2 { font-size: 24px; line-height: 1.25; font-weight: 700; overflow-wrap: anywhere; }
+.branches-detail-heading address { font-size: 15px; font-style: normal; color: var(--branch-muted); margin-top: 6px; overflow-wrap: anywhere; }
+.branches-directions { flex-shrink: 0; font-size: 15px; font-weight: 600; color: var(--branch-link); text-decoration: underline; text-underline-offset: 4px; }
+.branches-directions:hover { color: var(--branch-text); }
+
+.branches-map { height: 420px; background: var(--branch-soft); }
 .branches-map iframe { display: block; width: 100%; height: 100%; border: 0; }
-.branches-information { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; padding-top: 24px; margin-top: 24px; border-top: 1px solid var(--branch-border); }
-.branches-contact { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-.branches-contact-row { display: flex; align-items: start; gap: 12px; }
-.branches-contact-row > svg { color: var(--branch-muted); margin-top: 2px; }
-.branches-contact-row > div { min-width: 0; }
-.branches-contact-row h3 { font-size: 12px; color: var(--branch-muted); margin-bottom: 4px; }
-.branches-contact-row a { font-size: 14px; overflow-wrap: anywhere; }
-.branches-contact-row a:hover { color: #2096d8; text-decoration: underline; }
-.branches-hours { border-left: 1px solid var(--branch-border); padding-left: 28px; min-width: 0; }
-.branches-hours h3 { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; margin-bottom: 14px; }
-.branches-hours dl > div { display: flex; justify-content: space-between; gap: 16px; margin-top: 10px; font-size: 12px; }
-.branches-hours dt { color: var(--branch-muted); }
-.branches-hours dd { text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+.branches-information { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-top: 32px; }
+.branches-information h3 { font-size: 16px; font-weight: 700; padding-bottom: 10px; border-bottom: 1px solid var(--branch-border); }
+.branches-information dl > div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--branch-border); font-size: 15px; }
+.branches-information dt { color: var(--branch-muted); }
+.branches-information dd { text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.branches-information dd a:hover { color: var(--branch-link); text-decoration: underline; }
+.branches-num { font-variant-numeric: tabular-nums; }
 
 html[data-theme="dark"] .branches-page {
   --branch-bg: #181818;
   --branch-text: #f5f5f5;
-  --branch-muted: #b4b4b4;
-  --branch-border: #383838;
-  --branch-soft: #232323;
+  --branch-muted: #ababab;
+  --branch-border: #333;
+  --branch-soft: #222;
+  --branch-link: #5bb8ea;
 }
 
 @media (max-width: 1100px) {
   .branches-inner { padding-inline: 24px; }
-  .branches-layout { grid-template-columns: 270px minmax(0, 1fr); gap: 24px; }
-  .branches-detail-heading { align-items: start; flex-direction: column; }
-  .branches-information { grid-template-columns: 1fr; }
-  .branches-hours { border-left: 0; padding-left: 0; border-top: 1px solid var(--branch-border); padding-top: 20px; }
+  .branches-layout { grid-template-columns: 240px minmax(0, 1fr); gap: 32px; }
+  .branches-detail-heading { flex-direction: column; align-items: start; gap: 12px; }
+  .branches-information { grid-template-columns: 1fr; gap: 28px; }
 }
 
 @media (max-width: 767px) {
-  .branches-inner { padding: 24px 16px 40px; }
-  .branches-heading { flex-direction: column; align-items: stretch; gap: 20px; padding-bottom: 20px; }
-  .branches-heading h1 { font-size: 26px; }
-  .branches-tabs button { flex: 1; padding-inline: 12px; }
-  .branches-layout { grid-template-columns: minmax(0, 1fr); gap: 26px; margin-top: 20px; }
-  .branches-list { max-height: 235px; }
-  .branches-location { padding: 14px; }
+  .branches-inner { padding: 24px 16px 56px; }
+  .branches-heading { flex-direction: column; align-items: stretch; gap: 8px; }
+  .branches-heading h1 { font-size: 26px; padding-bottom: 0; }
+  .branches-tabs button { padding: 10px 0 14px; }
+  .branches-layout { grid-template-columns: minmax(0, 1fr); gap: 28px; margin-top: 20px; }
+  .branches-list { max-height: 260px; }
   .branches-detail-heading h2 { font-size: 21px; }
-  .branches-directions { width: 100%; }
   .branches-map { height: 300px; }
-  .branches-information { gap: 22px; margin-top: 20px; padding-top: 20px; }
 }

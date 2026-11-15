@@ -26,6 +26,8 @@ BEGIN
         RETURN;
     END
 
+    -- Short links that carried this code keep working, just without a code.
+    UPDATE dbo.ShortLinks SET PromoCodeId = NULL, UpdatedAt = GETDATE() WHERE PromoCodeId = @Id;
     DELETE FROM dbo.PromoCodes WHERE PromoCodeId = @Id;
     COMMIT;
     SELECT 0 AS Result;

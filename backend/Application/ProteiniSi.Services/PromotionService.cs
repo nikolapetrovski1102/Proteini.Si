@@ -5,6 +5,7 @@ using ProteiniSi.Contracts.Providers;
 using ProteiniSi.Contracts.Services;
 using ProteiniSi.Dtos;
 using ProteiniSi.Models;
+using ProteiniSi.Services.Helpers;
 
 namespace ProteiniSi.Services;
 
@@ -29,7 +30,42 @@ public class PromotionService(IPromotionProvider provider) : IPromotionService
         if (error != null)
             throw Failure(error);
 
-        return new PromotionValidationResult(true, promo!.PromoCodeId, promo.Code, promo.Description, CalculateDiscount(promo, validation.Subtotal));
+        var eligibleSubtotal = validation.Subtotal;
+        if (!PromoScope.IsAll(promo!.AppliesTo))
+        {
+            var lines = (validation.Items ?? [])
+                .Where(item => item.ProductId > 0 && item.Quantity > 0 && item.Price >= 0)
+                .Select(item => (item.ProductId, LineTotal: item.Price * item.Quantity))
+                .ToList();
+            var eligible = lines.Count == 0
+                ? new HashSet<int>()
+                : await provider.GetEligibleProductIdsAsync(promo.PromoCodeId, lines.Select(line => line.ProductId));
+            eligibleSubtotal = Math.Min(PromotionMath.EligibleSubtotal(lines, eligible), validation.Subtotal);
+            if (eligibleSubtotal <= 0)
+                throw Failure(PromotionMath.NoEligibleItems);
+        }
+
+        return new PromotionValidationResult(true, promo.PromoCodeId, promo.Code, promo.Description,
+            PromotionMath.Discount(promo.DiscountType, promo.DiscountValue, promo.MaximumDiscountAmount, eligibleSubtotal),
+            promo.AppliesTo);
+    }
+
+    public async Task<PromotionPreview?> GetPreviewAsync(string code)
+    {
+        var normalized = (code ?? string.Empty).Trim().ToUpperInvariant();
+        if (normalized.Length is 0 or > 60) return null;
+
+        var promo = await provider.GetCodeForValidationAsync(normalized, null);
+        // The minimum order is checked against the cart at checkout, so it doesn't hide the preview.
+        if (promo == null || ValidatePromotion(promo, decimal.MaxValue) != null) return null;
+
+        var all = PromoScope.IsAll(promo.AppliesTo);
+        var productIds = all ? [] : await provider.GetTargetProductIdsAsync(promo.PromoCodeId);
+        if (!all && productIds.Count == 0) return null;
+
+        return new PromotionPreview(promo.Code, promo.Description, promo.DiscountType.ToLowerInvariant(), promo.DiscountValue,
+            promo.MinimumOrderAmount, promo.MaximumDiscountAmount, promo.ValidUntil,
+            all ? PromoScope.All : promo.AppliesTo.ToLowerInvariant(), productIds.Distinct().Order().ToList());
     }
 
     public Task<List<PromoCode>> GetCodesAsync() => provider.GetCodesAsync();
@@ -109,7 +145,7 @@ public class PromotionService(IPromotionProvider provider) : IPromotionService
         return new CsvExport(bytes, $"promo-code-usage-{DateTime.UtcNow:yyyyMMdd}.csv");
     }
 
-    private static PromoCodeValues ToValues(PromotionCodeUpsertDto dto)
+    public static PromoCodeValues ToValues(PromotionCodeUpsertDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Code)) throw Failure("Code is required.");
         var code = dto.Code.Trim().ToUpperInvariant();
@@ -120,6 +156,8 @@ public class PromotionService(IPromotionProvider provider) : IPromotionService
         if (dto.ValidFrom.HasValue && dto.ValidUntil.HasValue && dto.ValidUntil < dto.ValidFrom) throw Failure("End date must be after start date.");
         if (code.Length > 60) throw Failure("Code must be 60 characters or fewer.");
         if (dto.Description?.Length > 500) throw Failure("Description must be 500 characters or fewer.");
+        var (scope, scopeError) = PromotionMath.ToScope(dto);
+        if (scopeError != null) throw Failure(scopeError);
 
         return new PromoCodeValues
         {
@@ -133,7 +171,8 @@ public class PromotionService(IPromotionProvider provider) : IPromotionService
             PerCustomerLimit = dto.PerCustomerLimit,
             ValidFrom = dto.ValidFrom,
             ValidUntil = dto.ValidUntil,
-            IsActive = dto.IsActive
+            IsActive = dto.IsActive,
+            Scope = scope!
         };
     }
 
@@ -152,20 +191,10 @@ public class PromotionService(IPromotionProvider provider) : IPromotionService
         var now = DateTime.Now;
         if (promo.ValidFrom != null && now < promo.ValidFrom) return "This promotion has not started yet.";
         if (promo.ValidUntil != null && now > promo.ValidUntil) return "This promotion has expired.";
-        if (subtotal < promo.MinimumOrderAmount) return $"Minimum order amount is MKD {promo.MinimumOrderAmount:0.00}.";
+        if (subtotal < promo.MinimumOrderAmount) return $"Minimum order amount is {PriceFormat.Mkd(promo.MinimumOrderAmount)}.";
         if (promo.UsageLimit != null && promo.TimesUsed >= promo.UsageLimit) return "This promotion has reached its usage limit.";
         if (promo.PerCustomerLimit != null && promo.CustomerTimesUsed >= promo.PerCustomerLimit) return "You have already used this promotion the maximum number of times.";
         return null;
-    }
-
-    private static decimal CalculateDiscount(PromoCodeEligibility promo, decimal subtotal)
-    {
-        var discount = string.Equals(promo.DiscountType, "percentage", StringComparison.OrdinalIgnoreCase)
-            ? subtotal * promo.DiscountValue / 100m
-            : promo.DiscountValue;
-        if (promo.MaximumDiscountAmount != null)
-            discount = Math.Min(discount, promo.MaximumDiscountAmount.Value);
-        return Math.Round(Math.Min(Math.Max(discount, 0m), subtotal), 2, MidpointRounding.AwayFromZero);
     }
 
     private static BadRequestException Failure(string message) => new(message, new { message });

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "../../services/api";
 import { clearGuestCart } from "../Hooks/useCart";
+import Price from "../Components/Price";
 
 export default function MockPayment() {
   const [searchParams] = useSearchParams();
@@ -70,7 +71,7 @@ export default function MockPayment() {
           <p className="text-gray-600 mb-2">
             Amount:{" "}
             <strong className="text-green-600">
-              MKD {parseFloat(amount).toFixed(2)}
+              <Price value={amount} />
             </strong>
           </p>
         </div>

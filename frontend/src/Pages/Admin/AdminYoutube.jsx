@@ -1,158 +1,101 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { FiArrowDown, FiArrowUp, FiEdit2, FiEye, FiHeart, FiPlay, FiPlus, FiTrash2, FiYoutube } from "react-icons/fi";
 import { api } from "../../services/api";
+import {
+  AdminPage,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  IconButton,
+  ImagePicker,
+  Loading,
+  Modal,
+  VisibilityBadge,
+  inputClass,
+  textareaClass,
+} from "./AdminKit";
+import { useConfirm, useToast } from "./adminFeedback";
+
+const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+const emptyForm = { videoUrl: "", title: "", description: "", viewCount: 0, likeCount: 0, displayOrder: 0 };
+
+const getThumbnailUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith("http") || path.startsWith("blob:")) return path;
+  if (path.startsWith("/")) return `${import.meta.env.VITE_IMAGE_BASE_URL || "https://proteini.mk"}${path}`;
+  return path;
+};
+
+/** Accepts any YouTube link (watch, youtu.be, shorts, embed) and returns the embed URL the site needs. */
+const toEmbedUrl = (url) => {
+  const value = (url || "").trim();
+  const match = value.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : value;
+};
+
+const adminName = () => {
+  const user = api.getUser();
+  return user?.fullName || user?.email || "Admin";
+};
 
 export default function AdminYoutube() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [videos, setVideos] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [reordering, setReordering] = useState(false);
   const [editingVideo, setEditingVideo] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    videoUrl: "",
-    title: "",
-    description: "",
-    viewCount: 0,
-    likeCount: 0,
-    displayOrder: 0,
-    createdBy: "",
-  });
+  const [formData, setFormData] = useState(emptyForm);
   const [selectedThumbnailFile, setSelectedThumbnailFile] = useState(null);
   const [thumbnailPreview, setThumbnailPreview] = useState("");
 
-  // Fetch all videos on component mount
-  useEffect(() => {
-    fetchVideos();
-  }, []);
-
   const fetchVideos = async () => {
-    setLoading(true);
     try {
-      const data = await api.getAllYouTubeVideos();
-      setVideos(data);
+      setVideos(await api.getAllYouTubeVideos());
     } catch (error) {
       console.error("Error fetching videos:", error);
-      alert("Failed to fetch YouTube videos");
+      toast.error("Failed to load YouTube videos");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleThumbnailSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const allowedTypes = [
-        "image/jpeg",
-        "image/jpg",
-        "image/png",
-        "image/gif",
-        "image/webp",
-      ];
-      if (!allowedTypes.includes(file.type)) {
-        alert("Invalid file type. Only JPG, PNG, GIF, and WEBP are allowed.");
-        return;
-      }
+  useEffect(() => {
+    fetchVideos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-      if (file.size > 5 * 1024 * 1024) {
-        alert("File size too large. Maximum 5MB allowed.");
-        return;
-      }
+  const setField = (key, value) => setFormData((prev) => ({ ...prev, [key]: value }));
 
-      setSelectedThumbnailFile(file);
-      const previewUrl = URL.createObjectURL(file);
-      setThumbnailPreview(previewUrl);
+  const handleThumbnailSelect = (file) => {
+    if (!ALLOWED.includes(file.type)) {
+      toast.error("Only JPG, PNG, GIF and WebP images are allowed.");
+      return;
     }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image is too large. Maximum 5 MB.");
+      return;
+    }
+    setSelectedThumbnailFile(file);
+    setThumbnailPreview(URL.createObjectURL(file));
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]:
-        name === "viewCount" || name === "likeCount" || name === "displayOrder"
-          ? parseInt(value) || 0
-          : value,
-    }));
-  };
-
-  const resetForm = () => {
-    setFormData({
-      videoUrl: "",
-      title: "",
-      description: "",
-      viewCount: 0,
-      likeCount: 0,
-      displayOrder: 0,
-      createdBy: "",
-    });
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingVideo(null);
     setSelectedThumbnailFile(null);
     setThumbnailPreview("");
+  };
+
+  const startNew = () => {
     setEditingVideo(null);
-    setShowForm(false);
-  };
-
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      if (!selectedThumbnailFile) {
-        alert("Please select a thumbnail image");
-        setLoading(false);
-        return;
-      }
-
-      const user = api.getUser();
-      const videoData = {
-        videoUrl: formData.videoUrl,
-        title: formData.title,
-        description: formData.description,
-        viewCount: formData.viewCount,
-        likeCount: formData.likeCount,
-        displayOrder: formData.displayOrder,
-        thumbnail: selectedThumbnailFile,
-        createdBy: user?.fullName || user?.email || "Admin",
-      };
-      await api.createYouTubeVideo(videoData);
-      alert("Video created successfully");
-      resetForm();
-      fetchVideos();
-    } catch (error) {
-      console.error("Error creating video:", error);
-      alert("Failed to create video");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const user = api.getUser();
-      const videoData = {
-        id: editingVideo.id,
-        videoUrl: formData.videoUrl,
-        title: formData.title,
-        description: formData.description,
-        viewCount: formData.viewCount,
-        likeCount: formData.likeCount,
-        displayOrder: formData.displayOrder,
-        updatedBy: user?.fullName || user?.email || "Admin",
-      };
-
-      if (selectedThumbnailFile) {
-        videoData.thumbnail = selectedThumbnailFile;
-      }
-
-      await api.updateYouTubeVideo(videoData);
-      alert("Video updated successfully");
-      resetForm();
-      fetchVideos();
-    } catch (error) {
-      console.error("Error updating video:", error);
-      alert("Failed to update video");
-    } finally {
-      setLoading(false);
-    }
+    setFormData({ ...emptyForm, displayOrder: videos.length });
+    setSelectedThumbnailFile(null);
+    setThumbnailPreview("");
+    setShowForm(true);
   };
 
   const handleEdit = (video) => {
@@ -164,388 +107,216 @@ export default function AdminYoutube() {
       viewCount: video.viewCount,
       likeCount: video.likeCount,
       displayOrder: video.displayOrder,
-      createdBy: "",
     });
-    setThumbnailPreview(video.thumbnailPath);
+    setThumbnailPreview(getThumbnailUrl(video.thumbnailPath));
     setSelectedThumbnailFile(null);
     setShowForm(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this video?")) return;
-
-    setLoading(true);
+  const handleSubmit = async (e) => {
+    e?.preventDefault();
+    if (!formData.videoUrl.trim() || !formData.title.trim()) {
+      toast.error("Video link and title are required.");
+      return;
+    }
+    if (!editingVideo && !selectedThumbnailFile) {
+      toast.error("Please choose a thumbnail image.");
+      return;
+    }
+    setSaving(true);
     try {
-      await api.deleteYouTubeVideo(id);
-      alert("Video deleted successfully");
-      fetchVideos();
+      const videoData = {
+        videoUrl: toEmbedUrl(formData.videoUrl),
+        title: formData.title,
+        description: formData.description,
+        viewCount: formData.viewCount,
+        likeCount: formData.likeCount,
+        displayOrder: formData.displayOrder,
+      };
+      if (selectedThumbnailFile) videoData.thumbnail = selectedThumbnailFile;
+
+      if (editingVideo) {
+        await api.updateYouTubeVideo({ ...videoData, id: editingVideo.id, updatedBy: adminName() });
+        toast.success("Video updated.");
+      } else {
+        await api.createYouTubeVideo({ ...videoData, createdBy: adminName() });
+        toast.success("Video added.");
+      }
+      closeForm();
+      await fetchVideos();
+    } catch (error) {
+      console.error("Error saving video:", error);
+      toast.error("Failed to save the video.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (video) => {
+    const ok = await confirm({
+      title: `Remove “${video.title}”?`,
+      message: "It will no longer show on the site. The video on YouTube is not affected.",
+      confirmLabel: "Remove",
+      tone: "danger",
+    });
+    if (!ok) return;
+    try {
+      await api.deleteYouTubeVideo(video.id);
+      toast.success("Video removed.");
+      await fetchVideos();
     } catch (error) {
       console.error("Error deleting video:", error);
-      alert("Failed to delete video");
+      toast.error("Failed to remove the video.");
+    }
+  };
+
+  const move = async (index, delta) => {
+    const target = index + delta;
+    if (target < 0 || target >= videos.length) return;
+    const next = [...videos];
+    [next[index], next[target]] = [next[target], next[index]];
+    setVideos(next);
+    setReordering(true);
+    try {
+      await api.reorderYouTubeVideos(next.map((item, idx) => ({ id: item.id, displayOrder: idx })));
+    } catch (error) {
+      console.error("Failed to reorder:", error);
+      toast.error("Couldn't save the new order.");
     } finally {
-      setLoading(false);
+      await fetchVideos();
+      setReordering(false);
     }
   };
 
-  const moveUp = async (index) => {
-    if (index === 0) return;
-
-    const newVideos = [...videos];
-    [newVideos[index - 1], newVideos[index]] = [
-      newVideos[index],
-      newVideos[index - 1],
-    ];
-
-    const reorderData = newVideos.map((item, idx) => ({
-      id: item.id,
-      displayOrder: idx,
-    }));
-
-    try {
-      await api.reorderYouTubeVideos(reorderData);
-      fetchVideos();
-    } catch (error) {
-      console.error("Failed to reorder:", error);
-      fetchVideos();
-    }
-  };
-
-  const moveDown = async (index) => {
-    if (index === videos.length - 1) return;
-
-    const newVideos = [...videos];
-    [newVideos[index + 1], newVideos[index]] = [
-      newVideos[index],
-      newVideos[index + 1],
-    ];
-
-    const reorderData = newVideos.map((item, idx) => ({
-      id: item.id,
-      displayOrder: idx,
-    }));
-
-    try {
-      await api.reorderYouTubeVideos(reorderData);
-      fetchVideos();
-    } catch (error) {
-      console.error("Failed to reorder:", error);
-      fetchVideos();
-    }
-  };
-
-  const getThumbnailUrl = (thumbnailPath) => {
-    if (!thumbnailPath) return null;
-    if (thumbnailPath.startsWith("http")) return thumbnailPath;
-    if (thumbnailPath.startsWith("/")) {
-      return `https://proteini.mk${thumbnailPath}`;
-    }
-    return thumbnailPath;
-  };
-
-  if (loading && !videos.length) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-gray-500">Loading YouTube videos...</div>
-      </div>
-    );
-  }
+  const embed = toEmbedUrl(formData.videoUrl);
+  const recognised = /youtube\.com\/embed\/[A-Za-z0-9_-]{11}/.test(embed);
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">
-            YouTube Videos Management
-          </h1>
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-[#2096D8] hover:bg-[#007bff] text-white px-4 py-2 transition-colors"
-          >
-            + Add New Video
-          </button>
-        </div>
-
-        {/* Videos Grid */}
-        {videos.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-gray-500">
-              No YouTube videos found. Click "Add New Video" to get started.
-            </p>
-          </div>
+    <AdminPage
+      eyebrow="Content"
+      title="YouTube"
+      count={loading ? undefined : videos.length}
+      description="Videos shown in the video section of the site, in the order below."
+      actions={
+        <Button icon={FiPlus} onClick={startNew}>
+          Add video
+        </Button>
+      }
+    >
+      <Card bodyClassName="">
+        {loading ? (
+          <Loading label="Loading videos…" />
+        ) : videos.length === 0 ? (
+          <EmptyState
+            icon={FiYoutube}
+            title="No videos yet"
+            text="Paste a YouTube link and upload a thumbnail to add your first video."
+            action={<Button icon={FiPlus} onClick={startNew}>Add video</Button>}
+          />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <ol className={`divide-y divide-black/[0.06] ${reordering ? "pointer-events-none opacity-70" : ""}`}>
             {videos.map((video, index) => (
-              <div
-                key={video.id}
-                className="bg-white rounded-lg shadow-md overflow-hidden transition-all hover:shadow-lg"
-              >
-                {/* Thumbnail */}
-                <div className="relative h-48 bg-gray-100 group overflow-hidden">
-                  <img
-                    src={getThumbnailUrl(video.thumbnailPath)}
-                    alt={video.title}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src =
-                        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Crect x='2' y='2' width='20' height='20' rx='2.18'%3E%3C/rect%3E%3Cpath d='M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5'%3E%3C/path%3E%3C/svg%3E";
-                      e.target.onerror = null;
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
-                    <svg
-                      className="w-16 h-16 text-white"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M10 15l5-3-5-3v6zm9-3c0 4.41-3.59 8-8 8s-8-3.59-8-8 3.59-8 8-8 8 3.59 8 8z" />
-                    </svg>
-                  </div>
+              <li key={video.id} className="flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5">
+                <div className="flex flex-col items-center">
+                  <IconButton icon={FiArrowUp} label="Move up" disabled={index === 0 || reordering} onClick={() => move(index, -1)} />
+                  <IconButton icon={FiArrowDown} label="Move down" disabled={index === videos.length - 1 || reordering} onClick={() => move(index, 1)} />
                 </div>
-
-                {/* Content */}
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-gray-800 truncate">
-                      {video.title}
-                    </h3>
-                    <span className="text-xs text-gray-400">
-                      Order: {video.displayOrder}
+                <button type="button" onClick={() => handleEdit(video)} className="group relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg bg-[#f6f5f1] sm:w-44" aria-label={`Edit ${video.title}`}>
+                  <img src={getThumbnailUrl(video.thumbnailPath)} alt="" className="h-full w-full object-cover" />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover:bg-black/30">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#141409] shadow">
+                      <FiPlay size={14} className="ml-0.5" aria-hidden="true" />
+                    </span>
+                  </span>
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="truncate font-bold text-gray-900">{video.title}</h3>
+                    {video.isActive === false && <VisibilityBadge active={false} />}
+                  </div>
+                  {video.description && <p className="mt-0.5 line-clamp-1 text-sm text-gray-600">{video.description}</p>}
+                  <div className="mt-1 flex gap-3 text-xs text-gray-500">
+                    <span className="inline-flex items-center gap-1">
+                      <FiEye size={12} aria-hidden="true" /> {Number(video.viewCount || 0).toLocaleString()}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <FiHeart size={12} aria-hidden="true" /> {Number(video.likeCount || 0).toLocaleString()}
                     </span>
                   </div>
-
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                    {video.description || "No description"}
-                  </p>
-
-                  <div className="flex items-center justify-between text-xs text-gray-400 mb-4">
-                    <div className="flex gap-2">
-                      <span>👁️ {video.viewCount.toLocaleString()}</span>
-                      <span>❤️ {video.likeCount.toLocaleString()}</span>
-                    </div>
-                    <span>{video.isActive ? "Active" : "Inactive"}</span>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEdit(video)}
-                      className="flex-1 px-3 py-1.5 bg-[#2096D8] text-white hover:bg-[#007bff] text-sm transition-colors"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(video.id)}
-                      className="flex-1 px-3 py-1.5 bg-red-500 text-white hover:bg-red-600 text-sm transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
-
-                  {/* Reorder buttons */}
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      onClick={() => moveUp(index)}
-                      disabled={index === 0}
-                      className="flex-1 px-2 py-1 bg-gray-200 text-gray-600 rounded hover:bg-gray-300 text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      ↑ Move Up
-                    </button>
-                    <button
-                      onClick={() => moveDown(index)}
-                      disabled={index === videos.length - 1}
-                      className="flex-1 px-2 py-1 bg-gray-200 text-gray-600 rounded hover:bg-gray-300 text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      ↓ Move Down
-                    </button>
-                  </div>
                 </div>
-              </div>
+                <div className="flex gap-1">
+                  <IconButton icon={FiEdit2} label={`Edit ${video.title}`} onClick={() => handleEdit(video)} />
+                  <IconButton icon={FiTrash2} tone="danger" label={`Remove ${video.title}`} onClick={() => handleDelete(video)} />
+                </div>
+              </li>
             ))}
-          </div>
+          </ol>
         )}
-      </div>
+      </Card>
 
-      {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-xl font-bold mb-4">
-                {editingVideo ? "Edit Video" : "Add New Video"}
-              </h2>
-              <form onSubmit={editingVideo ? handleUpdate : handleCreate}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      YouTube Video URL *
-                    </label>
-                    <input
-                      type="url"
-                      name="videoUrl"
-                      value={formData.videoUrl}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                      placeholder="https://www.youtube.com/embed/q_B6h1hAoJo"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Use embed URL format:
-                      https://www.youtube.com/embed/VIDEO_ID
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Title *
-                    </label>
-                    <input
-                      type="text"
-                      name="title"
-                      value={formData.title}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                      placeholder="Video title"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Thumbnail Image *
-                    </label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                      {thumbnailPreview ? (
-                        <div>
-                          <img
-                            src={thumbnailPreview}
-                            alt="Thumbnail Preview"
-                            className="max-h-48 mx-auto mb-2 rounded"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedThumbnailFile(null);
-                              setThumbnailPreview("");
-                            }}
-                            className="text-sm text-red-600 hover:text-red-800"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ) : (
-                        <div>
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                            onChange={handleThumbnailSelect}
-                            className="hidden"
-                            id="thumbnail-upload"
-                          />
-                          <label
-                            htmlFor="thumbnail-upload"
-                            className="cursor-pointer text-[#e98286] hover:text-[#d47175]"
-                          >
-                            Click to upload thumbnail
-                          </label>
-                          <p className="text-xs text-gray-500 mt-1">
-                            JPG, PNG, GIF, WEBP. Max 5MB.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Description
-                    </label>
-                    <textarea
-                      name="description"
-                      value={formData.description}
-                      onChange={handleInputChange}
-                      rows="3"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                      placeholder="Video description..."
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        View Count
-                      </label>
-                      <input
-                        type="number"
-                        name="viewCount"
-                        value={formData.viewCount}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                        min="0"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Like Count
-                      </label>
-                      <input
-                        type="number"
-                        name="likeCount"
-                        value={formData.likeCount}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                        min="0"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Display Order
-                    </label>
-                    <input
-                      type="number"
-                      name="displayOrder"
-                      value={formData.displayOrder}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                      min="0"
-                      placeholder="0 = first position"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Lower numbers appear first
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading || uploadingThumbnail}
-                    className="flex-1 px-4 py-2 bg-[#e98286] text-white rounded-lg hover:bg-[#d47175] disabled:opacity-50"
-                  >
-                    {uploadingThumbnail
-                      ? "Uploading Thumbnail..."
-                      : loading
-                        ? "Saving..."
-                        : editingVideo
-                          ? "Update"
-                          : "Create"}
-                  </button>
-                </div>
-              </form>
+      <Modal
+        open={showForm}
+        onClose={closeForm}
+        size="lg"
+        title={editingVideo ? "Edit video" : "Add video"}
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeForm}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} loading={saving}>
+              {editingVideo ? "Save changes" : "Add video"}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleSubmit} className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <div className="space-y-4">
+            <Field label="Thumbnail" required={!editingVideo}>
+              <ImagePicker promptKey="youtubeThumb"
+                preview={thumbnailPreview}
+                aspect="aspect-video"
+                accept={ALLOWED.join(",")}
+                hint={editingVideo ? "Leave as is to keep the current thumbnail." : "16:9 image. Max 5 MB."}
+                onFile={handleThumbnailSelect}
+              />
+            </Field>
+            {recognised && (
+              <div className="overflow-hidden rounded-xl bg-black">
+                <iframe title="Video preview" src={embed} className="aspect-video w-full" allow="encrypted-media; picture-in-picture" allowFullScreen />
+              </div>
+            )}
+          </div>
+          <div className="space-y-4">
+            <Field
+              label="YouTube link"
+              required
+              hint="Paste any YouTube link — it's converted automatically."
+              error={formData.videoUrl && !recognised ? "This doesn't look like a YouTube link." : undefined}
+            >
+              <input data-autofocus className={inputClass} value={formData.videoUrl} onChange={(e) => setField("videoUrl", e.target.value)} placeholder="https://www.youtube.com/watch?v=…" />
+            </Field>
+            <Field label="Title" required>
+              <input className={inputClass} value={formData.title} onChange={(e) => setField("title", e.target.value)} />
+            </Field>
+            <Field label="Description">
+              <textarea rows={3} className={textareaClass} value={formData.description} onChange={(e) => setField("description", e.target.value)} />
+            </Field>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Views">
+                <input type="number" min="0" className={inputClass} value={formData.viewCount} onChange={(e) => setField("viewCount", parseInt(e.target.value) || 0)} />
+              </Field>
+              <Field label="Likes">
+                <input type="number" min="0" className={inputClass} value={formData.likeCount} onChange={(e) => setField("likeCount", parseInt(e.target.value) || 0)} />
+              </Field>
+              <Field label="Position">
+                <input type="number" min="0" className={inputClass} value={formData.displayOrder} onChange={(e) => setField("displayOrder", parseInt(e.target.value) || 0)} />
+              </Field>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+          <button type="submit" className="hidden" />
+        </form>
+      </Modal>
+    </AdminPage>
   );
 }

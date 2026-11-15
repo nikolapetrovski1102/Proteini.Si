@@ -86,6 +86,13 @@ public static class StoredProcedures
         public const string Create = "dbo.usp_InstagramPost_Create";
         public const string Update = "dbo.usp_InstagramPost_Update";
         public const string Deactivate = "dbo.usp_InstagramPost_Deactivate";
+        public const string UpsertFromFeed = "dbo.usp_InstagramPost_UpsertFromFeed";
+    }
+
+    public static class HomeShowcase
+    {
+        public const string Get = "dbo.usp_HomeShowcase_Get";
+        public const string Update = "dbo.usp_HomeShowcase_Update";
     }
 
     public static class HomeSlider
@@ -134,6 +141,29 @@ public static class StoredProcedures
         public const string ResolveCategorySlug = "dbo.usp_CategorySlugHistory_Resolve";
     }
 
+    public static class ProductPlacements
+    {
+        public const string GetAdmin = "dbo.usp_ProductPlacement_GetAdmin";
+        public const string Save = "dbo.usp_ProductPlacement_Save";
+    }
+
+    public static class Brands
+    {
+        public const string GetAll = "dbo.usp_Brand_GetAll";
+        public const string GetById = "dbo.usp_Brand_GetById";
+        public const string Save = "dbo.usp_Brand_Save";
+        public const string Delete = "dbo.usp_Brand_Delete";
+    }
+
+    public static class Discounts
+    {
+        public const string GetAll = "dbo.usp_Discount_GetAll";
+        public const string GetItemOptions = "dbo.usp_Discount_GetItemOptions";
+        public const string Save = "dbo.usp_Discount_Save";
+        public const string Delete = "dbo.usp_Discount_Delete";
+        public const string Sync = "dbo.usp_Discount_Sync";
+    }
+
     public static class Marketing
     {
         public const string Subscribe = "dbo.usp_NewsletterSubscriber_Subscribe";
@@ -160,6 +190,8 @@ public static class StoredProcedures
         public const string GetPaged = "dbo.usp_GiftVoucher_GetPaged";
         public const string UpdateStatus = "dbo.usp_GiftVoucher_UpdateStatus";
         public const string GetReport = "dbo.usp_GiftVoucher_GetReport";
+        public const string GetDetails = "dbo.usp_GiftVoucher_GetDetails";
+        public const string RedeemInStore = "dbo.usp_GiftVoucher_RedeemInStore";
     }
 
     public static class Cart
@@ -186,6 +218,29 @@ public static class StoredProcedures
         public const string UpdateCode = "dbo.usp_PromoCode_Update";
         public const string DeleteCode = "dbo.usp_PromoCode_Delete";
         public const string GetUsageReport = "dbo.usp_PromoCodeUsage_GetReport";
+        public const string GetEligibleProducts = "dbo.usp_PromoCode_GetEligibleProducts";
+        public const string GetTargetProducts = "dbo.usp_PromoCode_GetTargetProducts";
+    }
+
+    public static class Affiliates
+    {
+        public const string GetAll = "dbo.usp_Affiliate_GetAll";
+        public const string GetDetails = "dbo.usp_Affiliate_GetDetails";
+        public const string Create = "dbo.usp_Affiliate_Create";
+        public const string Update = "dbo.usp_Affiliate_Update";
+        public const string Delete = "dbo.usp_Affiliate_Delete";
+        public const string AddCode = "dbo.usp_Affiliate_AddCode";
+        public const string SetCodeOwner = "dbo.usp_Affiliate_SetCodeOwner";
+        public const string QuickCreate = "dbo.usp_Affiliate_QuickCreate";
+    }
+
+    public static class ShortLinks
+    {
+        public const string GetAll = "dbo.usp_ShortLink_GetAll";
+        public const string Create = "dbo.usp_ShortLink_Create";
+        public const string Update = "dbo.usp_ShortLink_Update";
+        public const string Delete = "dbo.usp_ShortLink_Delete";
+        public const string Resolve = "dbo.usp_ShortLink_Resolve";
     }
 
     public static class Users
@@ -203,6 +258,8 @@ public static class StoredProcedures
         public const string GetEmailCode = "dbo.usp_User_GetEmailCode";
         public const string IncrementEmailCodeAttempts = "dbo.usp_User_IncrementEmailCodeAttempts";
         public const string ConfirmEmail = "dbo.usp_User_ConfirmEmail";
+        public const string SignInExternal = "dbo.usp_User_SignInExternal";
+        public const string SetLanguage = "dbo.usp_User_SetLanguage";
     }
 
     public static class Loyalty
@@ -215,8 +272,10 @@ public static class StoredProcedures
     public static class Products
     {
         public const string GetRelated = "dbo.usp_Product_GetRelated";
+        public const string GetForCustomer = "dbo.usp_Product_GetForCustomer";
         public const string Search = "dbo.usp_Product_Search";
         public const string GetAll = "dbo.usp_Product_GetAll";
+        public const string GetAdFeed = "dbo.usp_Product_GetAdFeed";
         public const string GetFilterOptions = "dbo.usp_Product_GetFilterOptions";
         public const string GetCategoryTree = "dbo.usp_Product_GetCategoryTree";
         public const string Filter = "dbo.usp_Product_Filter";
@@ -300,5 +359,41 @@ public static class StoredProcedures
         public const string RegisterDocument = "dbo.usp_Order_RegisterDocument";
         public const string ReleaseVoucher = "dbo.usp_Order_ReleaseVoucher";
         public const string UpdateAdminStatus = "dbo.usp_Order_UpdateAdminStatus";
+    }
+
+    public static class Analytics
+    {
+        public const string AddEvent = "dbo.usp_SiteEvent_Add";
+        public const string PurgeEvents = "dbo.usp_SiteEvent_Purge";
+        public const string GetDailyReport = "dbo.usp_DailyReport_Get";
+        public const string MarkReportSent = "dbo.usp_DailyReport_MarkSent";
+        public const string UnmarkReport = "dbo.usp_DailyReport_Unmark";
+        public const string DatabaseInfo = "dbo.usp_DailyReport_DatabaseInfo";
+        public const string GetAdminEmails = "dbo.usp_DailyReport_GetAdminEmails";
+    }
+
+    public static class MarketingAutomation
+    {
+        public const string SetConsent = "dbo.usp_MarketingContact_SetConsent";
+        public const string GetTemplates = "dbo.usp_MarketingTemplate_GetAll";
+        public const string UpdateTemplate = "dbo.usp_MarketingTemplate_Update";
+        public const string ClaimRun = "dbo.usp_MarketingRun_Claim";
+        public const string GetWelcomeRecipients = "dbo.usp_Marketing_GetWelcomeRecipients";
+        public const string GetAbandonedCheckouts = "dbo.usp_Marketing_GetAbandonedCheckouts";
+        public const string GetReplenishments = "dbo.usp_Marketing_GetReplenishments";
+        public const string GetNewDiscountRecipients = "dbo.usp_Marketing_GetNewDiscountRecipients";
+        public const string GetDiscountProducts = "dbo.usp_Marketing_GetDiscountProducts";
+        public const string GetFeaturedProducts = "dbo.usp_Marketing_GetFeaturedProducts";
+        public const string AddLog = "dbo.usp_MarketingLog_Add";
+        public const string GetRecentLog = "dbo.usp_MarketingLog_GetRecent";
+    }
+
+    public static class AddressLookup
+    {
+        public const string GetCountries = "dbo.usp_Country_GetAll";
+        public const string UpdateCountryAllowPhone = "dbo.usp_Country_UpdateAllowPhone";
+        public const string GetCitiesWithPostCodes = "dbo.usp_City_GetAllWithPostCodes";
+        public const string UpdateCityDeliver = "dbo.usp_City_UpdateDeliver";
+        public const string BulkUpdateCityDeliverByType = "dbo.usp_City_BulkUpdateDeliverByType";
     }
 }

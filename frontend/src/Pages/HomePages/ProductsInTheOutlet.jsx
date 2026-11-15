@@ -7,6 +7,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useLanguage } from "../translation/LanguageContext";
 import { useQuickPurchase } from "../Hooks/useQuickPurchase";
 import { LargeLoader } from "../Components/Loaders/LargeLoader";
+import { notify } from "../Components/Feedback/siteFeedback";
+import Price from "../Components/Price";
 
 export default function ProductsInTheOutlet() {
   const scrollContainerRef = useRef(null);
@@ -65,7 +67,7 @@ export default function ProductsInTheOutlet() {
     e.stopPropagation();
 
     if (!isAuthenticated) {
-      alert("Please login to add products to favorites");
+      notify(translate("favoritesLoginRequired"));
       navigate("/login");
       return;
     }
@@ -80,7 +82,7 @@ export default function ProductsInTheOutlet() {
       }
     } catch (error) {
       console.error("Error toggling favorite:", error);
-      alert("Failed to update favorites. Please try again.");
+      notify(translate("favoritesUpdateFailed"), { tone: "error" });
     }
   };
 
@@ -198,7 +200,7 @@ export default function ProductsInTheOutlet() {
               <div className="absolute bottom-1/5 left-0 w-full flex justify-center mt-4 max-sm:hidden">
                 <button
                   onClick={handleShowAll}
-                  className="border border-gray-400 text-gray-500 text-[13px] font-semibold py-[10px] px-[60px] leading-4 hover:border-black hover:text-black transition-all duration-300 ease-in-out"
+                  className="border-b border-current pb-0.5 text-gray-500 text-[13px] font-semibold leading-4 hover:text-black transition-all duration-300 ease-in-out"
                 >
                   {translate("showAll")}
                 </button>
@@ -264,7 +266,7 @@ function ProductCard({
           <span className="text-xs">{translate("moreAboutRatings")}</span>
         </div>
         <span className="font-semibold mb-[2px] text-[16px]">
-          MKD {(product.price || 0).toFixed(2)}
+          <Price value={product.price} />
         </span>
         <span className="text-[#2096D8] text-[11px] leading-3 font-bold mt-[10px]">
           OUTLET

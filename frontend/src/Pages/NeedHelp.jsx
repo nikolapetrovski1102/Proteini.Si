@@ -23,11 +23,11 @@ export default function NeedHelp() {
             <span className="max-md:text-[14px]">+389 71 399 036</span>
           </a>
           <a
-            href="mailto:info@proteini.si"
+            href="mailto:info@proteini.mk"
             className="py-[14px] px-[20px] mx-[7px] bg-[#FDC700] font-bold leading-[20px] flex items-center justify-center gap-2 max-h-[48px]"
           >
             <img src="/logos/email.svg" className="w-7 h-7" />
-            <span className="max-md:text-[14px]"> makedonija@proteini.si</span>
+            <span className="max-md:text-[14px]"> info@proteini.mk</span>
           </a>
         </div>
       </div>

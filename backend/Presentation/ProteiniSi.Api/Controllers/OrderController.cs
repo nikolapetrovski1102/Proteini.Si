@@ -2,6 +2,8 @@ using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using ProteiniSi.Api.Extensions;
 using ProteiniSi.Api.Middleware;
 using ProteiniSi.Contracts.Services;
 using ProteiniSi.Dtos;
@@ -15,6 +17,7 @@ public class OrderController(
     IOrderService orderService,
     IOrderEmailService orderEmailService,
     ICPayService cpayService,
+    IGuestCheckoutVerificationService guestVerification,
     IConfiguration config,
     ILogger<OrderController> logger) : ControllerBase
 {
@@ -46,8 +49,23 @@ public class OrderController(
     private bool IsDevelopment() =>
         string.Equals(GetEnvironmentName(), "Development", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Emails a guest the code that confirms a cash-on-delivery order.</summary>
+    [AllowAnonymous]
+    [HttpPost("guest-verification/send")]
+    [EnableRateLimiting(CheckoutAbuseExtensions.GuestCodePolicy)]
+    public async Task<IActionResult> SendGuestVerificationCode([FromBody] GuestCheckoutCodeRequestDto request) =>
+        Ok(await guestVerification.SendCodeAsync(request));
+
+    /// <summary>Checks the guest's code and returns the token to send with the order.</summary>
+    [AllowAnonymous]
+    [HttpPost("guest-verification/confirm")]
+    [EnableRateLimiting(CheckoutAbuseExtensions.GuestCodePolicy)]
+    public IActionResult ConfirmGuestVerificationCode([FromBody] GuestCheckoutCodeConfirmDto request) =>
+        Ok(guestVerification.ConfirmCode(request));
+
     [AllowAnonymous]
     [HttpPost("Create")]
+    [EnableRateLimiting(CheckoutAbuseExtensions.OrderCreatePolicy)]
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDto orderDto)
     {
         var result = await orderService.CreateAsync(orderDto, GetCurrentUserId());

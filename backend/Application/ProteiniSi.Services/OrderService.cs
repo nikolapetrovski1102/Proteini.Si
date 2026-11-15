@@ -8,6 +8,7 @@ using ProteiniSi.Contracts.Providers;
 using ProteiniSi.Contracts.Services;
 using ProteiniSi.Dtos;
 using ProteiniSi.Models;
+using ProteiniSi.Services.Helpers;
 using static ProteiniSi.Services.Helpers.OrderFormatting;
 
 namespace ProteiniSi.Services
@@ -18,15 +19,21 @@ namespace ProteiniSi.Services
         ICommerceSettingsService commerceSettings,
         ILoyaltyService loyaltyService,
         IOrderEmailService orderEmailService,
+        IGiftVoucherEmailService giftVoucherEmails,
         ICPayService cpayService,
+        IGuestCheckoutVerificationService guestVerification,
+        IMarketingAutomationService marketing,
         IConfiguration config,
-        ILogger<OrderService> logger) : IOrderService
+        ILogger<OrderService> logger,
+        IAddressLookupService? addressLookup = null) : IOrderService
     {
         private const string CreateFailedMessage = "Order creation failed. Please try again or contact support.";
 
+        // Admin order flow: Confirmed → Shipped (tracking number + link) → Claimed ("delivered"). Orders can be
+        // rejected or cancelled before they ship. "paid" is set by the card payment itself, never by the admin.
         private static readonly string[] AllowedAdminStatuses =
         {
-            "pending", "confirmed", "processing", "paid", "completed", "shipped", "delivered", "rejected", "cancelled", "refunded"
+            "confirmed", "shipped", "delivered", "rejected", "cancelled"
         };
 
         public async Task<OrderCheckoutResult> CreateAsync(CreateOrderDto orderDto, int userId)
@@ -48,6 +55,21 @@ namespace ProteiniSi.Services
 
         private async Task<OrderCheckoutResult> CreateOrderAsync(CreateOrderDto orderDto, int userId)
         {
+            // Cheap checks first, so fake orders are turned away before touching the database.
+            await ValidateContactDetailsAsync(orderDto);
+
+            var paymentMethod = NormalizePaymentMethod(orderDto.Payment_Method);
+            if (userId <= 0 && paymentMethod == "home_delivery"
+                && !guestVerification.IsVerified(orderDto.Billing_Email, orderDto.Guest_Verification_Token))
+            {
+                throw new BadRequestException("Guest email not verified", new
+                {
+                    status = false,
+                    requiresEmailVerification = true,
+                    message = "Please confirm your email with the code we send you before placing a cash on delivery order."
+                });
+            }
+
             string? userEmail;
             string userFullName;
             List<CheckoutCartItem> cartItems;
@@ -89,7 +111,6 @@ namespace ProteiniSi.Services
             if (cartItems.Count == 0)
                 throw BadRequest("Cart is empty");
 
-            var paymentMethod = NormalizePaymentMethod(orderDto.Payment_Method);
             if (!IsSupportedPaymentMethod(paymentMethod))
                 throw BadRequest($"Unsupported payment method: {orderDto.Payment_Method}");
             var shippingSettings = await commerceSettings.GetShippingAsync();
@@ -99,6 +120,8 @@ namespace ProteiniSi.Services
 
             var initialOrderStatus = paymentMethod == "home_delivery" ? "pending_confirmation" : "pending";
             decimal subtotal = 0;
+            // Gift vouchers are sent by email, so only the other items are delivered and count towards free delivery.
+            decimal shippableSubtotal = 0;
             decimal pointsRedeemed = orderDto.PointsToRedeem ?? 0;
             var orderItems = new List<OrderItemDto>();
             decimal totalPointsEarned = 0;
@@ -112,9 +135,12 @@ namespace ProteiniSi.Services
                 if (stock < item.Quantity)
                     throw BadRequest($"Insufficient stock for product: {item.Product_Name}. Available: {stock}, Requested: {item.Quantity}");
 
-                decimal itemPrice = item.CartPrice ?? item.Product_Price;
+                // Whole denars, rounded up, exactly as the shop shows the price.
+                decimal itemPrice = PriceFormat.Round(item.CartPrice ?? item.Product_Price);
                 decimal itemSubtotal = item.Quantity * itemPrice;
                 subtotal += itemSubtotal;
+                if (!item.IsGiftVoucher)
+                    shippableSubtotal += itemSubtotal;
 
                 decimal loyaltyPercentage = 2.0m;
                 if (item.VariantLoyaltyPercentage > 0)
@@ -142,19 +168,30 @@ namespace ProteiniSi.Services
                 });
             }
 
-            var promotion = await ResolvePromotionAsync(orderDto.Promo_Code, subtotal, userId, userEmail);
+            var promotion = await ResolvePromotionAsync(orderDto.Promo_Code, subtotal,
+                orderItems.Select(item => (item.Product_Id, item.Subtotal)).ToList(), userId, userEmail);
             if (!string.IsNullOrWhiteSpace(orderDto.Promo_Code) && promotion == null)
                 throw BadRequest("The promotion code is invalid, expired, unavailable, or does not meet the order requirements.");
 
-            if (cartItems.Any(item => item.IsGiftVoucher) && !string.IsNullOrWhiteSpace(orderDto.Gift_Voucher_Code))
+            var buysGiftVoucher = cartItems.Any(item => item.IsGiftVoucher);
+            if (buysGiftVoucher && !string.IsNullOrWhiteSpace(orderDto.Gift_Voucher_Code))
                 throw BadRequest("A gift voucher cannot be used to purchase another gift voucher.");
+
+            // Gift vouchers can only be paid by card.
+            if (buysGiftVoucher && paymentMethod != "credit_card")
+                throw new BadRequestException("Gift vouchers can only be paid by card", new
+                {
+                    status = false,
+                    giftVoucherCardOnly = true,
+                    message = "Gift vouchers can only be paid by card."
+                });
 
             var selectedGift = await ResolveFreeGiftAsync(orderDto.Selected_Free_Gift_Id, subtotal);
             if (orderDto.Selected_Free_Gift_Id.HasValue && selectedGift == null)
                 throw BadRequest("The selected free gift is unavailable or the order does not meet its requirements.");
 
             decimal promotionDiscount = promotion?.DiscountAmount ?? 0m;
-            decimal deliveryFee = CalculateDeliveryFee(subtotal, paymentMethod, shippingSettings);
+            decimal deliveryFee = CalculateDeliveryFee(shippableSubtotal, paymentMethod, shippingSettings);
 
             if (userId <= 0)
             {
@@ -162,9 +199,14 @@ namespace ProteiniSi.Services
             }
             else
             {
+                // Redemption rules from the admin settings: a minimum balance before any points can be used, then the
+                // order value (after promo code) sets the most points usable; never more than half the order.
                 var availablePoints = await loyaltyService.GetAvailablePointsAsync(userId);
-                var maximumPointsDiscount = Math.Floor(Math.Max(subtotal - promotionDiscount, 0m) * 0.5m);
-                pointsRedeemed = Math.Min(Math.Max(pointsRedeemed, 0m), Math.Min(availablePoints, maximumPointsDiscount));
+                var orderValue = Math.Max(subtotal - promotionDiscount, 0m);
+                var maximumPointsDiscount = availablePoints < shippingSettings.LoyaltyMinBalance
+                    ? 0m
+                    : Math.Min(shippingSettings.MaxRedeemablePoints(orderValue), Math.Floor(orderValue * 0.5m));
+                pointsRedeemed = Math.Floor(Math.Min(Math.Max(pointsRedeemed, 0m), Math.Min(availablePoints, maximumPointsDiscount)));
             }
 
             decimal pointsDiscount = pointsRedeemed;
@@ -181,7 +223,8 @@ namespace ProteiniSi.Services
             if (!string.IsNullOrWhiteSpace(orderDto.Gift_Voucher_Code) && giftVoucher == null)
                 throw BadRequest("The gift voucher is invalid, expired, disabled or has no remaining balance.");
             decimal giftVoucherAmount = giftVoucher?.Amount ?? 0m;
-            decimal totalAmount = Math.Max(amountBeforeVoucher - giftVoucherAmount, 0m);
+            // cPay only takes whole denars, so the stored total is the amount actually charged.
+            decimal totalAmount = PriceFormat.Round(Math.Max(amountBeforeVoucher - giftVoucherAmount, 0m));
 
             var created = await orderProvider.CreateAsync(new OrderCreateRequest
             {
@@ -210,10 +253,28 @@ namespace ProteiniSi.Services
                 PointsEarned = totalPointsEarned,
                 // Card orders keep the cart until cPay confirms the payment, so a failed or cancelled payment can be retried.
                 CartId = paymentMethod == "credit_card" ? null : cartId,
-                Items = orderItems
+                Items = orderItems,
+                Language = EmailLanguage.OrNull(orderDto.Language),
+                GiftRecipientName = buysGiftVoucher ? orderDto.Gift_Recipient_Name : null,
+                GiftRecipientEmail = buysGiftVoucher ? orderDto.Gift_Recipient_Email : null,
+                GiftMessage = buysGiftVoucher ? orderDto.Gift_Message : null
             });
             var orderId = created.OrderId;
             var orderNumber = created.OrderNumber;
+
+            // A guest paying by card never gets the email code, so their marketing "yes" is stored here.
+            // Without it an unpaid card order could never get the abandoned checkout reminder.
+            if (userId <= 0 && orderDto.MarketingConsent == true && !string.IsNullOrWhiteSpace(userEmail))
+            {
+                try
+                {
+                    await marketing.SetGuestOrderConsentAsync(userEmail, orderDto.MarketingConsentGivenAt);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Could not store the marketing consent of guest order {OrderId}", orderId);
+                }
+            }
 
             var result = new OrderCheckoutResult
             {
@@ -346,7 +407,8 @@ namespace ProteiniSi.Services
             Order_Note = orderDto.Order_Note
         };
 
-        private async Task<PromotionApplication?> ResolvePromotionAsync(string? rawCode, decimal subtotal, int userId, string? customerEmail)
+        private async Task<PromotionApplication?> ResolvePromotionAsync(
+            string? rawCode, decimal subtotal, IReadOnlyList<(int ProductId, decimal LineTotal)> lines, int userId, string? customerEmail)
         {
             if (string.IsNullOrWhiteSpace(rawCode)) return null;
             var code = rawCode.Trim().ToUpperInvariant();
@@ -360,16 +422,20 @@ namespace ProteiniSi.Services
             if (promo.UsageLimit != null && promo.TimesUsed >= promo.UsageLimit) return null;
             if (promo.PerCustomerLimit != null && promo.CustomerTimesUsed >= promo.PerCustomerLimit) return null;
 
-            var discount = string.Equals(promo.DiscountType, "percentage", StringComparison.OrdinalIgnoreCase)
-                ? subtotal * promo.DiscountValue / 100m
-                : promo.DiscountValue;
-            if (promo.MaximumDiscountAmount != null)
-                discount = Math.Min(discount, promo.MaximumDiscountAmount.Value);
+            // A code limited to some products or categories only discounts those items;
+            // the minimum order amount above still counts the whole cart.
+            var eligibleSubtotal = subtotal;
+            if (!PromoScope.IsAll(promo.AppliesTo))
+            {
+                var eligible = await orderProvider.GetPromotionEligibleProductIdsAsync(promo.PromoCodeId, lines.Select(line => line.ProductId));
+                eligibleSubtotal = Math.Min(PromotionMath.EligibleSubtotal(lines, eligible), subtotal);
+                if (eligibleSubtotal <= 0) return null;
+            }
 
             return new PromotionApplication(
                 promo.PromoCodeId,
                 promo.Code ?? code,
-                Math.Round(Math.Min(Math.Max(discount, 0m), subtotal), 2, MidpointRounding.AwayFromZero));
+                PromotionMath.Discount(promo.DiscountType, promo.DiscountValue, promo.MaximumDiscountAmount, eligibleSubtotal));
         }
 
         private sealed record PromotionApplication(int PromoCodeId, string Code, decimal DiscountAmount);
@@ -402,9 +468,10 @@ namespace ProteiniSi.Services
             return gift;
         }
 
-        private static decimal CalculateDeliveryFee(decimal subtotal, string paymentMethod, ShippingSettings settings)
+        private static decimal CalculateDeliveryFee(decimal shippableSubtotal, string paymentMethod, ShippingSettings settings)
         {
-            if (subtotal >= settings.FreeDeliveryThreshold)
+            // Nothing to deliver (a voucher-only order) or over the free-delivery threshold.
+            if (shippableSubtotal <= 0 || shippableSubtotal >= settings.FreeDeliveryThreshold)
                 return 0m;
 
             decimal cashOnDeliveryFee = paymentMethod == "home_delivery"
@@ -456,6 +523,8 @@ namespace ProteiniSi.Services
                 return new PaymentCompletionResult(true, false, "Payment completed without email notification");
 
             var emailSent = await orderEmailService.SendOrderConfirmationAsync(orderId, true);
+            // Codes are only created now, so the buyer and the gift recipient get their own emails here.
+            await giftVoucherEmails.SendForOrderAsync(orderId);
             return new PaymentCompletionResult(true, emailSent, emailSent ? "Payment completed and email sent" : "Payment completed but email failed");
         }
 
@@ -644,6 +713,14 @@ namespace ProteiniSi.Services
             var trackingUrl = string.IsNullOrWhiteSpace(statusUpdate.Tracking_Url)
                 ? order.Tracking_Url
                 : statusUpdate.Tracking_Url.Trim();
+            // A new tracking number without a link gets the courier link from the settings template.
+            if (requestedStatus == "shipped" && !string.IsNullOrWhiteSpace(trackingNumber)
+                && string.IsNullOrWhiteSpace(statusUpdate.Tracking_Url)
+                && (string.IsNullOrWhiteSpace(trackingUrl) || trackingNumber != order.Tracking_Number))
+            {
+                var settings = await commerceSettings.GetShippingAsync();
+                trackingUrl = settings.TrackingUrlFor(trackingNumber) ?? trackingUrl;
+            }
             if ((trackingNumber?.Length ?? 0) > 120)
                 throw StatusBadRequest("Tracking number is too long.");
             if (!string.IsNullOrWhiteSpace(trackingUrl)
@@ -651,29 +728,14 @@ namespace ProteiniSi.Services
                     || parsedTrackingUrl.Scheme is not ("https" or "http")))
                 throw StatusBadRequest("Tracking URL must be a valid HTTP or HTTPS URL.");
 
-            if (requestedStatus == "paid" || requestedStatus == "completed")
-            {
-                var paidResult = await CompletePaidOrderAsync(
-                    statusUpdate.Order_Id,
-                    statusUpdate.Transaction_Id,
-                    sendEmail: false,
-                    completedOrderStatus: requestedStatus);
-                return new OrderAdminStatusResult(paidResult.Success, paidResult.Message, ConfirmationEmailSent: paidResult.EmailSent);
-            }
-
             string finalOrderStatus = requestedStatus;
-            string finalPaymentStatus = string.IsNullOrWhiteSpace(statusUpdate.Payment_Status)
-                ? order.Payment_Status ?? "pending"
-                : statusUpdate.Payment_Status.Trim().ToLowerInvariant();
-
-            if (requestedStatus == "confirmed" && string.IsNullOrWhiteSpace(statusUpdate.Payment_Status))
-                finalPaymentStatus = order.Payment_Status ?? "pending";
-            else if (requestedStatus == "rejected")
-                finalPaymentStatus = "failed";
-            else if (requestedStatus == "cancelled")
-                finalPaymentStatus = IsSuccessfulPaymentStatus(order.Payment_Status ?? string.Empty) ? "refunded" : "failed";
-            else if (requestedStatus == "refunded")
-                finalPaymentStatus = "refunded";
+            // Payment follows the order: a claimed order has been paid (cash collected by the courier, or by card).
+            string finalPaymentStatus = requestedStatus switch
+            {
+                "delivered" => "completed",
+                "rejected" or "cancelled" => IsSuccessfulPaymentStatus(order.Payment_Status) ? "refunded" : "failed",
+                _ => order.Payment_Status ?? "pending"
+            };
 
             await orderProvider.UpdateAdminStatusAsync(
                 statusUpdate.Order_Id,
@@ -682,9 +744,9 @@ namespace ProteiniSi.Services
                 statusUpdate.Transaction_Id,
                 trackingNumber,
                 trackingUrl,
-                releaseVoucher: requestedStatus is "rejected" or "cancelled");
+                releaseVoucher: requestedStatus is "rejected" or "cancelled" && currentStatus != requestedStatus);
 
-            // Customers are told when an order is confirmed, shipped or rejected; repeating the
+            // Customers are told when an order is confirmed, shipped, delivered or rejected; repeating the
             // same status (e.g. editing tracking details) does not send a second email.
             var emailSent = statusUpdate.Send_Email
                 && CustomerNotifiedStatuses.Contains(requestedStatus)
@@ -700,24 +762,21 @@ namespace ProteiniSi.Services
         }
 
         private static readonly HashSet<string> CustomerNotifiedStatuses =
-            new(StringComparer.OrdinalIgnoreCase) { "confirmed", "shipped", "rejected" };
+            new(StringComparer.OrdinalIgnoreCase) { "confirmed", "shipped", "delivered", "rejected" };
 
         private static bool CanTransitionOrder(string current, string requested)
         {
             if (current == requested) return true;
+            // "processing" and "completed" are older statuses; such orders can still move on to shipping.
             var transitions = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
             {
-                ["pending"] = new[] { "confirmed", "paid", "rejected", "cancelled" },
-                ["pending_confirmation"] = new[] { "confirmed", "paid", "rejected", "cancelled" },
-                ["confirmed"] = new[] { "processing", "paid", "cancelled", "rejected" },
-                ["processing"] = new[] { "paid", "completed", "shipped", "cancelled" },
-                ["paid"] = new[] { "processing", "completed", "shipped", "refunded" },
-                ["completed"] = new[] { "shipped", "delivered", "refunded" },
-                ["shipped"] = new[] { "delivered", "refunded" },
-                ["delivered"] = new[] { "refunded" },
-                ["rejected"] = Array.Empty<string>(),
-                ["cancelled"] = Array.Empty<string>(),
-                ["refunded"] = Array.Empty<string>()
+                ["pending"] = new[] { "confirmed", "rejected", "cancelled" },
+                ["pending_confirmation"] = new[] { "confirmed", "rejected", "cancelled" },
+                ["paid"] = new[] { "confirmed", "shipped", "rejected", "cancelled" },
+                ["confirmed"] = new[] { "shipped", "rejected", "cancelled" },
+                ["processing"] = new[] { "shipped", "rejected", "cancelled" },
+                ["completed"] = new[] { "shipped", "delivered" },
+                ["shipped"] = new[] { "delivered" },
             };
             return transitions.TryGetValue(current, out var allowed) && allowed.Contains(requested, StringComparer.OrdinalIgnoreCase);
         }
@@ -764,7 +823,7 @@ namespace ProteiniSi.Services
                         Convert.ToString(item.Variant_Name),
                         Convert.ToString(item.Variant_Packaging)
                     }.Where(value => !string.IsNullOrWhiteSpace(value)));
-                    rows.Append($"<tr><td>{HtmlEncode(Convert.ToString(item.Product_Name) ?? string.Empty)}</td><td>{HtmlEncode(variant)}</td><td>{Convert.ToInt32(item.Quantity)}</td><td>MKD {Convert.ToDecimal(item.Product_Price):F2}</td><td>MKD {Convert.ToDecimal(item.Subtotal):F2}</td></tr>");
+                    rows.Append($"<tr><td>{HtmlEncode(Convert.ToString(item.Product_Name) ?? string.Empty)}</td><td>{HtmlEncode(variant)}</td><td>{Convert.ToInt32(item.Quantity)}</td><td>{PriceFormat.Mkd(Convert.ToDecimal(item.Product_Price))}</td><td>{PriceFormat.Mkd(Convert.ToDecimal(item.Subtotal))}</td></tr>");
                 }
 
                 var useDelivery = ToBoolean(order.Delivery_IsDifferent);
@@ -780,7 +839,7 @@ namespace ProteiniSi.Services
 <section><h2>Delivery</h2><p>{HtmlEncode(deliveryName ?? string.Empty)}<br>{HtmlEncode(deliveryAddress ?? string.Empty)}<br>{HtmlEncode($"{deliveryPostCode} {deliveryCity}".Trim())}</p></section></div>
 <p><strong>Order date:</strong> {Convert.ToDateTime(order.Order_Date):yyyy-MM-dd HH:mm}<br><strong>Payment:</strong> {HtmlEncode(Convert.ToString(order.Payment_Method) ?? string.Empty)} / {HtmlEncode(Convert.ToString(order.Payment_Status) ?? string.Empty)}</p>
 <table><thead><tr><th>Product</th><th>Variant / flavour</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>{rows}</tbody></table>
-<table class='totals'><tr><th>Subtotal</th><td>MKD {Convert.ToDecimal(order.Subtotal):F2}</td></tr><tr><th>Promotion</th><td>- MKD {Convert.ToDecimal(order.Promo_Discount):F2}</td></tr><tr><th>Points</th><td>- MKD {Convert.ToDecimal(order.Points_Discount):F2}</td></tr><tr><th>Gift voucher</th><td>- MKD {Convert.ToDecimal(order.Gift_Voucher_Amount):F2}</td></tr><tr><th>Delivery</th><td>MKD {Convert.ToDecimal(order.Delivery_Fee):F2}</td></tr><tr><th>Total</th><td><strong>MKD {Convert.ToDecimal(order.Total_Amount):F2}</strong></td></tr></table>
+<table class='totals'><tr><th>Subtotal</th><td>{PriceFormat.Mkd(Convert.ToDecimal(order.Subtotal))}</td></tr><tr><th>Promotion</th><td>- {PriceFormat.Mkd(Convert.ToDecimal(order.Promo_Discount))}</td></tr><tr><th>Points</th><td>- {PriceFormat.Mkd(Convert.ToDecimal(order.Points_Discount))}</td></tr><tr><th>Gift voucher</th><td>- {PriceFormat.Mkd(Convert.ToDecimal(order.Gift_Voucher_Amount))}</td></tr><tr><th>Delivery</th><td>{PriceFormat.Mkd(Convert.ToDecimal(order.Delivery_Fee))}</td></tr><tr><th>Total</th><td><strong>{PriceFormat.Mkd(Convert.ToDecimal(order.Total_Amount))}</strong></td></tr></table>
 </body></html>";
                 var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(html))).ToLowerInvariant();
                 await orderProvider.RegisterDocumentAsync(orderId, hash, html);
@@ -813,6 +872,100 @@ namespace ProteiniSi.Services
 
         public Task<(dynamic? Order, List<dynamic> Items)> GetEmailDebugDataAsync(int orderId) =>
             orderProvider.GetEmailDebugDataAsync(orderId);
+
+        /// <summary>Rejects invalid phones, non-deliverable cities, mismatched post codes, invalid emails and advert notes.</summary>
+        private async Task ValidateContactDetailsAsync(CreateOrderDto orderDto)
+        {
+            var options = addressLookup != null ? await addressLookup.GetCheckoutOptionsAsync() : null;
+            var phoneCountries = options?.PhoneCountries ?? CheckoutFieldValidator.DefaultCountries;
+            var shippingCountries = options?.ShippingCountries ?? CheckoutFieldValidator.DefaultCountries;
+            var cities = options?.Cities;
+
+            if (!string.IsNullOrWhiteSpace(orderDto.Billing_Email))
+            {
+                var (emailValid, normalizedEmail, emailError, _) = CheckoutFieldValidator.ValidateEmail(orderDto.Billing_Email);
+                if (!emailValid)
+                    throw FieldError("Billing_Email", emailError!);
+
+                var domainError = await CheckoutFieldValidator.ValidateEmailDomainAsync(normalizedEmail!);
+                if (domainError != null)
+                    throw FieldError("Billing_Email", domainError);
+
+                orderDto.Billing_Email = normalizedEmail!;
+            }
+
+            var billingPhone = CheckoutFieldValidator.NormalizePhone(orderDto.Billing_Phone, phoneCountries)
+                ?? throw FieldError("Billing_Phone", "Please enter a valid phone number for an allowed country (e.g. +389 71 000 000).");
+            orderDto.Billing_Phone = billingPhone;
+
+            var billingCountry = CheckoutFieldValidator.NormalizeShippingCountry(orderDto.Billing_Country, shippingCountries)
+                ?? throw FieldError("Billing_Country", "Shipping is only available in North Macedonia.");
+            orderDto.Billing_Country = billingCountry;
+
+            var (cityValid, canonicalCity, canonicalPostCode, cityError) =
+                CheckoutFieldValidator.ValidateCityAndPostCode(orderDto.Billing_City, orderDto.Billing_PostCode, cities);
+            if (!cityValid)
+            {
+                var fieldName = !CheckoutFieldValidator.IsValidPostCode(orderDto.Billing_PostCode) || (cityError?.StartsWith("Post code", StringComparison.OrdinalIgnoreCase) == true)
+                    ? "Billing_PostCode"
+                    : "Billing_City";
+                throw FieldError(fieldName, cityError!);
+            }
+            orderDto.Billing_City = canonicalCity!;
+            orderDto.Billing_PostCode = canonicalPostCode!;
+
+            if (orderDto.Delivery_IsDifferent)
+            {
+                orderDto.Delivery_Phone = CheckoutFieldValidator.NormalizePhone(orderDto.Delivery_Phone, phoneCountries)
+                    ?? throw FieldError("Delivery_Phone", "Please enter a valid phone number for delivery (e.g. +389 71 000 000).");
+
+                var deliveryCountry = CheckoutFieldValidator.NormalizeShippingCountry(orderDto.Delivery_Country, shippingCountries)
+                    ?? throw FieldError("Delivery_Country", "Delivery is only available in North Macedonia.");
+                orderDto.Delivery_Country = deliveryCountry;
+
+                var (delCityValid, delCanonicalCity, delCanonicalPostCode, delCityError) =
+                    CheckoutFieldValidator.ValidateCityAndPostCode(orderDto.Delivery_City, orderDto.Delivery_PostCode, cities);
+                if (!delCityValid)
+                {
+                    var delField = !CheckoutFieldValidator.IsValidPostCode(orderDto.Delivery_PostCode) || (delCityError?.StartsWith("Post code", StringComparison.OrdinalIgnoreCase) == true)
+                        ? "Delivery_PostCode"
+                        : "Delivery_City";
+                    throw FieldError(delField, delCityError!);
+                }
+                orderDto.Delivery_City = delCanonicalCity!;
+                orderDto.Delivery_PostCode = delCanonicalPostCode!;
+            }
+
+            var noteProblem = CheckoutFieldValidator.CheckNote(orderDto.Order_Note);
+            if (noteProblem != null)
+                throw FieldError("Order_Note", noteProblem);
+
+            orderDto.Gift_Recipient_Name = TrimToNull(orderDto.Gift_Recipient_Name);
+            orderDto.Gift_Recipient_Email = TrimToNull(orderDto.Gift_Recipient_Email);
+            orderDto.Gift_Message = TrimToNull(orderDto.Gift_Message);
+            if (orderDto.Gift_Recipient_Name?.Length > 200)
+                throw FieldError("Gift_Recipient_Name", "The recipient's name is too long.");
+            if (orderDto.Gift_Recipient_Email != null)
+            {
+                var (recipientValid, recipientEmail, recipientError, _) = CheckoutFieldValidator.ValidateEmail(orderDto.Gift_Recipient_Email);
+                if (!recipientValid)
+                    throw FieldError("Gift_Recipient_Email", recipientError!);
+                orderDto.Gift_Recipient_Email = recipientEmail;
+            }
+            if (orderDto.Gift_Message != null)
+            {
+                if (orderDto.Gift_Message.Length > 500)
+                    throw FieldError("Gift_Message", "The gift message can be at most 500 characters.");
+                if (CheckoutFieldValidator.CheckNote(orderDto.Gift_Message) != null)
+                    throw FieldError("Gift_Message", "The gift message cannot contain links or advertising.");
+            }
+        }
+
+        private static string? TrimToNull(string? value) =>
+            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+        private static BadRequestException FieldError(string field, string message) =>
+            new(message, new { status = false, field, message });
 
         private static BadRequestException BadRequest(string message) => new(message, new { message });
 

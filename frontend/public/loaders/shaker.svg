@@ -2,63 +2,78 @@
   <title>Loading</title>
   <style>
     /*
-      Smooth pendulum shake: the bottle swings between two extremes on a
-      sine-like ease (zero velocity at the ends, fastest through the centre),
-      the liquid lags slightly behind, and everything else is phase-locked to it.
+      1.0s loop, starts the moment the loader appears: two quick shakes -
+      tilt to an angle, two up-and-down strokes along that angle, settle upright.
+      The drink lags behind the stroke and foams up a little.
     */
-    .sway  { transform-box: view-box; transform-origin: 100px 150px; animation: shake 1.6s cubic-bezier(.37,0,.63,1) infinite alternate; will-change: transform; }
-    .bob   { transform-box: view-box; animation: bob .8s cubic-bezier(.37,0,.63,1) infinite alternate; }
-    .slosh { transform-box: view-box; transform-origin: 100px 120px; animation: slosh 1.6s cubic-bezier(.37,0,.63,1) -3.02s infinite alternate; }
-    .wave  { animation: wave 1.6s linear infinite; }
-    .bubble { opacity: 0; animation: rise 2.4s cubic-bezier(.33,1,.68,1) infinite; }
-    .b2 { animation-delay: .8s; } .b3 { animation-delay: 1.6s; }
+    .sway  { transform-box: view-box; transform-origin: 100px 150px; animation: shake 1.0s infinite; will-change: transform; }
+    .slosh { transform-box: view-box; transform-origin: 100px 120px; animation: slosh 1.0s infinite; will-change: transform; }
+    .wave  { animation: wave 1.0s linear infinite; }
+    .foam  { opacity: 0; animation: foam 1.0s ease-in-out infinite; }
+    .bubble { opacity: 0; animation: rise 1.0s cubic-bezier(.33,1,.68,1) infinite; }
+    .b2 { animation-delay: 0.33s; } .b3 { animation-delay: 0.66s; }
     .lines-l, .lines-r { transform-box: fill-box; transform-origin: center; opacity: 0; }
-    .lines-l { animation: lines-l 3.2s ease-in-out infinite; }
-    .lines-r { animation: lines-r 3.2s ease-in-out infinite; }
-    .shadow { transform-box: fill-box; transform-origin: center; animation: shadow .8s cubic-bezier(.37,0,.63,1) infinite alternate; }
-    .dot { transform-box: fill-box; transform-origin: center; animation: pulse 1.2s cubic-bezier(.37,0,.63,1) infinite; }
-    .d2 { animation-delay: .2s; } .d3 { animation-delay: .4s; }
+    .lines-l { animation: lines-l 1.0s infinite; }
+    .lines-r { animation: lines-r 1.0s infinite; }
+    .shadow { transform-box: fill-box; transform-origin: center; animation: shadow 1.0s infinite; }
+    .dot { transform-box: fill-box; transform-origin: center; animation: pulse 0.6s cubic-bezier(.37,0,.63,1) infinite; }
+    .d2 { animation-delay: 0.1s; } .d3 { animation-delay: 0.2s; }
 
+    /* each stroke: accelerate hard, snap at the end */
     @keyframes shake {
-      from { transform: translateX(-3px) rotate(-11deg); }
-      to   { transform: translateX(3px)  rotate(11deg); }
+      0%   { transform: translate(0,0) rotate(0deg); animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      15%  { transform: translate(0,0) rotate(-20deg); animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      30%  { transform: translate(-6px,-16px) rotate(-20deg); animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      45%  { transform: translate(1px,3px) rotate(-20deg); animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      60%  { transform: translate(-6px,-16px) rotate(-20deg); animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      75%  { transform: translate(1px,3px) rotate(-20deg); animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      90%  { transform: translate(0,0) rotate(2deg); animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      100% { transform: translate(0,0) rotate(0deg); }
     }
-    @keyframes bob {
-      from { transform: translateY(-5px); }
-      to   { transform: translateY(0); }
-    }
+    /* liquid tries to stay level and arrives a beat late */
     @keyframes slosh {
-      from { transform: translateY(2px) rotate(13deg); }
-      to   { transform: translateY(2px) rotate(-13deg); }
+      0%   { transform: translateY(0) rotate(0deg); animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      18%  { transform: translateY(0) rotate(16deg); animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      33%  { transform: translateY(7px) rotate(12deg); animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      48%  { transform: translateY(-6px) rotate(18deg); animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      63%  { transform: translateY(7px) rotate(12deg); animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      78%  { transform: translateY(-6px) rotate(18deg); animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      93%  { transform: translateY(0) rotate(-3deg); animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      100% { transform: translateY(0) rotate(0deg); }
     }
-    @keyframes wave   { from { transform: translateX(0); } to { transform: translateX(-60px); } }
-    @keyframes rise   {
+    @keyframes wave  { from { transform: translateX(0); } to { transform: translateX(-60px); } }
+    @keyframes foam {
+      0%, 25% { opacity: 0; }
+      50%, 80% { opacity: .8; }
+      100% { opacity: 0; }
+    }
+    @keyframes rise  {
       0%   { transform: translateY(0);     opacity: 0; }
       20%  { opacity: .85; }
       70%, 100% { transform: translateY(-50px); opacity: 0; }
     }
-    /* Motion lines fade in on the side the bottle swings toward (one full swing = 3.2s) */
-    @keyframes lines-l {
-      0%, 100% { opacity: .75; }
-      22%, 78% { opacity: 0; }
-    }
+    /* speed lines flash on the side each stroke ends on */
     @keyframes lines-r {
-      0%, 28%, 72%, 100% { opacity: 0; }
-      50% { opacity: .75; }
+      0%, 37%, 53%, 67%, 83%, 100% { opacity: 0; }
+      45%, 75% { opacity: .7; }
+    }
+    @keyframes lines-l {
+      0%, 22%, 38%, 52%, 68%, 100% { opacity: 0; }
+      30%, 60% { opacity: .7; }
     }
     @keyframes shadow {
-      from { transform: scaleX(.86); opacity: .14; }
-      to   { transform: scaleX(1);   opacity: .24; }
+      0%, 15%, 45%, 75%, 100% { transform: scaleX(1);  opacity: .24; animation-timing-function: cubic-bezier(.37,0,.63,1); }
+      30%, 60%                { transform: scaleX(.8); opacity: .14; animation-timing-function: cubic-bezier(.37,0,.63,1); }
     }
-    @keyframes pulse  {
+    @keyframes pulse {
       0%, 100% { opacity: .35; transform: translateY(0); }
       45% { opacity: 1; transform: translateY(-3px); }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .sway, .bob, .slosh, .bubble, .shadow { animation: none; }
+      .sway, .slosh, .bubble, .shadow, .foam { animation: none; }
       .lines-l, .lines-r { animation: none; opacity: 0; }
-      .wave { animation-duration: 4s; }
+      .wave { animation-duration: 2.4s; }
     }
   </style>
 
@@ -148,7 +163,7 @@
     </g>
   </g>
 
-  <g class="sway"><g class="bob">
+  <g class="sway">
     <!-- Smoky translucent body -->
     <path d="M60 78 L140 78 L135.5 197 L64.5 197 Z" fill="url(#r-smoke)"/>
     <ellipse cx="100" cy="193" rx="32" ry="3.5" fill="#141011" opacity=".6"/>
@@ -160,6 +175,7 @@
           <path d="M0 118 Q15 113 30 118 T60 118 T90 118 T120 118 T150 118 T180 118 T210 118 T240 118 L240 260 L0 260 Z" fill="url(#g-liquid-back)" opacity=".7"/>
           <path d="M-15 121 Q0 117 15 121 T45 121 T75 121 T105 121 T135 121 T165 121 T195 121 T225 121 L225 260 L-15 260 Z" fill="url(#g-liquid)" opacity=".92"/>
           <path d="M-15 121 Q0 117 15 121 T45 121 T75 121 T105 121 T135 121 T165 121 T195 121 T225 121" fill="none" stroke="#FFE68A" stroke-width="1.6"/>
+          <path class="foam" d="M-15 121 Q0 117 15 121 T45 121 T75 121 T105 121 T135 121 T165 121 T195 121 T225 121 L225 131 Q210 127 195 131 T165 131 T135 131 T105 131 T75 131 T45 131 T15 131 T-15 131 Z" fill="#FFF6D6"/>
         </g>
       </g>
       <circle class="bubble"    cx="82"  cy="186" r="3"   fill="#FFF8DB"/>
@@ -192,7 +208,7 @@
     <rect x="60" y="40" width="80" height="32" rx="5" fill="url(#r-black)" stroke="#0E0B0C" stroke-width="2.5"/>
     <rect x="66" y="45" width="34" height="2" rx="1" fill="#FFFFFF" opacity=".14"/>
     <rect x="58" y="68" width="84" height="11" rx="3" fill="url(#r-black)" stroke="#0E0B0C" stroke-width="2.5"/>
-  </g></g>
+  </g>
 
   <!-- Loading dots -->
   <circle class="dot"    cx="88"  cy="250" r="3.5" fill="#2A2224"/>

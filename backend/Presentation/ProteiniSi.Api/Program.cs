@@ -18,12 +18,15 @@ builder.Services.AddResponsePerformance();
 builder.Services.AddStorefrontCors(builder.Configuration, builder.Environment);
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddApiDocumentation();
+builder.Services.AddCheckoutAbuseProtection();
 
 builder.Services.AddDataAccess();
 builder.Services.AddApplicationServices();
+ProteiniSi.Services.Helpers.EmailLayout.Configure(builder.Configuration["AppSettings:FrontendUrl"]);
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseResponseCompression();
 app.UseSerilogRequestLogging();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -35,6 +38,7 @@ app.UseCachedStaticFiles();
 app.UseRouting();
 app.UseCors(SecurityExtensions.StorefrontCorsPolicy);
 app.UseMiddleware<ClientKeyMiddleware>();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseOutputCache();

@@ -52,10 +52,10 @@ export default function BusinessCooperation() {
         <p>
           {translate("businessCooperationContact")}{" "}
           <a
-            href="mailto:makedonija@proteini.si"
+            href="mailto:info@proteini.mk"
             className="font-bold underline"
           >
-            makedonija@proteini.si
+            info@proteini.mk
           </a>
         </p>
       </div>

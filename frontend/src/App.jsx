@@ -1,6 +1,8 @@
 // App.jsx - Update the Routes section
-import { Routes, Route, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { trackPageView, syncMarketingConsent } from "./services/analytics";
+import { metaPageView, initMetaPixelOnConsent } from "./services/metaPixel";
+import { useEffect, useState } from "react";
 import { LanguageProvider } from "./Pages/translation/LanguageContext";
 import Footer from "./Pages/Components/Footer";
 import Header from "./Pages/Components/Header";
@@ -11,13 +13,13 @@ import ScrollToTopButton from "./Pages/Components/ScrollToTopButton";
 import CookieConsent from "./Pages/Components/CookieConsent";
 import { BrandLoaderOverlay } from "./Pages/Components/Loaders/BrandLoader";
 import CartToaster from "./Pages/Components/Cart/CartToaster";
+import SiteFeedbackHost from "./Pages/Components/Feedback/SiteFeedbackHost";
 import ScrollToTopOnNavigate from "./Pages/Components/ScrollToTopOnNavigate";
 
 // Import your page components
 import Home from "./Pages/HomePages/Home";
 import NotFound from "./Pages/Components/NotFound";
-import NeedHelp from "./Pages/NeedHelp";
-import Subscribe from "./Pages/Subscribe";
+import Support from "./Pages/Support";
 import Tips from "./Pages/Tips";
 import TipArticle from "./Pages/TipArticle";
 import ProductsPage from "./Pages/Products/ProductsPage";
@@ -28,7 +30,7 @@ import LoyaltyPoints from "./Pages/ProfilePages/LoyaltyPoints";
 import OrderHistory from "./Pages/ProfilePages/OrderHistory";
 import FavoriteProducts from "./Pages/ProfilePages/FavoriteProducts";
 import AdminPanel from "./Pages/Admin/AdminPanel";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import ProductDetail from "./Pages/Products/ProductDetail";
 import Checkout from "./Pages/PaymentPages/Checkout";
 import Cart from "./Pages/PaymentPages/Cart";
@@ -64,23 +66,70 @@ import AdminLandingPage from "./Pages/Admin/AdminLandingPage";
 import AdminOrders from "./Pages/Admin/AdminOrders";
 import AdminPromotions from "./Pages/Admin/AdminPromotions";
 import AdminBranchLocations from "./Pages/Admin/AdminBranchLocations";
+import AdminDeliveryLocations from "./Pages/Admin/AdminDeliveryLocations";
 import AdminTips from "./Pages/Admin/AdminTips";
 import AdminCategories from "./Pages/Admin/AdminCategories";
+import AdminBrands from "./Pages/Admin/AdminBrands";
+import AdminDiscounts from "./Pages/Admin/AdminDiscounts";
+import AdminProductPlacements from "./Pages/Admin/AdminProductPlacements";
 import AdminHomepageSections from "./Pages/Admin/AdminHomepageSections";
+import AdminHomeShowcase from "./Pages/Admin/AdminHomeShowcase";
 import AdminAudience from "./Pages/Admin/AdminAudience";
+import AdminMarketingEmails from "./Pages/Admin/AdminMarketingEmails";
+import Unsubscribe from "./Pages/Unsubscribe";
+import ShortLinkRedirect from "./Pages/ShortLinkRedirect";
+import AdminAffiliates from "./Pages/Admin/AdminAffiliates";
+import { REFERRAL_PARAMS, saveReferralCode } from "./utils/referral";
 
 import DynamicContentManager from "./Pages/Admin/DynamicContentManager";
+import AdminLayout from "./Pages/Admin/AdminLayout";
+import AdminHome from "./Pages/Admin/AdminHome";
 import DynamicContentPage from "./Pages/Admin/DynamicContentPage";
 
 function AppContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const location = useLocation();
 
+  useEffect(() => {
+    trackPageView(location.pathname);
+    metaPageView();
+  }, [location.pathname]);
+
+  useEffect(() => initMetaPixelOnConsent(), []);
+
+  // Affiliate links like /?code=MARKO10 (also ref= / promo=): remember the code for checkout
+  // and drop it from the address bar so it isn't shared further by copy-paste.
+  const navigate = useNavigate();
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const key = REFERRAL_PARAMS.find((name) => params.has(name));
+    if (!key || /^\/admin([-/]|$)/.test(location.pathname)) return;
+    saveReferralCode(params.get(key));
+    REFERRAL_PARAMS.forEach((name) => params.delete(name));
+    const query = params.toString();
+    navigate(`${location.pathname}${query ? `?${query}` : ""}${location.hash}`, { replace: true });
+  }, [location.pathname, location.search, location.hash, navigate]);
+
+  // Cookie-banner "Marketing" choice → account (offers by email), on sign-in and whenever it changes.
+  const { user } = useAuth();
+  const userKey = user
+    ? user.User_Id ?? user.user_Id ?? user.id ?? user.User_Email ?? user.email ?? null
+    : null;
+  useEffect(() => {
+    if (!userKey) return undefined;
+    syncMarketingConsent(userKey);
+    const onConsent = () => syncMarketingConsent(userKey);
+    window.addEventListener("proteini:cookie-consent", onConsent);
+    return () => window.removeEventListener("proteini:cookie-consent", onConsent);
+  }, [userKey]);
+
   // Check if current page is landing page or auth pages
   const isLandingPage = location.pathname === "/landing";
 
-  // Don't show Header/Footer/NeedHelp/Subscribe on landing page or auth pages
+  // Don't show Header/Footer on landing page or auth pages
   const showLayout = !isLandingPage;
+  // The admin shell has its own navigation; the shop footer only adds noise there.
+  const isAdmin = /^\/admin([-/]|$)/.test(location.pathname);
 
   return (
     <>
@@ -90,6 +139,8 @@ function AppContent() {
         {/* PUBLIC ROUTES - No token required */}
         <Route path="/login" element={<Login />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/unsubscribe" element={<Unsubscribe />} />
+        <Route path="/r/:slug" element={<ShortLinkRedirect />} />
 
         {/* LANDING PAGE - No layout */}
         <Route path="/landing" element={<Landing />} />
@@ -139,6 +190,7 @@ function AppContent() {
         />
         <Route path="/test-page" element={<TestPage />} />
         <Route path="/sales-points" element={<Branches />} />
+        <Route path="/support" element={<Support />} />
         <Route path="/tips" element={<Tips />} />
         <Route path="/tips/:slug" element={<TipArticle />} />
 
@@ -181,127 +233,38 @@ function AppContent() {
           element={<PaymentFailure />}
         />
 
-        {/* ADMIN ONLY ROUTES */}
+        {/* ADMIN ONLY ROUTES — one shared shell (sidebar, toasts, dialogs) */}
         <Route
-          path="/admin-panel"
           element={
             <AdminRoute>
-              <AdminPanel />
+              <AdminLayout />
             </AdminRoute>
           }
-        />
-        <Route
-          path="/admin-instagram-gallery"
-          element={
-            <AdminRoute>
-              <AdminInstagramGallery />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin-youtube"
-          element={
-            <AdminRoute>
-              <AdminYoutube />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin-gallery"
-          element={
-            <AdminRoute>
-              <AdminGallery />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin-partners"
-          element={
-            <AdminRoute>
-              <AdminParters />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin-about-company"
-          element={
-            <AdminRoute>
-              <AdminAboutCompany />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin-landing-page"
-          element={
-            <AdminRoute>
-              <AdminLandingPage />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin-orders"
-          element={
-            <AdminRoute>
-              <AdminOrders />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin-promotions"
-          element={
-            <AdminRoute>
-              <AdminPromotions />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin-locations"
-          element={
-            <AdminRoute>
-              <AdminBranchLocations />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin-tips"
-          element={
-            <AdminRoute>
-              <AdminTips />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin-categories"
-          element={
-            <AdminRoute>
-              <AdminCategories />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin-homepage-sections"
-          element={
-            <AdminRoute>
-              <AdminHomepageSections />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin-audience"
-          element={
-            <AdminRoute>
-              <AdminAudience />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin/dynamic-content"
-          element={
-            <AdminRoute>
-              <DynamicContentManager />
-            </AdminRoute>
-          }
-        />
+        >
+          <Route path="/admin" element={<AdminHome />} />
+          <Route path="/admin-panel" element={<AdminPanel />} />
+          <Route path="/admin-orders" element={<AdminOrders />} />
+          <Route path="/admin-categories" element={<AdminCategories />} />
+          <Route path="/admin-brands" element={<AdminBrands />} />
+          <Route path="/admin-discounts" element={<AdminDiscounts />} />
+          <Route path="/admin-product-placements" element={<AdminProductPlacements />} />
+          <Route path="/admin-promotions" element={<AdminPromotions />} />
+          <Route path="/admin-affiliates" element={<AdminAffiliates />} />
+          <Route path="/admin-audience" element={<AdminAudience />} />
+          <Route path="/admin-marketing-emails" element={<AdminMarketingEmails />} />
+          <Route path="/admin-gallery" element={<AdminGallery />} />
+          <Route path="/admin-homepage-sections" element={<AdminHomepageSections />} />
+          <Route path="/admin-home-showcase" element={<AdminHomeShowcase />} />
+          <Route path="/admin-landing-page" element={<AdminLandingPage />} />
+          <Route path="/admin-tips" element={<AdminTips />} />
+          <Route path="/admin-instagram-gallery" element={<AdminInstagramGallery />} />
+          <Route path="/admin-youtube" element={<AdminYoutube />} />
+          <Route path="/admin-partners" element={<AdminParters />} />
+          <Route path="/admin-about-company" element={<AdminAboutCompany />} />
+          <Route path="/admin-locations" element={<AdminBranchLocations />} />
+          <Route path="/admin-delivery-locations" element={<AdminDeliveryLocations />} />
+          <Route path="/admin/dynamic-content" element={<DynamicContentManager />} />
+        </Route>
 
         {/* 404 - Not Found - MUST BE LAST */}
         <Route path="/about-us" element={<AboutUs />}>
@@ -328,13 +291,7 @@ function AppContent() {
         <Route path="*" element={<NotFound />} />
       </Routes>
 
-      {showLayout && (
-        <>
-          <NeedHelp />
-          <Subscribe />
-          <Footer />
-        </>
-      )}
+      {showLayout && !isAdmin && <Footer />}
 
       <ScrollToTopButton />
       {showLayout && <CookieConsent />}
@@ -342,6 +299,7 @@ function AppContent() {
       <ScrollToTopOnNavigate />
       <BrandLoaderOverlay />
       <CartToaster />
+      <SiteFeedbackHost />
     </>
   );
 }

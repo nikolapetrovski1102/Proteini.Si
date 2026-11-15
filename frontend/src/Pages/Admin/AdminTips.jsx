@@ -1,5 +1,25 @@
 import { useEffect, useState } from "react";
+import { FiBookOpen, FiEdit2, FiPlus, FiTrash2 } from "react-icons/fi";
 import { api } from "../../services/api";
+import {
+  AdminPage,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  FormSection,
+  IconButton,
+  ImagePicker,
+  Loading,
+  Modal,
+  Segmented,
+  Toggle,
+  VisibilityBadge,
+  inputClass,
+  textareaClass,
+} from "./AdminKit";
+import { useConfirm, useToast } from "./adminFeedback";
 
 const emptyForm = {
   id: 0,
@@ -18,61 +38,49 @@ const emptyForm = {
   image: null,
 };
 
+const getImageUrl = (path) => {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  if (path.startsWith("/")) return `${import.meta.env.VITE_IMAGE_BASE_URL || "https://proteini.mk"}${path}`;
+  return path;
+};
+
 export default function AdminTips() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [articles, setArticles] = useState([]);
   const [formData, setFormData] = useState(emptyForm);
   const [editing, setEditing] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [lang, setLang] = useState("mk");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState("");
 
-  useEffect(() => {
-    fetchArticles();
-  }, []);
-
   const fetchArticles = async () => {
-    setLoading(true);
     try {
       const response = await api.getAllTipArticles();
       setArticles(response.data || []);
     } catch (error) {
-      alert(error.message || "Failed to load tips");
+      toast.error(error.message || "Failed to load tips");
     } finally {
       setLoading(false);
     }
   };
 
-  const getImageUrl = (path) => {
-    if (!path) return "";
-    if (path.startsWith("http")) return path;
-    if (path.startsWith("/")) return `https://proteini.mk${path}`;
-    return path;
-  };
+  useEffect(() => {
+    fetchArticles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const resetForm = () => {
+  const setField = (key, value) => setFormData((current) => ({ ...current, [key]: value }));
+
+  const startNew = () => {
     setEditing(null);
     setPreview("");
-    setFormData(emptyForm);
-  };
-
-  const handleChange = (event) => {
-    const { name, value, type, checked, files } = event.target;
-    if (type === "file") {
-      const file = files?.[0] || null;
-      setFormData((current) => ({ ...current, image: file }));
-      setPreview(file ? URL.createObjectURL(file) : "");
-      return;
-    }
-
-    setFormData((current) => ({
-      ...current,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : name === "displayOrder"
-            ? Number(value)
-            : value,
-    }));
+    setFormData({ ...emptyForm, displayOrder: articles.length });
+    setLang("mk");
+    setOpen(true);
   };
 
   const handleEdit = (article) => {
@@ -94,231 +102,196 @@ export default function AdminTips() {
       isActive: article.isActive !== false,
       image: null,
     });
+    setLang("mk");
+    setOpen(true);
   };
 
   const handleSubmit = async (event) => {
-    event.preventDefault();
+    event?.preventDefault();
+    if (!formData.title.trim()) {
+      setLang("mk");
+      toast.error("The Macedonian title is required.");
+      return;
+    }
     setSaving(true);
     try {
-      if (editing) {
-        await api.updateTipArticle(formData);
-      } else {
-        await api.createTipArticle(formData);
-      }
-      resetForm();
+      if (editing) await api.updateTipArticle(formData);
+      else await api.createTipArticle(formData);
+      toast.success(editing ? "Article updated." : "Article published.");
+      setOpen(false);
       await fetchArticles();
     } catch (error) {
-      alert(error.message || "Failed to save tip");
+      toast.error(error.message || "Failed to save tip");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (article) => {
-    if (!window.confirm(`Delete ${article.title}?`)) return;
-
-    setSaving(true);
+    const ok = await confirm({
+      title: `Delete “${article.title}”?`,
+      message: "The article and its page will be removed from the website. This can't be undone.",
+      confirmLabel: "Delete",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
       await api.deleteTipArticle(article.id);
+      toast.success("Article deleted.");
       await fetchArticles();
     } catch (error) {
-      alert(error.message || "Failed to delete tip");
-    } finally {
-      setSaving(false);
+      toast.error(error.message || "Failed to delete tip");
     }
   };
 
+  const al = lang === "al";
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Tips and News</h1>
-            <p className="text-sm text-gray-500">
-              Edit image, title, subtitle, and article text.
-            </p>
-          </div>
-          <button
-            onClick={resetForm}
-            className="border border-gray-300 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-100"
-          >
-            New Tip
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[420px_1fr]">
-          <form onSubmit={handleSubmit} className="bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold">
-              {editing ? "Edit tip" : "Add tip"}
-            </h2>
-            <div className="space-y-3">
-              <input
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                placeholder="Category"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                name="title"
-                value={formData.title}
-                onChange={handleChange}
-                required
-                placeholder="Title"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                name="titleAl"
-                value={formData.titleAl}
-                onChange={handleChange}
-                placeholder="Title (Albanian)"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                name="slug"
-                value={formData.slug}
-                onChange={handleChange}
-                placeholder="URL slug (generated from title when empty)"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                name="subtitle"
-                value={formData.subtitle}
-                onChange={handleChange}
-                placeholder="Subtitle"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                name="subtitleAl"
-                value={formData.subtitleAl}
-                onChange={handleChange}
-                placeholder="Subtitle (Albanian)"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <textarea
-                name="content"
-                value={formData.content}
-                onChange={handleChange}
-                rows="7"
-                placeholder="Text"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <p className="text-xs text-gray-500">
-                Rich text supports safe paragraphs, headings, emphasis and lists.
-              </p>
-              <textarea
-                name="contentAl"
-                value={formData.contentAl}
-                onChange={handleChange}
-                rows="7"
-                placeholder="Article content (Albanian)"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                name="seoTitle"
-                value={formData.seoTitle}
-                onChange={handleChange}
-                placeholder="SEO title"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <textarea
-                name="seoDescription"
-                value={formData.seoDescription}
-                onChange={handleChange}
-                rows="3"
-                maxLength="500"
-                placeholder="SEO description"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                onChange={handleChange}
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              {preview && (
-                <img
-                  src={preview}
-                  alt=""
-                  className="h-40 w-full object-cover"
-                />
-              )}
-              <input
-                type="number"
-                name="displayOrder"
-                value={formData.displayOrder}
-                onChange={handleChange}
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="isActive"
-                  checked={formData.isActive}
-                  onChange={handleChange}
-                />
-                Active
-              </label>
-            </div>
-            <button
-              disabled={saving}
-              className="mt-4 w-full bg-[#2096D8] px-4 py-2 font-semibold text-white disabled:opacity-60"
-            >
-              {saving ? "Saving..." : "Save Tip"}
-            </button>
-          </form>
-
-          <div className="bg-white shadow-sm">
-            {loading ? (
-              <div className="p-6 text-gray-500">Loading...</div>
-            ) : articles.length === 0 ? (
-              <div className="p-6 text-gray-500">No tips yet.</div>
-            ) : (
-              <div className="divide-y">
-                {articles.map((article) => (
-                  <div
-                    key={article.id}
-                    className="flex flex-wrap items-start gap-4 p-5"
-                  >
-                    {article.imagePath && (
-                      <img
-                        src={getImageUrl(article.imagePath)}
-                        alt=""
-                        className="h-24 w-36 object-cover"
-                      />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold">{article.title}</h3>
-                      <p className="text-sm text-gray-600">
-                        {article.subtitle}
-                      </p>
-                      {!article.isActive && (
-                        <span className="mt-2 inline-block bg-gray-100 px-2 py-1 text-xs uppercase text-gray-600">
-                          Inactive
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(article)}
-                        className="border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(article)}
-                        className="border border-red-300 px-3 py-1 text-sm text-red-700 hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
-                    </div>
+    <AdminPage
+      eyebrow="Content"
+      title="Tips & news"
+      count={loading ? undefined : articles.length}
+      description="Articles shown in the Tips row on the homepage, each with its own page."
+      actions={
+        <Button icon={FiPlus} onClick={startNew}>
+          New article
+        </Button>
+      }
+    >
+      <Card bodyClassName="">
+        {loading ? (
+          <Loading label="Loading articles…" />
+        ) : articles.length === 0 ? (
+          <EmptyState
+            icon={FiBookOpen}
+            title="No articles yet"
+            text="Write your first tip — e.g. how to choose a protein."
+            action={<Button icon={FiPlus} onClick={startNew}>New article</Button>}
+          />
+        ) : (
+          <ul className="divide-y divide-black/[0.06]">
+            {articles.map((article) => (
+              <li key={article.id} className={`flex items-center gap-4 px-4 py-3 sm:px-5 ${article.isActive ? "" : "opacity-60"}`}>
+                <button type="button" onClick={() => handleEdit(article)} className="shrink-0" aria-label={`Edit ${article.title}`}>
+                  {article.imagePath ? (
+                    <img src={getImageUrl(article.imagePath)} alt="" className="h-16 w-24 rounded-lg bg-[#f6f5f1] object-cover" />
+                  ) : (
+                    <span className="flex h-16 w-24 items-center justify-center rounded-lg bg-[#f6f5f1] text-gray-400">
+                      <FiBookOpen aria-hidden="true" />
+                    </span>
+                  )}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="truncate font-bold text-gray-900">{article.title}</h3>
+                    <VisibilityBadge active={article.isActive} />
+                    {article.category && <Badge className="capitalize">{article.category}</Badge>}
                   </div>
-                ))}
-              </div>
-            )}
+                  {article.subtitle && <p className="mt-0.5 line-clamp-1 text-sm text-gray-600">{article.subtitle}</p>}
+                  {!article.titleAl && <p className="mt-0.5 text-xs text-[#a86a00]">Albanian translation missing</p>}
+                </div>
+                <div className="flex gap-1">
+                  <IconButton icon={FiEdit2} label={`Edit ${article.title}`} onClick={() => handleEdit(article)} />
+                  <IconButton icon={FiTrash2} tone="danger" label={`Delete ${article.title}`} onClick={() => handleDelete(article)} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        size="xl"
+        title={editing ? "Edit article" : "New article"}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} loading={saving}>
+              {editing ? "Save changes" : "Publish article"}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-bold text-gray-900">Article text</p>
+              <Segmented
+                value={lang}
+                onChange={setLang}
+                options={[
+                  { value: "mk", label: "Macedonian" },
+                  { value: "al", label: "Albanian" },
+                ]}
+              />
+            </div>
+            <Field label="Title" required={!al}>
+              <input
+                data-autofocus
+                className={inputClass}
+                value={al ? formData.titleAl : formData.title}
+                onChange={(e) => setField(al ? "titleAl" : "title", e.target.value)}
+              />
+            </Field>
+            <Field label="Subtitle" hint="One short sentence shown under the title on the card.">
+              <input className={inputClass} value={al ? formData.subtitleAl : formData.subtitle} onChange={(e) => setField(al ? "subtitleAl" : "subtitle", e.target.value)} />
+            </Field>
+            <Field label="Text" hint="Paragraphs, headings, bold/italic and lists are supported.">
+              <textarea
+                rows={14}
+                className={textareaClass}
+                value={al ? formData.contentAl : formData.content}
+                onChange={(e) => setField(al ? "contentAl" : "content", e.target.value)}
+              />
+            </Field>
+            {al && <p className="text-xs text-gray-500">Empty Albanian fields fall back to the Macedonian text.</p>}
           </div>
-        </div>
-      </div>
-    </div>
+
+          <div className="space-y-6">
+            <FormSection title="Cover image">
+              <ImagePicker promptKey="tipCover"
+                preview={preview}
+                aspect="aspect-[16/10]"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                hint={editing ? "Leave as is to keep the current image." : "JPG, PNG, GIF or WebP."}
+                onFile={(file) => {
+                  setField("image", file);
+                  setPreview(URL.createObjectURL(file));
+                }}
+              />
+            </FormSection>
+            <FormSection title="Settings">
+              <div className="space-y-4">
+                <Field label="Category">
+                  <input className={inputClass} value={formData.category} onChange={(e) => setField("category", e.target.value)} placeholder="news" />
+                </Field>
+                <Field label="Position" hint="Lower numbers are shown first.">
+                  <input type="number" min="0" className={`${inputClass} max-w-[140px]`} value={formData.displayOrder} onChange={(e) => setField("displayOrder", Number(e.target.value))} />
+                </Field>
+                <Toggle checked={formData.isActive} onChange={(v) => setField("isActive", v)} label="Published" description="Turn off to keep it as a hidden draft." />
+              </div>
+            </FormSection>
+            <FormSection title="Search engines" description="Optional. How the article appears on Google.">
+              <div className="space-y-4">
+                <Field label="URL" hint="Filled in from the title when empty.">
+                  <input className={`${inputClass} font-mono`} value={formData.slug} onChange={(e) => setField("slug", e.target.value)} />
+                </Field>
+                <Field label="SEO title">
+                  <input className={inputClass} value={formData.seoTitle} onChange={(e) => setField("seoTitle", e.target.value)} />
+                </Field>
+                <Field label="SEO description" hint={`${formData.seoDescription.length}/500`}>
+                  <textarea rows={3} maxLength={500} className={textareaClass} value={formData.seoDescription} onChange={(e) => setField("seoDescription", e.target.value)} />
+                </Field>
+              </div>
+            </FormSection>
+          </div>
+          <button type="submit" className="hidden" />
+        </form>
+      </Modal>
+    </AdminPage>
   );
 }

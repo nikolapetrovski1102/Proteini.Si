@@ -4,13 +4,16 @@ import { useLocation, useNavigate } from "react-router-dom";
 import FiltersForProducts from "./FiltersForProducts";
 import MobileFiltersModal from "./MobileFiltersModal";
 import { api } from "../../services/api";
-import { FiFilter } from "react-icons/fi";
+import { FiChevronDown, FiSliders, FiX } from "react-icons/fi";
 import { useQuickPurchase } from "../Hooks/useQuickPurchase";
 import { LargeLoader } from "../Components/Loaders/LargeLoader";
 import { BrandLoader } from "../Components/Loaders/BrandLoader";
 import HomeProductCard from "../HomePages/HomeProductCard";
 import { useLanguage } from "../translation/LanguageContext";
+import { filterLabel, filterText, labelForSlug } from "../../utils/filterLabels";
 import { applySeoMetadata } from "../../utils/seo";
+import { notify } from "../Components/Feedback/siteFeedback";
+import { formatAmount } from "../../utils/formatPrice";
 
 export default function ProductsPage() {
   const location = useLocation();
@@ -53,7 +56,7 @@ export default function ProductsPage() {
     e.stopPropagation();
 
     if (!isAuthenticated) {
-      alert("Please login to add products to favorites");
+      notify(translate("favoritesLoginRequired"));
       navigate("/login");
       return;
     }
@@ -68,7 +71,7 @@ export default function ProductsPage() {
       }
     } catch (error) {
       console.error("Error toggling favorite:", error);
-      alert("Failed to update favorites. Please try again.");
+      notify(translate("favoritesUpdateFailed"), { tone: "error" });
     }
   };
 
@@ -103,7 +106,7 @@ export default function ProductsPage() {
     const searchQuery = searchParams.get("search");
 
     if (searchQuery) {
-      return `Search results for "${searchQuery}"`;
+      return filterText("searchResults").replace("{q}", searchQuery);
     }
 
     const path = location.pathname;
@@ -117,6 +120,8 @@ export default function ProductsPage() {
     }
     if (displayPart === `${translate("allProducts")}`)
       return `${translate("allProducts")}`;
+    const translated = labelForSlug(displayPart);
+    if (translated) return translated;
     return displayPart
       .split("-")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -241,11 +246,15 @@ export default function ProductsPage() {
         setError("Failed to load products");
       }
     } finally {
-      if (isLoadMore) {
-        setLoadMoreLoading(false);
-        isLoadingMoreRef.current = false;
-      } else {
-        setLoading(false);
+      // A superseded request must not clear the spinner: the newer request is
+      // still in flight, and clearing it here flashes the empty state.
+      if (requestId === latestRequestId.current) {
+        if (isLoadMore) {
+          setLoadMoreLoading(false);
+          isLoadingMoreRef.current = false;
+        } else {
+          setLoading(false);
+        }
       }
     }
   };
@@ -284,6 +293,7 @@ export default function ProductsPage() {
       case "Highest price":
         return "DESC";
       case "Most recent":
+      case "Bestsellers":
         return "DESC";
       case "Recommended":
         return "ASC";
@@ -301,38 +311,40 @@ export default function ProductsPage() {
       const category = filterOptions.categories.find(
         (c) => c.category_Id === value,
       );
-      return category ? category.category_Name : null;
+      return category ? filterLabel("categoryIds", category.category_Slug, category.category_Name) : null;
     }
     if (filterKey === "sportIds" && filterOptions.sports.length > 0) {
       const sport = filterOptions.sports.find((s) => s.sport_Id === value);
-      return sport ? sport.sport_Name : null;
+      return sport ? filterLabel("sportIds", sport.sport_Slug, sport.sport_Name) : null;
     }
     if (filterKey === "goalIds" && filterOptions.goals.length > 0) {
       const goal = filterOptions.goals.find((g) => g.goal_Id === value);
-      return goal ? goal.goal_Name : null;
+      return goal ? filterLabel("goalIds", goal.goal_Slug, goal.goal_Name) : null;
     }
     if (filterKey === "useTimingIds" && filterOptions.useTimings.length > 0) {
       const timing = filterOptions.useTimings.find(
         (t) => t.useTiming_Id === value,
       );
-      return timing ? timing.useTiming_Name : null;
+      return timing ? filterLabel("useTimingIds", timing.useTiming_Slug, timing.useTiming_Name) : null;
     }
     if (filterKey === "flavorIds" && filterOptions.flavors.length > 0) {
       const flavor = filterOptions.flavors.find((f) => f.flavor_Id === value);
-      return flavor ? flavor.flavor_Name : null;
+      return flavor ? filterLabel("flavorIds", flavor.flavor_Slug, flavor.flavor_Name) : null;
     }
+    if (filterKey === "sizes") return `${filterText("sizes")}: ${value}`;
     if (filterKey === "tagIds" && filterOptions.tags.length > 0) {
       const tag = filterOptions.tags.find((t) => t.tag_Id === value);
-      return tag ? tag.tag_Name : null;
+      return tag ? filterLabel("tagIds", tag.tag_Slug, tag.tag_Name) : null;
     }
-    if (filterKey === "onSale") return "On Sale";
-    if (filterKey === "upcomingPromotions") return "Upcoming promotions";
-    if (filterKey === "newProducts") return "New Products";
-    if (filterKey === "outlet") return "Outlet";
-    if (filterKey === "inStock") return "In Stock";
-    if (filterKey === "searchTerm") return `Search: ${value}`;
+    if (filterKey === "onSale") return filterLabel("status", "onSale");
+    if (filterKey === "upcomingPromotions") return filterLabel("status", "upcomingPromotions");
+    if (filterKey === "newProducts") return filterLabel("status", "newProducts");
+    if (filterKey === "bestSellers") return filterLabel("status", "bestSellers");
+    if (filterKey === "outlet") return filterLabel("status", "outlet");
+    if (filterKey === "inStock") return filterLabel("status", "inStock");
+    if (filterKey === "searchTerm") return `${filterText("search")}: ${value}`;
     if (filterKey === "minPrice" && selectedFilters.maxPrice)
-      return `Price: ${value} - ${selectedFilters.maxPrice} MKD`;
+      return `${filterText("priceRange")}: ${formatAmount(value)} – ${formatAmount(selectedFilters.maxPrice)} ${filterText("currency")}`;
     return null;
   };
 
@@ -374,6 +386,9 @@ export default function ProductsPage() {
       } else if (preSelectedFilter === "newProducts") {
         setSelectedFilters({ newProducts: filterValue });
         fetchProducts({ newProducts: filterValue }, 1, false);
+      } else if (preSelectedFilter === "bestSellers") {
+        setSelectedFilters({ bestSellers: filterValue });
+        fetchProducts({ bestSellers: filterValue }, 1, false);
       } else if (preSelectedFilter === "onSale") {
         setSelectedFilters({ onSale: filterValue });
         fetchProducts({ onSale: filterValue }, 1, false);
@@ -447,7 +462,7 @@ export default function ProductsPage() {
   useEffect(() => {
     const fetchFilterOptions = async () => {
       try {
-        const options = await api.getFilterOptions();
+        const options = await api.getShopFilterOptions();
         setFilterOptions({
           categories: options.categories || [],
           sports: options.sports || [],
@@ -510,6 +525,9 @@ export default function ProductsPage() {
     const flavorIds = searchParams.get("flavorIds");
     if (flavorIds) urlFilters.flavorIds = flavorIds.split(",").map(Number);
 
+    const sizes = searchParams.get("sizes");
+    if (sizes) urlFilters.sizes = sizes.split(",").filter(Boolean);
+
     const tagIds = searchParams.get("tagIds");
     if (tagIds) urlFilters.tagIds = tagIds.split(",").map(Number);
 
@@ -518,6 +536,8 @@ export default function ProductsPage() {
       urlFilters.upcomingPromotions = true;
     if (searchParams.get("newProducts") === "true")
       urlFilters.newProducts = true;
+    if (searchParams.get("bestSellers") === "true" || searchParams.get("bestSeller") === "true")
+      urlFilters.bestSellers = true;
     if (searchParams.get("outlet") === "true") urlFilters.outlet = true;
     if (searchParams.get("inStock") === "true") urlFilters.inStock = true;
 
@@ -685,6 +705,11 @@ export default function ProductsPage() {
       urlFilters.flavorIds = flavorIds.split(",").map(Number);
     }
 
+    const sizes = searchParams.get("sizes");
+    if (sizes) {
+      urlFilters.sizes = sizes.split(",").filter(Boolean);
+    }
+
     const tagIds = searchParams.get("tagIds");
     if (tagIds) {
       urlFilters.tagIds = tagIds.split(",").map(Number);
@@ -700,6 +725,10 @@ export default function ProductsPage() {
 
     if (searchParams.get("newProducts") === "true") {
       urlFilters.newProducts = true;
+    }
+
+    if (searchParams.get("bestSellers") === "true" || searchParams.get("bestSeller") === "true") {
+      urlFilters.bestSellers = true;
     }
 
     if (searchParams.get("outlet") === "true") {
@@ -789,6 +818,28 @@ export default function ProductsPage() {
     }
   };
 
+  const activeChips = Object.entries(selectedFilters).flatMap(([key, value]) => {
+    if (Array.isArray(value)) {
+      return value
+        .map((v) => ({ id: `${key}-${v}`, label: getFilterDisplayName(key, v), remove: () => removeSingleFilter(key, v) }))
+        .filter((chip) => chip.label);
+    }
+    if (key === "minPrice" && selectedFilters.maxPrice) {
+      return [{
+        id: "priceRange",
+        label: `${filterText("priceRange")}: ${formatAmount(value)} – ${formatAmount(selectedFilters.maxPrice)} ${filterText("currency")}`,
+        remove: () => removeSingleFilter("minPrice", "priceRange"),
+      }];
+    }
+    if (key === "searchTerm" && value) {
+      return [{ id: key, label: `${filterText("search")}: ${value}`, remove: () => removeSingleFilter(key) }];
+    }
+    if (value === true && ["onSale", "upcomingPromotions", "newProducts", "bestSellers", "outlet", "inStock"].includes(key)) {
+      return [{ id: key, label: filterLabel("status", key), remove: () => removeSingleFilter(key) }];
+    }
+    return [];
+  });
+
   const categoryName = getCategoryDisplayName();
   const loadedProductsCount = products.length;
   const hasMoreProducts = loadedProductsCount < totalProducts;
@@ -840,415 +891,48 @@ export default function ProductsPage() {
           </div>
 
           {/* Active Filters Chips Section */}
-          <div className="px-[15px] w-full mt-4 mb-2">
-            <div className="flex flex-wrap items-center gap-2">
-              {Object.entries(selectedFilters).flatMap(([key, value]) => {
-                if (key === "categoryIds" && Array.isArray(value)) {
-                  return value.map((v) => {
-                    const name = getFilterDisplayName(key, v);
-                    return name ? (
-                      <span
-                        key={`category-${v}`}
-                        onClick={() => removeSingleFilter(key, v)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-[#2096D8] cursor-pointer hover:bg-blue-50 transition-colors"
-                      >
-                        {name}
-                        <svg
-                          className="w-3 h-3"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </span>
-                    ) : null;
-                  });
-                }
-                if (key === "brandIds" && Array.isArray(value)) {
-                  return value.map((v) => {
-                    const name = getFilterDisplayName(key, v);
-                    return name ? (
-                      <span
-                        key={`brand-${v}`}
-                        onClick={() => removeSingleFilter(key, v)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-[#2096D8] text-[#2096D8] cursor-pointer hover:bg-blue-50 transition-colors rounded-full"
-                      >
-                        {name}
-                        <svg
-                          className="w-3 h-3"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </span>
-                    ) : null;
-                  });
-                }
-                if (key === "sportIds" && Array.isArray(value)) {
-                  return value.map((v) => {
-                    const name = getFilterDisplayName(key, v);
-                    return name ? (
-                      <span
-                        key={`sport-${v}`}
-                        onClick={() => removeSingleFilter(key, v)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-[#2096D8] text-[#2096D8] cursor-pointer hover:bg-blue-50 transition-colors rounded-full"
-                      >
-                        {name}
-                        <svg
-                          className="w-3 h-3"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </span>
-                    ) : null;
-                  });
-                }
-                if (key === "goalIds" && Array.isArray(value)) {
-                  return value.map((v) => {
-                    const name = getFilterDisplayName(key, v);
-                    return name ? (
-                      <span
-                        key={`goal-${v}`}
-                        onClick={() => removeSingleFilter(key, v)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-[#2096D8] text-[#2096D8] cursor-pointer hover:bg-blue-50 transition-colors rounded-full"
-                      >
-                        {name}
-                        <svg
-                          className="w-3 h-3"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </span>
-                    ) : null;
-                  });
-                }
-                if (key === "useTimingIds" && Array.isArray(value)) {
-                  return value.map((v) => {
-                    const name = getFilterDisplayName(key, v);
-                    return name ? (
-                      <span
-                        key={`useTiming-${v}`}
-                        onClick={() => removeSingleFilter(key, v)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-[#2096D8] text-[#2096D8] cursor-pointer hover:bg-blue-50 transition-colors rounded-full"
-                      >
-                        {name}
-                        <svg
-                          className="w-3 h-3"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </span>
-                    ) : null;
-                  });
-                }
-                if (key === "flavorIds" && Array.isArray(value)) {
-                  return value.map((v) => {
-                    const name = getFilterDisplayName(key, v);
-                    return name ? (
-                      <span
-                        key={`flavor-${v}`}
-                        onClick={() => removeSingleFilter(key, v)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-[#2096D8] text-[#2096D8] cursor-pointer hover:bg-blue-50 transition-colors rounded-full"
-                      >
-                        {name}
-                        <svg
-                          className="w-3 h-3"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </span>
-                    ) : null;
-                  });
-                }
-                if (key === "tagIds" && Array.isArray(value)) {
-                  return value.map((v) => {
-                    const name = getFilterDisplayName(key, v);
-                    return name ? (
-                      <span
-                        key={`tag-${v}`}
-                        onClick={() => removeSingleFilter(key, v)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-[#2096D8] text-[#2096D8] cursor-pointer hover:bg-blue-50 transition-colors rounded-full"
-                      >
-                        {name}
-                        <svg
-                          className="w-3 h-3"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </span>
-                    ) : null;
-                  });
-                }
-                if (key === "onSale" && value === true) {
-                  return (
-                    <span
-                      key="onSale"
-                      onClick={() => removeSingleFilter("onSale")}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-[#2096D8] text-[#2096D8] cursor-pointer hover:bg-blue-50 transition-colors rounded-full"
-                    >
-                      On Sale
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </span>
-                  );
-                }
-                if (key === "upcomingPromotions" && value === true) {
-                  return (
-                    <span
-                      key="upcomingPromotions"
-                      onClick={() => removeSingleFilter("upcomingPromotions")}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-[#2096D8] text-[#2096D8] cursor-pointer hover:bg-blue-50 transition-colors rounded-full"
-                    >
-                      Upcoming promotions
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </span>
-                  );
-                }
-                if (key === "newProducts" && value === true) {
-                  return (
-                    <span
-                      key="newProducts"
-                      onClick={() => removeSingleFilter("newProducts")}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-[#2096D8] text-[#2096D8] cursor-pointer hover:bg-blue-50 transition-colors rounded-full"
-                    >
-                      New Products
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </span>
-                  );
-                }
-                if (key === "outlet" && value === true) {
-                  return (
-                    <span
-                      key="outlet"
-                      onClick={() => removeSingleFilter("outlet")}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-[#2096D8] text-[#2096D8] cursor-pointer hover:bg-blue-50 transition-colors rounded-full"
-                    >
-                      Outlet
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </span>
-                  );
-                }
-                if (key === "inStock" && value === true) {
-                  return (
-                    <span
-                      key="inStock"
-                      onClick={() => removeSingleFilter("inStock")}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-[#2096D8] text-[#2096D8] cursor-pointer hover:bg-blue-50 transition-colors rounded-full"
-                    >
-                      In Stock
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </span>
-                  );
-                }
-                if (key === "searchTerm" && value) {
-                  return (
-                    <span
-                      key="searchTerm"
-                      onClick={() => removeSingleFilter("searchTerm")}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-[#2096D8] text-[#2096D8] cursor-pointer hover:bg-blue-50 transition-colors rounded-full"
-                    >
-                      Search: {value}
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </span>
-                  );
-                }
-                if (key === "minPrice" && selectedFilters.maxPrice) {
-                  return (
-                    <span
-                      key="priceRange"
-                      onClick={() =>
-                        removeSingleFilter("minPrice", "priceRange")
-                      }
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-[#2096D8] text-[#2096D8] cursor-pointer hover:bg-blue-50 transition-colors rounded-full"
-                    >
-                      Price: {selectedFilters.minPrice || 0} -{" "}
-                      {selectedFilters.maxPrice} MKD
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </span>
-                  );
-                }
-                return [];
-              })}
-
-              {Object.keys(selectedFilters).length > 0 && (
-                <div className="group">
+          {activeChips.length > 0 && (
+            <div className="px-[15px] w-full mt-2 mb-4">
+              <div className="flex flex-wrap items-center gap-2">
+                {activeChips.map((chip) => (
                   <button
-                    key="clear-all"
-                    onClick={clearAllFilters}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-[#BF243E] group-hover:text-red-500 transition-colors"
+                    key={chip.id}
+                    type="button"
+                    onClick={chip.remove}
+                    className="group inline-flex items-center gap-1.5 rounded-full bg-[#f4f3ef] py-1.5 pl-3 pr-2 text-[12px] font-semibold text-gray-900 transition-colors hover:bg-[#141409] hover:text-white"
                   >
-                    <svg
-                      className="w-4 h-4 group-hover:rotate-90 transition-all"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                    {translate("clearAllFilters")}
+                    {chip.label}
+                    <FiX className="h-3.5 w-3.5 text-gray-500 transition-colors group-hover:text-[#FDC700]" aria-hidden />
                   </button>
-                </div>
-              )}
+                ))}
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="px-2 py-1.5 text-[12px] font-semibold text-gray-500 underline-offset-2 transition-colors hover:text-gray-900 hover:underline"
+                >
+                  {translate("clearAllFilters")}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="w-full flex justify-between items-center flex-wrap gap-4">
             <div className="px-[15px] w-full lg:hidden flex justify-between items-center">
               <button
+                type="button"
                 onClick={() => setIsMobileFilterOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 border border-[#cacaca] text-[12px] font-semibold"
+                className="flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-gray-900 transition-colors active:bg-gray-100"
               >
-                <FiFilter size={16} />
-                Sort and Filter
-                {Object.keys(selectedFilters).length > 0 && (
-                  <span className="bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                    {Object.keys(selectedFilters).length}
+                <FiSliders size={15} aria-hidden />
+                {filterText("filter")}
+                {activeChips.length > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#FDC700] px-1.5 text-[11px] font-bold leading-none text-[#141409]">
+                    {activeChips.length}
                   </span>
                 )}
               </button>
-              <p className="text-[14px] text-gray-600">
-                {totalProducts} Products
+              <p className="text-[13px] text-gray-500">
+                {totalProducts} {translate("productCountLabel")}
               </p>
             </div>
 
@@ -1262,7 +946,7 @@ export default function ProductsPage() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsOpen(!isOpen)}
-                  className="px-4 py-2 border border-[#cacaca] text-[12px] flex items-center gap-2"
+                  className="flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-[12px] font-semibold text-gray-900 transition-colors hover:border-gray-900"
                 >
                   {selectedSort === "Recommended" && translate("recommendedOrder")}
                   {selectedSort === "Most recent" && translate("mostRecent")}
@@ -1281,7 +965,7 @@ export default function ProductsPage() {
                   />
                 </button>
                 {isOpen && (
-                  <div className="absolute top-full right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                  <div className="absolute top-full right-0 z-10 mt-2 w-52 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-black/[0.06]">
                     <ul className="py-2">
                       {[
                         {
@@ -1308,7 +992,7 @@ export default function ProductsPage() {
                         <li key={option.value}>
                           <button
                             onClick={() => handleSortSelect(option.value)}
-                            className="block w-full text-left px-4 py-2 text-[12px] hover:bg-gray-100"
+                            className={`block w-full px-4 py-2.5 text-left text-[12px] transition-colors hover:bg-[#f8f7f4] ${selectedSort === option.value ? "font-bold text-gray-900" : "text-gray-700"}`}
                           >
                             {option.translation}
                           </button>
@@ -1351,32 +1035,55 @@ export default function ProductsPage() {
           {!loading && products.length === 0 && (
             <div className="text-center py-12">
               <p className="text-gray-500">
-                No products found in this category.
+                {filterText("noProducts")}
               </p>
             </div>
           )}
 
           {products.length > 0 && hasMoreProducts && (
-            <div className="w-full flex flex-col items-center mt-8">
-              <div className="text-center mb-4">
-                <p className="text-gray-600 text-sm">
-                  Showing {loadedProductsCount} of {totalProducts} products
-                </p>
+            <div className="mx-auto mt-10 flex w-full max-w-[320px] flex-col items-center px-[15px]">
+              <p className="text-[13px] text-gray-500">
+                {filterText("showingOf")
+                  .replace("{n}", loadedProductsCount)
+                  .replace("{total}", totalProducts)}
+              </p>
+              <div
+                className="mt-3 h-1 w-full overflow-hidden rounded-full bg-gray-200"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={totalProducts}
+                aria-valuenow={loadedProductsCount}
+              >
+                <div
+                  className="h-full rounded-full bg-[#FDC700] transition-[width] duration-500 ease-out"
+                  style={{ width: `${Math.min(100, (loadedProductsCount / totalProducts) * 100)}%` }}
+                />
               </div>
               <button
+                type="button"
                 onClick={handleLoadMore}
                 disabled={loadMoreLoading}
-                className="border border-gray-400 text-gray-500 text-[13px] font-semibold py-[10px] px-[60px] leading-4 hover:border-black hover:text-black transition-all duration-300 ease-in-out disabled:opacity-50"
+                className="group mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#141409] px-6 py-3.5 text-[14px] font-bold text-white transition-colors duration-200 hover:bg-black disabled:pointer-events-none disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDC700]"
               >
-                {loadMoreLoading ? "Loading..." : "Show more"}
+                {loadMoreLoading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-[#FDC700]" aria-hidden />
+                    {filterText("loadingShort")}
+                  </>
+                ) : (
+                  <>
+                    {filterText("showMore")}
+                    <FiChevronDown className="h-4 w-4 text-[#FDC700] transition-transform duration-200 group-hover:translate-y-0.5" aria-hidden />
+                  </>
+                )}
               </button>
             </div>
           )}
 
           {products.length > 0 && !hasMoreProducts && totalProducts > 0 && (
-            <div className="text-center mt-8">
-              <p className="text-gray-500 text-sm">
-                All {totalProducts} products loaded
+            <div className="mt-10 text-center">
+              <p className="text-[13px] text-gray-500">
+                {filterText("allLoaded").replace("{total}", totalProducts)}
               </p>
             </div>
           )}
@@ -1428,6 +1135,7 @@ function ProductCard(props) {
       {...props}
       fluid
       showSaleEnd
+      showStock
       translate={translate}
       language={language}
       saleEndLocale={language === "al" ? "sq-AL" : "mk-MK"}

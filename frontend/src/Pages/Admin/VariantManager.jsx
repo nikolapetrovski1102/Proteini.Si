@@ -1,76 +1,102 @@
 import { useState, useEffect } from "react";
-import { TfiClose } from "react-icons/tfi";
+import { FiArrowLeft, FiCopy, FiEdit2, FiImage, FiLayers, FiPlus, FiStar, FiTrash2 } from "react-icons/fi";
 import { api } from "../../services/api";
-import { useLanguage } from "../translation/LanguageContext";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  Field,
+  FormSection,
+  IconButton,
+  GeminiPromptButton,
+  ImagePicker,
+  Loading,
+  Segmented,
+  Toggle,
+  inputClass,
+  tableClass,
+  tableWrapClass,
+  tdClass,
+  textareaClass,
+  thClass,
+  trClass,
+} from "./AdminKit";
+import { formatMoney } from "./adminUtils";
+import { PriceWithVat, SalePriceFields } from "./AdminPriceFields";
+import { fieldClass } from "./adminFieldClass";
+import { useConfirm, useToast } from "./adminFeedback";
 
-// ============= SIMPLIFIED NUTRITION TABLE EDITOR (JSON BASED) =============
-const NutritionTableEditor = ({ variantId, variantName, onSave }) => {
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+
+const variantImageUrl = (path) => {
+  if (!path) return null;
+  return path;
+};
+
+const galleryImageUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith("http")) return path;
+  return `${import.meta.env.VITE_IMAGE_BASE_URL || "https://proteini.mk"}${path}`;
+};
+
+const vatRate = (v) => v.ddv_Percentage || v.DDV_Percentage || v.ddV_Percentage || 0;
+
+/** Field name → message for everything that blocks saving a variant. */
+const validateVariant = (form) => {
+  const errors = {};
+  const isColor = form.option_Type === "color";
+  if (!String(form.flavor_Name || "").trim()) errors.flavor_Name = isColor ? "Enter the colour." : "Enter the flavour.";
+  if (!String(form.packaging_Name || "").trim()) errors.packaging_Name = "Enter the size or packaging.";
+  const price = Number(form.price);
+  if (!(price > 0)) errors.price = "Enter a price above 0.";
+  if (form.compare_Price !== "" && form.compare_Price != null) {
+    const sale = Number(form.compare_Price);
+    if (!(sale > 0)) errors.compare_Price = "Sale price must be above 0.";
+    else if (price > 0 && sale >= price) errors.compare_Price = "Sale price must be lower than the regular price.";
+  }
+  if (form.quantity !== "" && Number(form.quantity) < 0) errors.quantity = "Stock can't be negative.";
+  const loyalty = form.loyaltyPercentage;
+  if (loyalty !== "" && loyalty != null && (Number(loyalty) < 0 || Number(loyalty) > 100)) errors.loyaltyPercentage = "Use a value between 0 and 100.";
+  return errors;
+};
+
+/* ============================================================ nutrition table */
+
+function NutritionTableEditor({ variantId, onSave }) {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [tableData, setTableData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pasteMode, setPasteMode] = useState(false);
   const [pasteText, setPasteText] = useState("");
-  const { translate } = useLanguage();
-
-  useEffect(() => {
-    if (variantId) {
-      loadNutritionData();
-    }
-  }, [variantId]);
 
   const loadNutritionData = async () => {
     setLoading(true);
     try {
       const result = await api.getVariantNutritionTable(variantId);
-
-      if (result && result.status && result.data) {
-        const rawData = result.data;
-        let transformedData = null;
-
-        if (rawData.columns && Array.isArray(rawData.columns)) {
-          let flatColumns = [];
-          if (rawData.columns.length > 0 && Array.isArray(rawData.columns[0])) {
-            flatColumns = rawData.columns[0];
-          } else {
-            flatColumns = rawData.columns;
-          }
-
-          let transformedRows = [];
-          if (rawData.rows && Array.isArray(rawData.rows)) {
-            transformedRows = rawData.rows.map((row, index) => {
-              if (Array.isArray(row)) {
-                return {
-                  rowLabel: row[0]?.[0] || `Row ${index + 1}`,
-                  cells: row
-                    .slice(1)
-                    .map((cell) => (Array.isArray(cell) ? cell[0] : cell)),
-                  indentLevel: 0,
-                };
-              }
-              return row;
-            });
-          }
-
-          transformedData = {
-            columns: flatColumns,
-            rows: transformedRows,
-          };
-        } else if (rawData.columns && rawData.rows) {
-          transformedData = rawData;
+      let transformed = null;
+      if (result?.status && result.data) {
+        const raw = result.data;
+        if (Array.isArray(raw.columns)) {
+          const columns = raw.columns.length > 0 && Array.isArray(raw.columns[0]) ? raw.columns[0] : raw.columns;
+          const rows = Array.isArray(raw.rows)
+            ? raw.rows.map((row, index) =>
+                Array.isArray(row)
+                  ? {
+                      rowLabel: row[0]?.[0] || `Row ${index + 1}`,
+                      cells: row.slice(1).map((cell) => (Array.isArray(cell) ? cell[0] : cell)),
+                      indentLevel: 0,
+                    }
+                  : row,
+              )
+            : [];
+          transformed = { columns, rows };
+        } else if (raw.columns && raw.rows) {
+          transformed = raw;
         }
-
-        if (
-          transformedData &&
-          transformedData.columns &&
-          transformedData.columns.length > 0
-        ) {
-          setTableData(transformedData);
-        } else {
-          setTableData(null);
-        }
-      } else {
-        setTableData(null);
       }
+      setTableData(transformed?.columns?.length > 0 ? transformed : null);
     } catch (error) {
       console.error("Error loading nutrition data:", error);
       setTableData(null);
@@ -79,12 +105,25 @@ const NutritionTableEditor = ({ variantId, variantName, onSave }) => {
     }
   };
 
+  useEffect(() => {
+    if (variantId) loadNutritionData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variantId]);
+
+  const tableAsText = () => {
+    if (!tableData?.columns || !tableData?.rows) return "";
+    let text = "\t" + tableData.columns.join("\t") + "\n";
+    tableData.rows.forEach((row) => {
+      text += "  ".repeat(row.indentLevel || 0) + row.rowLabel + "\t" + (row.cells || []).join("\t") + "\n";
+    });
+    return text;
+  };
+
   const handlePasteAndSave = async () => {
     if (!pasteText.trim()) {
-      alert("Please paste table data first");
+      toast.error("Paste the table first.");
       return;
     }
-
     setSaving(true);
     try {
       const result = await api.pasteVariantNutritionTable(variantId, pasteText);
@@ -92,128 +131,89 @@ const NutritionTableEditor = ({ variantId, variantName, onSave }) => {
         await loadNutritionData();
         setPasteMode(false);
         setPasteText("");
-        alert("Nutrition table saved successfully!");
-        if (onSave) onSave();
+        toast.success("Nutrition table saved.");
+        onSave?.();
       } else {
-        alert(result.error || "Failed to save nutrition table");
+        toast.error(result.error || "Couldn't read that table. Check that columns are separated by tabs.");
       }
     } catch (error) {
       console.error("Error saving nutrition table:", error);
-      alert(
-        "Failed to save nutrition table: " + (error.message || "Unknown error"),
-      );
+      toast.error("Couldn't save the table: " + (error.message || "Unknown error"));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete nutrition table for this variant?")) return;
-
+    const ok = await confirm({ title: "Remove the nutrition table?", message: "The table will disappear from this variant's product page.", confirmLabel: "Remove", tone: "danger" });
+    if (!ok) return;
     setSaving(true);
     try {
       await api.deleteVariantNutritionTable(variantId);
       setTableData(null);
-      alert("Nutrition table deleted successfully!");
-      if (onSave) onSave();
+      toast.success("Nutrition table removed.");
+      onSave?.();
     } catch (error) {
       console.error("Error deleting nutrition table:", error);
-      alert("Failed to delete nutrition table");
+      toast.error("Couldn't remove the table.");
     } finally {
       setSaving(false);
     }
   };
 
-  const copyTableToClipboard = () => {
-    if (!tableData || !tableData.columns || !tableData.rows) return;
-
-    let text = "\t" + tableData.columns.join("\t") + "\n";
-    tableData.rows.forEach((row) => {
-      const indent = "  ".repeat(row.indentLevel || 0);
-      text +=
-        indent + row.rowLabel + "\t" + (row.cells || []).join("\t") + "\n";
-    });
-
-    navigator.clipboard.writeText(text);
-    alert("Table copied to clipboard!");
+  const copyTable = async () => {
+    try {
+      await navigator.clipboard.writeText(tableAsText());
+      toast.success("Table copied. You can paste it into Excel or another variant.");
+    } catch {
+      toast.error("Couldn't copy to the clipboard.");
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="text-center py-4 text-gray-500">
-        Loading nutrition data...
-      </div>
-    );
-  }
+  if (loading) return <p className="py-3 text-sm text-gray-500">Loading nutrition table…</p>;
+
+  const hasRows = tableData?.rows?.length > 0;
 
   return (
-    <div className="mt-6 border-t pt-4">
-      <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-        <h4 className="text-md font-semibold text-gray-800">
-          📊 {translate("dynamicNutritionTable")} - {variantName}
-        </h4>
-        <div className="flex gap-2 flex-wrap">
-          {!tableData && !pasteMode && (
-            <button
-              type="button"
-              onClick={() => setPasteMode(true)}
-              className="bg-green-500 text-white px-3 py-1.5 hover:bg-green-600"
+    <div>
+      {pasteMode ? (
+        <div className="space-y-3 rounded-xl bg-[#f6f5f1] p-4">
+          <p className="text-sm text-gray-700">
+            Select the table in Excel or Google Sheets (including the header row), copy it, and paste it below.
+          </p>
+          <textarea
+            autoFocus
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            rows={8}
+            placeholder={"\t100 g\t1 serving (30 g)\nEnergy\t1570 kJ\t471 kJ\nProtein\t78 g\t23 g"}
+            className={`${textareaClass} font-mono text-[13px]`}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={handlePasteAndSave} loading={saving}>
+              Save table
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setPasteMode(false);
+                setPasteText("");
+              }}
             >
-              + Add Nutrition Table
-            </button>
-          )}
-          {tableData &&
-            tableData.columns &&
-            tableData.rows &&
-            tableData.rows.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  onClick={copyTableToClipboard}
-                  className="bg-blue-500 text-white px-3 py-1 text-sm hover:bg-blue-600"
-                >
-                  📋 Copy Table
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPasteMode(true)}
-                  className="bg-yellow-500 text-white px-3 py-1 text-sm hover:bg-yellow-600"
-                >
-                  ✏️ Edit Table
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={saving}
-                  className="bg-red-500 text-white px-3 py-1 text-sm hover:bg-red-600"
-                >
-                  🗑️ Delete
-                </button>
-              </>
-            )}
+              Cancel
+            </Button>
+          </div>
         </div>
-      </div>
-      {/* Display existing table */}
-      {tableData &&
-        tableData.columns &&
-        Array.isArray(tableData.columns) &&
-        tableData.columns.length > 0 &&
-        tableData.rows &&
-        Array.isArray(tableData.rows) &&
-        tableData.rows.length > 0 &&
-        !pasteMode && (
-          <div className="overflow-x-auto border">
-            <table className="min-w-full border-collapse text-sm">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-300 px-3 py-2 text-left font-semibold">
-                    Nutrients
-                  </th>
+      ) : hasRows ? (
+        <>
+          <div className="overflow-x-auto rounded-xl ring-1 ring-black/[0.08]">
+            <table className="min-w-full text-sm">
+              <thead className="bg-[#f6f5f1]">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Nutrient</th>
                   {tableData.columns.map((col, idx) => (
-                    <th
-                      key={idx}
-                      className="border border-gray-300 px-3 py-2 text-left font-semibold"
-                    >
+                    <th key={idx} className="px-3 py-2 text-left font-semibold text-gray-700">
                       {typeof col === "string" ? col : col[0] || "Column"}
                     </th>
                   ))}
@@ -221,124 +221,62 @@ const NutritionTableEditor = ({ variantId, variantName, onSave }) => {
               </thead>
               <tbody>
                 {tableData.rows.map((row, idx) => (
-                  <tr
-                    key={idx}
-                    className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                  >
-                    <td className="border border-gray-300 px-3 py-2 font-medium">
-                      <div
-                        style={{
-                          paddingLeft: `${(row.indentLevel || 0) * 20}px`,
-                        }}
-                      >
-                        {row.rowLabel || row[0] || "Row"}
-                      </div>
+                  <tr key={idx} className="border-t border-black/[0.05]">
+                    <td className="px-3 py-1.5 font-medium text-gray-900" style={{ paddingLeft: `${12 + (row.indentLevel || 0) * 16}px` }}>
+                      {row.rowLabel || row[0] || "Row"}
                     </td>
-                    {(row.cells || row.slice?.(1) || []).map(
-                      (cell, cellIdx) => (
-                        <td
-                          key={cellIdx}
-                          className="border border-gray-300 px-3 py-2"
-                        >
-                          {typeof cell === "string" ? cell : cell[0] || "—"}
-                        </td>
-                      ),
-                    )}
+                    {(row.cells || row.slice?.(1) || []).map((cell, cellIdx) => (
+                      <td key={cellIdx} className="px-3 py-1.5 tabular-nums text-gray-700">
+                        {typeof cell === "string" ? cell : cell?.[0] || "—"}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )}
-      {/* Show message when no data */}
-      {!tableData && !pasteMode && (
-        <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-300">
-          <p className="text-gray-500">No nutrition table added yet</p>
-          <p className="text-xs text-gray-400 mt-1">
-            Click "Add Nutrition Table" to paste from Excel
-          </p>
-        </div>
-      )}
-      {/* Paste new/edited table */}
-      {pasteMode && (
-        <div className="bg-gray-50 p-4 border">
-          <div className="flex justify-between items-start mb-3">
-            <div>
-              <h5 className="font-semibold text-gray-800">
-                📋 Paste Nutrition Table
-              </h5>
-              <p className="text-xs text-gray-500 mt-1">
-                Copy from Excel/Google Sheets (including headers) and paste
-                below
-              </p>
-            </div>
-            <button
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={FiEdit2}
               onClick={() => {
-                setPasteMode(false);
-                setPasteText("");
+                setPasteText(tableAsText());
+                setPasteMode(true);
               }}
-              className="text-gray-500 hover:text-gray-700"
             >
-              <TfiClose size={16} />
-            </button>
+              Replace
+            </Button>
+            <Button size="sm" variant="secondary" icon={FiCopy} onClick={copyTable}>
+              Copy
+            </Button>
+            <Button size="sm" variant="ghost" icon={FiTrash2} onClick={handleDelete} disabled={saving}>
+              Remove
+            </Button>
           </div>
-
-          <textarea
-            value={pasteText}
-            onChange={(e) => setPasteText(e.target.value)}
-            placeholder={`Example:
-          100g    1 serving (30g)    2 servings (60g)
-energy    1570 kJ  471 kJ  942 kJ
-
-Or your supplement format:
-Recommended daily dose (2 capsules)	Value
-Ginseng extract (Panax ginseng)	234 mg
-of which ginsenosides	4,68 mg
-Zinc	9,6 mg (96%*)`}
-            className="w-full h-40 p-3 border font-mono text-sm bg-white"
-          />
-
-          <div className="flex gap-2 mt-3">
-            <button
-              type="button"
-              onClick={handlePasteAndSave}
-              disabled={saving}
-              className="bg-green-600 text-white px-4 py-2 hover:bg-green-700 disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Save Table"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setPasteMode(false);
-                setPasteText("");
-              }}
-              className="bg-gray-500 text-white px-4 py-2 hover:bg-gray-600"
-            >
-              Cancel
-            </button>
-          </div>
+        </>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-dashed border-black/[0.1] px-4 py-4">
+          <p className="text-sm text-gray-500">No nutrition table yet.</p>
+          <Button size="sm" variant="secondary" icon={FiPlus} onClick={() => setPasteMode(true)}>
+            Paste from Excel
+          </Button>
         </div>
       )}
     </div>
   );
-};
+}
 
-// ============= MULTI-IMAGE GALLERY MANAGER =============
-const VariantGalleryManager = ({ variantId, onImagesChange }) => {
+/* ============================================================ variant gallery */
+
+function VariantGalleryManager({ variantId }) {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [images, setImages] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const { translate } = useLanguage();
-
-  useEffect(() => {
-    if (variantId) {
-      loadGallery();
-    }
-  }, [variantId]);
 
   const loadGallery = async () => {
-    setLoading(true);
     try {
       const data = await api.getVariantGallery(variantId);
       setImages(data || []);
@@ -349,589 +287,253 @@ const VariantGalleryManager = ({ variantId, onImagesChange }) => {
     }
   };
 
-  const handleImageUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+  useEffect(() => {
+    if (variantId) loadGallery();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variantId]);
 
+  const upload = async (file) => {
+    if (!IMAGE_TYPES.includes(file.type) || file.size > 5 * 1024 * 1024) {
+      toast.error("Please choose a JPG, PNG or WebP image up to 5 MB.");
+      return;
+    }
     setUploading(true);
     try {
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append("Image", file);
-        formData.append("Variant_Id", variantId);
-
-        const response = await api.uploadVariantGalleryImage(formData);
-        if (response.status) {
-          await loadGallery();
-          if (onImagesChange) onImagesChange();
-        }
+      const formData = new FormData();
+      formData.append("Image", file);
+      formData.append("Variant_Id", variantId);
+      const response = await api.uploadVariantGalleryImage(formData);
+      if (response.status) {
+        await loadGallery();
+        toast.success("Photo added.");
       }
-      alert(`${files.length} image(s) uploaded successfully!`);
     } catch (error) {
       console.error("Error uploading images:", error);
-      alert("Failed to upload images");
+      toast.error("Couldn't upload the photo.");
     } finally {
       setUploading(false);
-      e.target.value = "";
     }
   };
 
-  const handleSetMainImage = async (galleryId) => {
+  const setMain = async (galleryId) => {
     try {
       await api.setMainVariantGalleryImage(variantId, galleryId);
       await loadGallery();
-      if (onImagesChange) onImagesChange();
-      alert("Main image updated!");
+      toast.success("Main photo updated.");
     } catch (error) {
       console.error("Error setting main image:", error);
-      alert("Failed to set main image");
+      toast.error("Couldn't change the main photo.");
     }
   };
 
-  const handleDeleteImage = async (galleryId) => {
-    if (!confirm("Are you sure you want to delete this image?")) return;
+  const remove = async (galleryId) => {
+    const ok = await confirm({ title: "Remove this photo?", confirmLabel: "Remove", tone: "danger" });
+    if (!ok) return;
     try {
       await api.deleteVariantGalleryImage(galleryId);
       await loadGallery();
-      if (onImagesChange) onImagesChange();
-      alert("Image deleted!");
+      toast.success("Photo removed.");
     } catch (error) {
       console.error("Error deleting image:", error);
-      alert("Failed to delete image");
+      toast.error("Couldn't remove the photo.");
     }
   };
 
-  const getImageUrl = (path) => {
-    if (!path) return "/placeholder-image.jpg";
-    if (path.startsWith("http")) return path;
-    return `https://proteini.mk${path}`;
-  };
-
-  if (loading) {
-    return (
-      <div className="text-center py-2 text-gray-500">Loading gallery...</div>
-    );
-  }
+  if (loading) return <p className="py-3 text-sm text-gray-500">Loading photos…</p>;
 
   return (
-    <div className="mt-4">
-      <label className="block text-sm font-medium mb-2">
-        {translate("variantImagesGallery")}
-      </label>
-
-      <div className="mb-4">
-        <label className="cursor-pointer bg-[#2096D8] text-white px-4 py-2 hover:bg-[#1a7ab9] inline-block">
-          {uploading ? translate("uploading") : translate("addImages")}
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            multiple
-            className="hidden"
-            onChange={handleImageUpload}
-            disabled={uploading}
-          />
-        </label>
-      </div>
-
-      {images.length === 0 ? (
-        <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-300">
-          <p className="text-gray-500">{translate("noVariantImages")}</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-3 gap-3">
-          {images.map((img, idx) => (
-            <div
-              key={img.gallery_Id}
-              className="relative group border p-2 bg-gray-50"
+    <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+      {images.map((img) => (
+        <div key={img.gallery_Id} className="group relative aspect-square overflow-hidden rounded-lg bg-[#f6f5f1] ring-1 ring-black/[0.06]">
+          <img src={galleryImageUrl(img.image_Path)} alt="" className="h-full w-full object-contain p-1" />
+          {img.isMain && <span className="absolute left-1 top-1 rounded bg-[#141409] px-1.5 py-0.5 text-[10px] font-bold text-[#FDC700]">Main</span>}
+          <div className="absolute inset-x-0 bottom-0 flex justify-center gap-1 bg-gradient-to-t from-black/60 to-transparent p-1 pt-4 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+            {!img.isMain && (
+              <button
+                type="button"
+                onClick={() => setMain(img.gallery_Id)}
+                aria-label="Use as main photo"
+                title="Use as main photo"
+                className="flex h-7 w-7 items-center justify-center rounded-md bg-white/90 text-gray-800 hover:bg-white"
+              >
+                <FiStar size={13} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => remove(img.gallery_Id)}
+              aria-label="Remove photo"
+              title="Remove photo"
+              className="flex h-7 w-7 items-center justify-center rounded-md bg-white/90 text-[#b3191f] hover:bg-white"
             >
-              <img
-                src={getImageUrl(img.image_Path)}
-                alt={`Variant image ${idx + 1}`}
-                className="w-full h-24 object-cover"
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
-                {!img.isMain && (
-                  <button
-                    type="button"
-                    onClick={() => handleSetMainImage(img.gallery_Id)}
-                    className="text-white text-xs bg-blue-500 px-2 py-1 hover:bg-blue-600"
-                  >
-                    {translate("setAsMain")}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => handleDeleteImage(img.gallery_Id)}
-                  className="text-white text-xs bg-red-500 px-2 py-1 hover:bg-red-600"
-                >
-                  {translate("delete")}
-                </button>
-              </div>
-              {img.isMain && (
-                <span className="absolute top-1 right-1 bg-green-500 text-white text-xs px-1">
-                  {translate("main")}
-                </span>
-              )}
-            </div>
-          ))}
+              <FiTrash2 size={13} />
+            </button>
+          </div>
         </div>
-      )}
+      ))}
+      <ImagePicker
+        onFile={upload}
+        aspect="aspect-square"
+        accept={IMAGE_TYPES.join(",")}
+        label={uploading ? "Uploading…" : "Add"}
+        className={uploading ? "pointer-events-none opacity-60" : ""}
+      />
+      <GeminiPromptButton promptKey="productGallery" className="col-span-full" />
     </div>
   );
+}
+
+/* ============================================================ variant manager */
+
+const emptyVariantForm = {
+  option_Type: "flavor",
+  flavor_Name: "",
+  packaging_Id: "",
+  packaging_Name: "",
+  weight_Grams: "",
+  price: "",
+  ddv_Percentage: 18,
+  compare_Price: "",
+  quantity: 0,
+  variant_Name: "",
+  sku: "",
+  isDefault: false,
+  ingredients: "",
+  description: "",
+  variant_Image_Path: "",
+  loyaltyPercentage: "",
 };
 
-export default function VariantManager({
-  productId,
-  productName,
-  onVariantsChange,
-}) {
+export default function VariantManager({ productId, productName, onVariantsChange }) {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [variants, setVariants] = useState([]);
   const [packagingOptions, setPackagingOptions] = useState([]);
-  const [flavors, setFlavors] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [productVat, setProductVat] = useState(18);
+  const [showForm, setShowForm] = useState(false);
   const [editingVariant, setEditingVariant] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const { translate } = useLanguage();
-  const [formData, setFormData] = useState({
-    option_Type: "flavor",
-    flavor_Name: "",
-    packaging_Id: "",
-    packaging_Name: "",
-    weight_Grams: "",
-    price: "",
-    ddv_Percentage: 18,
-    compare_Price: "",
-    quantity: 0,
-    variant_Name: "",
-    sku: "",
-    isDefault: false,
-    ingredients: "",
-    description: "",
-    variant_Image_Path: "",
-    loyaltyPercentage: "", // ✅ ADDED: Loyalty percentage for variant
-  });
-
-  const [bulkForm, setBulkForm] = useState({
-    selectedFlavors: [],
-    selectedPackagings: [],
-    basePrice: "",
-    ddv_Percentage: 18,
-    comparePrice: "",
-    quantity: 0,
-    loyaltyPercentage: "", // ✅ ADDED: Loyalty percentage for bulk create
-  });
-
-  const getImageUrl = (path) => {
-    if (!path) return null;
-    if (path.startsWith("http")) return path;
-    return path;
-  };
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState(emptyVariantForm);
+  const [showErrors, setShowErrors] = useState(false);
+  const errors = showErrors ? validateVariant(formData) : {};
 
   const getPackagingWeightValue = (packaging) => {
-    const weight =
-      packaging?.weight_Grams ??
-      packaging?.Weight_Grams ??
-      packaging?.weight_grams;
-    const numericWeight = Number(weight);
-    return Number.isFinite(numericWeight) && numericWeight > 0
-      ? numericWeight
-      : null;
+    const weight = packaging?.weight_Grams ?? packaging?.Weight_Grams ?? packaging?.weight_grams;
+    const n = Number(weight);
+    return Number.isFinite(n) && n > 0 ? n : null;
   };
 
   const formatWeightGrams = (weight) => {
-    const numericWeight = Number(weight);
-    return Number.isFinite(numericWeight) && numericWeight > 0
-      ? `${numericWeight.toLocaleString("en-US", {
-          maximumFractionDigits: 2,
-        })} g`
-      : "No grams set";
+    const n = Number(weight);
+    return Number.isFinite(n) && n > 0 ? `${n.toLocaleString("en-US", { maximumFractionDigits: 2 })} g` : null;
   };
 
   const findPackagingOptionByName = (packagingName) => {
-    const normalizedName = String(packagingName || "")
-      .trim()
-      .toLowerCase();
-    if (!normalizedName) return null;
-
-    return (
-      packagingOptions.find(
-        (pkg) =>
-          String(pkg.packaging_Name || pkg.Packaging_Name || "")
-            .trim()
-            .toLowerCase() === normalizedName,
-      ) || null
-    );
+    const normalized = String(packagingName || "").trim().toLowerCase();
+    if (!normalized) return null;
+    return packagingOptions.find((pkg) => String(pkg.packaging_Name || pkg.Packaging_Name || "").trim().toLowerCase() === normalized) || null;
   };
 
   const getVariantWeight = (variant) =>
-    getPackagingWeightValue(variant) ||
-    getPackagingWeightValue(findPackagingOptionByName(variant?.packaging_Name));
-
-  useEffect(() => {
-    fetchData();
-  }, [productId]);
+    getPackagingWeightValue(variant) || getPackagingWeightValue(findPackagingOptionByName(variant?.packaging_Name));
 
   const fetchData = async () => {
-    setLoading(true);
     try {
       const [variantsRes, packagingRes, productData] = await Promise.all([
         api.getProductVariants(productId),
         api.getPackaging(),
         api.getProductById(productId),
       ]);
-
-      const productDdvPercentage = productData?.product?.ddV_Percentage || 18;
-
       setVariants(variantsRes.data || []);
       setPackagingOptions(packagingRes.data || []);
-
-      setFormData((prev) => ({
-        ...prev,
-        ddv_Percentage: productDdvPercentage,
-      }));
-
-      setBulkForm((prev) => ({
-        ...prev,
-        ddv_Percentage: productDdvPercentage,
-      }));
-
-      const filterOptions = await api.getFilterOptions();
-      setFlavors(filterOptions.flavors || []);
+      setProductVat(productData?.product?.ddV_Percentage || 18);
     } catch (error) {
       console.error("Error fetching variant data:", error);
+      toast.error("Couldn't load variants.");
     } finally {
       setLoading(false);
     }
   };
 
-  const uploadVariantImage = async (file, variantId) => {
-    setUploadingImage(true);
-    try {
-      const formData = new FormData();
-      formData.append("Image", file);
-      if (variantId) {
-        formData.append("Variant_Id", variantId);
-      }
-      const response = await api.uploadVariantImage(formData);
-      return response.imagePath;
-    } catch (error) {
-      console.error("Error uploading variant image:", error);
-      return null;
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-  const handleVariantImageSelect = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
-    if (!allowedTypes.includes(file.type)) {
-      alert("Please select a valid image file (JPEG, PNG, or WEBP)");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image size should be less than 5MB");
-      return;
-    }
-
-    setImageFile(file);
-    const previewUrl = URL.createObjectURL(file);
-    setImagePreview(previewUrl);
-  };
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     if (name === "packaging_Name") {
-      const selectedPackaging = findPackagingOptionByName(value);
+      const selected = findPackagingOptionByName(value);
       setFormData((prev) => ({
         ...prev,
         packaging_Name: value,
-        packaging_Id:
-          selectedPackaging?.packaging_Id ||
-          selectedPackaging?.Packaging_Id ||
-          "",
-        weight_Grams: selectedPackaging
-          ? getPackagingWeightValue(selectedPackaging) || ""
-          : prev.weight_Grams,
+        packaging_Id: selected?.packaging_Id || selected?.Packaging_Id || "",
+        weight_Grams: selected ? getPackagingWeightValue(selected) || "" : prev.weight_Grams,
       }));
       return;
     }
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const handleBulkFlavorChange = (flavorId) => {
-    setBulkForm((prev) => {
-      const selected = prev.selectedFlavors.includes(flavorId)
-        ? prev.selectedFlavors.filter((id) => id !== flavorId)
-        : [...prev.selectedFlavors, flavorId];
-      return { ...prev, selectedFlavors: selected };
-    });
-  };
-
-  const handleBulkPackagingChange = (packagingId) => {
-    setBulkForm((prev) => {
-      const selected = prev.selectedPackagings.includes(packagingId)
-        ? prev.selectedPackagings.filter((id) => id !== packagingId)
-        : [...prev.selectedPackagings, packagingId];
-      return { ...prev, selectedPackagings: selected };
-    });
-  };
-
-  const handleBulkInputChange = (e) => {
-    const { name, value } = e.target;
-    setBulkForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleCreateVariant = async () => {
-    if (!formData.flavor_Name || !formData.packaging_Name || !formData.price) {
-      alert("Please fill in all required fields (Option, Packaging, Price)");
+  const handleVariantImageSelect = (file) => {
+    if (!IMAGE_TYPES.includes(file.type)) {
+      toast.error("Please choose a JPG, PNG or WebP image.");
       return;
     }
-
-    setUploadingImage(true);
-    let uploadedImagePath = null;
-
-    if (imageFile) {
-      uploadedImagePath = await uploadVariantImage(imageFile, null);
-    }
-
-    try {
-      const selectedPackaging = findPackagingOptionByName(
-        formData.packaging_Name,
-      );
-      const variantData = {
-        product_Id: productId,
-        option_Type: formData.option_Type,
-        flavor_Name: formData.flavor_Name,
-        packaging_Id:
-          selectedPackaging?.packaging_Id ||
-          selectedPackaging?.Packaging_Id ||
-          formData.packaging_Id ||
-          null,
-        packaging_Name: formData.packaging_Name,
-        weight_Grams: formData.weight_Grams
-          ? parseFloat(formData.weight_Grams)
-          : null,
-        price: parseFloat(formData.price),
-        ddv_Percentage: parseFloat(formData.ddv_Percentage) || 18,
-        compare_Price: formData.compare_Price
-          ? parseFloat(formData.compare_Price)
-          : null,
-        quantity: parseInt(formData.quantity) || 0,
-        variant_Name: formData.variant_Name || null,
-        sku: formData.sku || null,
-        isDefault: formData.isDefault,
-        ingredients: formData.ingredients || null,
-        description: formData.description || null,
-        variant_Image_Path: uploadedImagePath,
-        display_Order: variants.length,
-        loyaltyPercentage: formData.loyaltyPercentage
-          ? parseFloat(formData.loyaltyPercentage)
-          : null, // ✅ ADDED
-      };
-
-      await api.createVariant(variantData);
-      await fetchData();
-      setShowAddModal(false);
-      resetForm();
-      if (onVariantsChange) onVariantsChange();
-      alert("Variant added successfully!");
-    } catch (error) {
-      console.error("Error creating variant:", error);
-      alert("Failed to create variant: " + (error.message || "Unknown error"));
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-  const handleBulkCreate = async () => {
-    if (
-      bulkForm.selectedFlavors.length === 0 ||
-      bulkForm.selectedPackagings.length === 0
-    ) {
-      alert("Please select at least one flavor and one packaging option");
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image is too large. Maximum 5 MB.");
       return;
     }
-    if (!bulkForm.basePrice) {
-      alert("Please enter a base price");
-      return;
-    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const uploadVariantImage = async (file, variantId) => {
     try {
-      await api.bulkCreateVariants({
-        product_Id: productId,
-        flavorIds: bulkForm.selectedFlavors,
-        packagingIds: bulkForm.selectedPackagings,
-        basePrice: parseFloat(bulkForm.basePrice),
-        ddv_Percentage: parseFloat(bulkForm.ddv_Percentage) || 18,
-        comparePrice: bulkForm.comparePrice
-          ? parseFloat(bulkForm.comparePrice)
-          : null,
-        quantity: parseInt(bulkForm.quantity) || 0,
-        loyaltyPercentage: bulkForm.loyaltyPercentage
-          ? parseFloat(bulkForm.loyaltyPercentage)
-          : null, // ✅ ADDED
-      });
-      await fetchData();
-      setShowBulkModal(false);
-      setBulkForm({
-        selectedFlavors: [],
-        selectedPackagings: [],
-        basePrice: "",
-        ddv_Percentage: 18,
-        comparePrice: "",
-        quantity: 0,
-        loyaltyPercentage: "",
-      });
-      if (onVariantsChange) onVariantsChange();
-      alert("Variants created successfully!");
+      const fd = new FormData();
+      fd.append("Image", file);
+      if (variantId) fd.append("Variant_Id", variantId);
+      const response = await api.uploadVariantImage(fd);
+      return response.imagePath;
     } catch (error) {
-      console.error("Error bulk creating variants:", error);
-      alert("Failed to create variants: " + (error.message || "Unknown error"));
+      console.error("Error uploading variant image:", error);
+      toast.error("The photo couldn't be uploaded; the variant was saved without it.");
+      return null;
     }
   };
 
-  const handleUpdateVariant = async () => {
-    let uploadedImagePath = formData.variant_Image_Path;
-
-    if (imageFile) {
-      setUploadingImage(true);
-      uploadedImagePath = await uploadVariantImage(
-        imageFile,
-        editingVariant.variant_Id,
-      );
-      setUploadingImage(false);
-    }
-
-    try {
-      const selectedPackaging = findPackagingOptionByName(
-        formData.packaging_Name,
-      );
-      const updateData = {
-        variant_Id: editingVariant.variant_Id,
-        option_Type: formData.option_Type,
-        flavor_Name: formData.flavor_Name,
-        packaging_Id:
-          selectedPackaging?.packaging_Id ||
-          selectedPackaging?.Packaging_Id ||
-          formData.packaging_Id ||
-          null,
-        packaging_Name: formData.packaging_Name,
-        weight_Grams: formData.weight_Grams
-          ? parseFloat(formData.weight_Grams)
-          : null,
-        price: parseFloat(formData.price),
-        ddv_Percentage: parseFloat(formData.ddv_Percentage) || 18,
-        compare_Price: formData.compare_Price
-          ? parseFloat(formData.compare_Price)
-          : null,
-        quantity: parseInt(formData.quantity),
-        variant_Name: formData.variant_Name || null,
-        sku: formData.sku || null,
-        isDefault: formData.isDefault,
-        isActive: true,
-        ingredients: formData.ingredients || null,
-        description: formData.description || null,
-        variant_Image_Path: uploadedImagePath,
-        loyaltyPercentage: formData.loyaltyPercentage
-          ? parseFloat(formData.loyaltyPercentage)
-          : null, // ✅ ADDED
-      };
-
-      await api.updateVariant(updateData);
-      await fetchData();
-      setEditingVariant(null);
-      setShowAddModal(false);
-      resetForm();
-      if (onVariantsChange) onVariantsChange();
-      alert("Variant updated successfully!");
-    } catch (error) {
-      console.error("Error updating variant:", error);
-      alert("Failed to update variant: " + (error.message || "Unknown error"));
-    }
-  };
-
-  const handleDeleteVariant = async (variantId) => {
-    if (!confirm("Are you sure you want to delete this variant?")) return;
-    try {
-      await api.deleteVariant(variantId);
-      await fetchData();
-      if (onVariantsChange) onVariantsChange();
-      alert("Variant deleted successfully!");
-    } catch (error) {
-      console.error("Error deleting variant:", error);
-      alert("Failed to delete variant: " + (error.message || "Unknown error"));
-    }
-  };
-
-  const handleSetDefault = async (variantId) => {
-    try {
-      for (const variant of variants) {
-        if (variant.isDefault) {
-          await api.updateVariant({ ...variant, isDefault: false });
-        }
-      }
-      const variantToUpdate = variants.find((v) => v.variant_Id === variantId);
-      if (variantToUpdate) {
-        await api.updateVariant({ ...variantToUpdate, isDefault: true });
-      }
-      await fetchData();
-      if (onVariantsChange) onVariantsChange();
-      alert("Default variant set successfully!");
-    } catch (error) {
-      console.error("Error setting default variant:", error);
-      alert("Failed to set default variant");
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      option_Type: "flavor",
-      flavor_Name: "",
-      packaging_Id: "",
-      packaging_Name: "",
-      weight_Grams: "",
-      price: "",
-      ddv_Percentage: 18,
-      compare_Price: "",
-      quantity: 0,
-      variant_Name: "",
-      sku: "",
-      isDefault: false,
-      ingredients: "",
-      description: "",
-      variant_Image_Path: "",
-      loyaltyPercentage: "",
-    });
+  const closeForm = () => {
+    setShowErrors(false);
+    setShowForm(false);
+    setEditingVariant(null);
+    setFormData({ ...emptyVariantForm, ddv_Percentage: productVat });
     setImagePreview(null);
     setImageFile(null);
   };
 
-  const openEditModal = (variant) => {
+  const startNew = () => {
+    setShowErrors(false);
+    setEditingVariant(null);
+    setFormData({ ...emptyVariantForm, ddv_Percentage: productVat, isDefault: variants.length === 0 });
+    setImagePreview(null);
+    setImageFile(null);
+    setShowForm(true);
+  };
+
+  const openEdit = (variant) => {
+    setShowErrors(false);
     setEditingVariant(variant);
     setFormData({
       option_Type: variant.option_Type === "color" ? "color" : "flavor",
       flavor_Name: variant.flavor_Name || "",
       packaging_Id: variant.packaging_Id || variant.Packaging_Id || "",
       packaging_Name: variant.packaging_Name || "",
-      weight_Grams:
-        variant.weight_Grams || variant.Weight_Grams || variant.weight_grams || "",
+      weight_Grams: variant.weight_Grams || variant.Weight_Grams || variant.weight_grams || "",
       price: variant.price || 0,
-      ddv_Percentage:
-        variant.ddv_Percentage ||
-        variant.DDV_Percentage ||
-        variant.ddV_Percentage ||
-        18,
+      ddv_Percentage: vatRate(variant) || 18,
       compare_Price: variant.compare_Price || "",
       quantity: variant.quantity || 0,
       variant_Name: variant.variant_Name || "",
@@ -940,711 +542,391 @@ export default function VariantManager({
       ingredients: variant.ingredients || "",
       description: variant.description || "",
       variant_Image_Path: variant.variant_Image_Path || "",
-      loyaltyPercentage:
-        variant.loyaltyPercentage || variant.LoyaltyPercentage || "", // ✅ ADDED
+      loyaltyPercentage: variant.loyaltyPercentage || variant.LoyaltyPercentage || "",
     });
-    setImagePreview(
-      variant.variant_Image_Path
-        ? getImageUrl(variant.variant_Image_Path)
-        : null,
-    );
+    setImagePreview(variant.variant_Image_Path ? variantImageUrl(variant.variant_Image_Path) : null);
     setImageFile(null);
-    setShowAddModal(true);
+    setShowForm(true);
   };
 
-  if (loading) {
+  const buildPayload = (imagePath) => {
+    const selected = findPackagingOptionByName(formData.packaging_Name);
+    return {
+      option_Type: formData.option_Type,
+      flavor_Name: formData.flavor_Name,
+      packaging_Id: selected?.packaging_Id || selected?.Packaging_Id || formData.packaging_Id || null,
+      packaging_Name: formData.packaging_Name,
+      weight_Grams: formData.weight_Grams ? parseFloat(formData.weight_Grams) : null,
+      price: parseFloat(formData.price),
+      ddv_Percentage: parseFloat(formData.ddv_Percentage) || 18,
+      compare_Price: formData.compare_Price ? parseFloat(formData.compare_Price) : null,
+      variant_Name: formData.variant_Name || null,
+      sku: formData.sku || null,
+      isDefault: formData.isDefault,
+      ingredients: formData.ingredients || null,
+      description: formData.description || null,
+      variant_Image_Path: imagePath,
+      loyaltyPercentage: formData.loyaltyPercentage ? parseFloat(formData.loyaltyPercentage) : null,
+    };
+  };
+
+  const handleSave = async () => {
+    const found = validateVariant(formData);
+    if (Object.keys(found).length > 0) {
+      setShowErrors(true);
+      toast.error("Please fix the fields marked in red.");
+      const first = document.querySelector(`[name="${Object.keys(found)[0]}"]`);
+      first?.focus?.();
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editingVariant) {
+        const imagePath = imageFile ? await uploadVariantImage(imageFile, editingVariant.variant_Id) : formData.variant_Image_Path;
+        await api.updateVariant({
+          ...buildPayload(imagePath),
+          variant_Id: editingVariant.variant_Id,
+          quantity: parseInt(formData.quantity),
+          isActive: true,
+        });
+        toast.success("Variant saved.");
+      } else {
+        const imagePath = imageFile ? await uploadVariantImage(imageFile, null) : null;
+        await api.createVariant({
+          ...buildPayload(imagePath),
+          product_Id: productId,
+          quantity: parseInt(formData.quantity) || 0,
+          display_Order: variants.length,
+        });
+        toast.success("Variant added.");
+      }
+      await fetchData();
+      closeForm();
+      onVariantsChange?.();
+    } catch (error) {
+      console.error("Error saving variant:", error);
+      toast.error("Couldn't save the variant: " + (error.message || "Unknown error"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteVariant = async (variant) => {
+    const ok = await confirm({
+      title: `Delete “${variant.variant_Name || `${variant.flavor_Name} ${variant.packaging_Name}`}”?`,
+      message: "Customers will no longer be able to choose this option. This can't be undone.",
+      confirmLabel: "Delete variant",
+      tone: "danger",
+    });
+    if (!ok) return;
+    try {
+      await api.deleteVariant(variant.variant_Id);
+      await fetchData();
+      onVariantsChange?.();
+      toast.success("Variant deleted.");
+    } catch (error) {
+      console.error("Error deleting variant:", error);
+      toast.error("Couldn't delete the variant: " + (error.message || "Unknown error"));
+    }
+  };
+
+  const handleSetDefault = async (variantId) => {
+    try {
+      for (const variant of variants) {
+        if (variant.isDefault) await api.updateVariant({ ...variant, isDefault: false });
+      }
+      const target = variants.find((v) => v.variant_Id === variantId);
+      if (target) await api.updateVariant({ ...target, isDefault: true });
+      await fetchData();
+      onVariantsChange?.();
+      toast.success("Default variant changed.");
+    } catch (error) {
+      console.error("Error setting default variant:", error);
+      toast.error("Couldn't change the default variant.");
+    }
+  };
+
+  if (loading) return <Loading label="Loading variants…" />;
+
+  /* --------------------------------------------------------- form view */
+  if (showForm) {
+    const isColor = formData.option_Type === "color";
     return (
-      <div className="text-center py-4 text-gray-500">Loading variants...</div>
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button type="button" onClick={closeForm} className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900">
+            <FiArrowLeft size={15} aria-hidden="true" /> All variants
+          </button>
+          <p className="font-display text-lg font-bold uppercase tracking-tight text-gray-900">
+            {editingVariant ? "Edit variant" : "New variant"}
+          </p>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[1fr_260px]">
+          <div className="space-y-6">
+            <FormSection title="Option" description="What the customer picks on the product page.">
+              <div className="space-y-4">
+                <Segmented
+                  value={formData.option_Type}
+                  onChange={(v) => setFormData((p) => ({ ...p, option_Type: v }))}
+                  options={[
+                    { value: "flavor", label: "Flavour" },
+                    { value: "color", label: "Colour" },
+                  ]}
+                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label={isColor ? "Colour" : "Flavour"} required error={errors.flavor_Name}>
+                    <input
+                      name="flavor_Name"
+                      data-autofocus
+                      value={formData.flavor_Name}
+                      onChange={handleInputChange}
+                      placeholder={isColor ? "e.g. Black" : "e.g. Chocolate"}
+                      aria-invalid={Boolean(errors.flavor_Name) || undefined}
+                      className={fieldClass(errors.flavor_Name)}
+                    />
+                  </Field>
+                  <Field label="Size / packaging" required hint="Pick a saved size or type a new one." error={errors.packaging_Name}>
+                    <input
+                      list="variant-packaging-options"
+                      name="packaging_Name"
+                      value={formData.packaging_Name}
+                      onChange={handleInputChange}
+                      placeholder="e.g. 2 kg"
+                      aria-invalid={Boolean(errors.packaging_Name) || undefined}
+                      className={fieldClass(errors.packaging_Name)}
+                    />
+                    <datalist id="variant-packaging-options">
+                      {packagingOptions.map((pkg) => (
+                        <option key={pkg.packaging_Id || pkg.Packaging_Id} value={pkg.packaging_Name || pkg.Packaging_Name} />
+                      ))}
+                    </datalist>
+                  </Field>
+                  <Field label="Weight for delivery (g)" hint="Used to calculate the delivery fee.">
+                    <input name="weight_Grams" type="number" min="0" step="0.01" value={formData.weight_Grams} onChange={handleInputChange} placeholder="e.g. 2000" className={inputClass} />
+                  </Field>
+                  <Field label="Display name" hint="Optional. Defaults to flavour + size.">
+                    <input
+                      name="variant_Name"
+                      value={formData.variant_Name}
+                      onChange={handleInputChange}
+                      placeholder={[formData.flavor_Name, formData.packaging_Name].filter(Boolean).join(" ") || "e.g. Chocolate 2 kg"}
+                      className={inputClass}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </FormSection>
+
+            <FormSection title="Price & stock">
+              <div className="space-y-5">
+                <PriceWithVat
+                  price={formData.price}
+                  vat={formData.ddv_Percentage}
+                  onPriceChange={(value) => setFormData((p) => ({ ...p, price: value }))}
+                  onVatChange={(value) => setFormData((p) => ({ ...p, ddv_Percentage: value }))}
+                  error={errors.price}
+                />
+                <SalePriceFields
+                  price={formData.price}
+                  salePrice={formData.compare_Price}
+                  onSalePriceChange={(value) => setFormData((p) => ({ ...p, compare_Price: value }))}
+                  error={errors.compare_Price}
+                  label="Sale price"
+                  hint="Optional. Shown when “On sale” is turned on in the product's Labels tab."
+                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="In stock" hint="0 = out of stock." error={errors.quantity}>
+                    <input
+                      name="quantity"
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      value={formData.quantity}
+                      onChange={handleInputChange}
+                      aria-invalid={Boolean(errors.quantity) || undefined}
+                      className={fieldClass(errors.quantity, "tabular-nums")}
+                    />
+                  </Field>
+                  <Field label="Loyalty points (%)" hint="Empty = default 2%." error={errors.loyaltyPercentage}>
+                    <input
+                      name="loyaltyPercentage"
+                      type="number"
+                      inputMode="decimal"
+                      step="0.5"
+                      min="0"
+                      max="100"
+                      placeholder="2"
+                      value={formData.loyaltyPercentage}
+                      onChange={handleInputChange}
+                      aria-invalid={Boolean(errors.loyaltyPercentage) || undefined}
+                      className={fieldClass(errors.loyaltyPercentage, "tabular-nums")}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </FormSection>
+
+            <Toggle
+              checked={formData.isDefault}
+              onChange={(v) => setFormData((p) => ({ ...p, isDefault: v }))}
+              label="Default choice"
+              description="Pre-selected when a customer opens the product."
+              className="-mx-3"
+            />
+
+            <FormSection title="Details">
+              <div className="space-y-4">
+                <Field label="Ingredients">
+                  <textarea name="ingredients" rows={3} value={formData.ingredients} onChange={handleInputChange} className={textareaClass} />
+                </Field>
+                <Field label="Description" hint="Optional. Extra text for this variant only.">
+                  <textarea name="description" rows={3} value={formData.description} onChange={handleInputChange} className={textareaClass} />
+                </Field>
+              </div>
+            </FormSection>
+
+            <FormSection title="Nutrition table" description="Shown on the product page when this variant is selected.">
+              {editingVariant ? (
+                <NutritionTableEditor variantId={editingVariant.variant_Id} />
+              ) : (
+                <p className="rounded-xl bg-[#f6f5f1] px-4 py-3 text-sm text-gray-500">Save the variant first, then you can paste its nutrition table.</p>
+              )}
+            </FormSection>
+          </div>
+
+          <div className="space-y-5">
+            <Field label="Variant photo">
+              <ImagePicker promptKey="productPhoto"
+                preview={imagePreview}
+                onFile={handleVariantImageSelect}
+                onClear={() => {
+                  setImagePreview(null);
+                  setImageFile(null);
+                  setFormData((p) => ({ ...p, variant_Image_Path: "" }));
+                }}
+                aspect="aspect-square"
+                fit="object-contain"
+                accept={IMAGE_TYPES.join(",")}
+                hint="Shown when this variant is selected."
+              />
+            </Field>
+            {editingVariant && (
+              <div>
+                <p className="mb-1.5 text-[13px] font-semibold text-gray-800">Extra photos</p>
+                <VariantGalleryManager variantId={editingVariant.variant_Id} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap justify-end gap-2 border-t border-black/[0.06] pt-4">
+          <Button variant="secondary" onClick={closeForm}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} loading={saving}>
+            {editingVariant ? "Save variant" : "Add variant"}
+          </Button>
+        </div>
+      </div>
     );
   }
 
+  /* --------------------------------------------------------- list view */
   return (
-    <div className="mt-6 border-t pt-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-800">
-          {translate("productVariants")}
-        </h3>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              resetForm();
-              setEditingVariant(null);
-              setShowAddModal(true);
-            }}
-            className="bg-green-500 text-white px-4 py-2 text-sm hover:bg-green-600"
-          >
-            {translate("addVariant")}
-          </button>
-        </div>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-gray-600">
+          {variants.length === 0 ? "No variants yet." : `${variants.length} variant${variants.length === 1 ? "" : "s"} of ${productName || "this product"}.`}
+        </p>
+        <Button size="sm" icon={FiPlus} onClick={startNew}>
+          Add variant
+        </Button>
       </div>
 
-      {/* Variants Table */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-3 py-2 text-left">{translate("image")}</th>
-              <th className="px-3 py-2 text-left">
-                {translate("variantOption")}
-              </th>
-              <th className="px-3 py-2 text-left">{translate("packaging")}</th>
-              <th className="px-3 py-2 text-left">Grams</th>
-              <th className="px-3 py-2 text-left">{translate("price")}</th>
-              <th className="px-3 py-2 text-left">
-                {translate("basePriceWithoutDDV")}
-              </th>
-              <th className="px-3 py-2 text-left">{translate("ddvAmount")}</th>
-              <th className="px-3 py-2 text-left">{translate("quantity")}</th>
-              <th className="px-3 py-2 text-left">
-                {translate("loyaltyPoints")} (%)
-              </th>
-              <th className="px-3 py-2 text-left">{translate("isDefault")}</th>
-              <th className="px-3 py-2 text-left">{translate("actions")}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {variants.length === 0 ? (
+      {variants.length === 0 ? (
+        <div className="rounded-2xl bg-[#f6f5f1]">
+          <EmptyState
+            icon={FiLayers}
+            title="This product has one version"
+            text="Add variants if customers should choose a flavour, colour or size. Each one gets its own price and stock."
+            action={<Button icon={FiPlus} onClick={startNew}>Add first variant</Button>}
+          />
+        </div>
+      ) : (
+        <div className={`${tableWrapClass} rounded-2xl ring-1 ring-black/[0.06]`}>
+          <table className={tableClass}>
+            <thead>
               <tr>
-                <td colSpan="11" className="text-center py-4 text-gray-500">
-                  {translate("noVariantsYet")}
-                </td>
+                <th className={thClass}>Variant</th>
+                <th className={thClass}>Size</th>
+                <th className={`${thClass} text-right`}>Price</th>
+                <th className={`${thClass} text-right`}>Stock</th>
+                <th className={thClass}>Default</th>
+                <th className={thClass}>
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
-            ) : (
-              variants.map((variant) => (
-                <tr key={variant.variant_Id} className="hover:bg-gray-50">
-                  <td className="px-3 py-2">
-                    {variant.variant_Image_Path ? (
-                      <img
-                        src={getImageUrl(variant.variant_Image_Path)}
-                        alt="Variant"
-                        className="w-12 h-12 object-cover"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-                        No img
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      {translate(
-                        variant.option_Type === "color" ? "color" : "flavor",
-                      )}
-                    </span>
-                    <span>{variant.flavor_Name}</span>
-                  </td>
-                  <td className="px-3 py-2">{variant.packaging_Name}</td>
-                  <td className="px-3 py-2">
-                    {formatWeightGrams(getVariantWeight(variant))}
-                  </td>
-
-                  {/* Price (with DDV already included) */}
-                  <td className="px-3 py-2 font-semibold text-[#2096D8]">
-                    MKD {(variant.price || 0).toFixed(2)}
-                  </td>
-
-                  {/* Base price without DDV */}
-                  <td className="px-3 py-2">
-                    MKD{" "}
-                    {(() => {
-                      const priceWithDDV = variant.price || 0;
-                      const ddvPercentage =
-                        variant.ddv_Percentage ||
-                        variant.DDV_Percentage ||
-                        variant.ddV_Percentage ||
-                        0;
-                      const basePrice =
-                        priceWithDDV / (1 + ddvPercentage / 100);
-                      return basePrice.toFixed(2);
-                    })()}
-                  </td>
-
-                  {/* DDV Amount */}
-                  <td className="px-3 py-2">
-                    MKD{" "}
-                    {(() => {
-                      const priceWithDDV = variant.price || 0;
-                      const ddvPercentage =
-                        variant.ddv_Percentage ||
-                        variant.DDV_Percentage ||
-                        variant.ddV_Percentage ||
-                        0;
-                      const basePrice =
-                        priceWithDDV / (1 + ddvPercentage / 100);
-                      const ddvAmount = priceWithDDV - basePrice;
-                      return ddvAmount.toFixed(2);
-                    })()}
-                  </td>
-
-                  <td className="px-3 py-2">{variant.quantity}</td>
-
-                  {/* Loyalty Percentage */}
-                  <td className="px-3 py-2">
-                    {(variant.loyaltyPercentage ||
-                      variant.LoyaltyPercentage) !== null &&
-                    (variant.loyaltyPercentage || variant.LoyaltyPercentage) >
-                      0 ? (
-                      <span className="font-semibold text-green-600">
-                        {variant.loyaltyPercentage || variant.LoyaltyPercentage}
-                        %
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 text-xs">
-                        2% (default)
-                      </span>
-                    )}
-                  </td>
-
-                  <td className="px-3 py-2">
-                    {variant.isDefault ? (
-                      <span className="text-green-600 font-semibold">
-                        ✓ {translate("default")}
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => handleSetDefault(variant.variant_Id)}
-                        className="text-blue-500 hover:underline text-xs font-bold"
-                      >
-                        {translate("setDefault")}
-                      </button>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(variant)}
-                        className="bg-[#2096D8] text-white hover:bg-[#1a7ab9] px-4 py-1"
-                      >
-                        {translate("edit")}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteVariant(variant.variant_Id)}
-                        className="bg-red-500 text-white hover:bg-red-600 px-4 py-1"
-                      >
-                        {translate("delete")}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Add/Edit Variant Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white max-w-5xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-              <h3 className="text-xl font-bold">
-                {editingVariant
-                  ? translate("editVariant")
-                  : translate("addNewVariant")}{" "}
-                - {productName}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowAddModal(false);
-                  setEditingVariant(null);
-                  resetForm();
-                }}
-              >
-                <TfiClose size={20} />
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    {translate("optionType")}
-                  </label>
-                  <select
-                    name="option_Type"
-                    value={formData.option_Type}
-                    onChange={handleInputChange}
-                    className="w-full border border-[#C8C8C8] bg-white py-2 px-4 outline-none"
-                  >
-                    <option value="flavor">{translate("flavor")}</option>
-                    <option value="color">{translate("color")}</option>
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {translate("optionTypeHint")}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    {translate(
-                      formData.option_Type === "color" ? "color" : "flavor",
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    name="flavor_Name"
-                    value={formData.flavor_Name}
-                    onChange={handleInputChange}
-                    required
-                    placeholder={
-                      formData.option_Type === "color"
-                        ? translate("colorHint")
-                        : translate("flavorHint")
-                    }
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    {translate("packaging")}
-                  </label>
-                  <input
-                    type="text"
-                    list="variant-packaging-options"
-                    name="packaging_Name"
-                    value={formData.packaging_Name}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="e.g., 500g, 2kg"
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                  <datalist id="variant-packaging-options">
-                    {packagingOptions.map((pkg) => (
-                      <option
-                        key={pkg.packaging_Id || pkg.Packaging_Id}
-                        value={pkg.packaging_Name || pkg.Packaging_Name}
-                      />
-                    ))}
-                  </datalist>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Saved weight: {formatWeightGrams(formData.weight_Grams)}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Grams for delivery
-                  </label>
-                  <input
-                    type="number"
-                    name="weight_Grams"
-                    value={formData.weight_Grams}
-                    onChange={handleInputChange}
-                    min="0"
-                    step="0.01"
-                    placeholder="e.g., 500"
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Used for cart delivery fee calculation.
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    {translate("price")} (MKD) - {translate("priceWithDDV")}
-                  </label>
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    required
-                    step="0.01"
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                  <p className="text-xs text-green-600 mt-1">
-                    {translate("basePriceWithoutDDV")}: MKD{" "}
-                    {(
-                      formData.price /
-                      (1 + formData.ddv_Percentage / 100)
-                    ).toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    {translate("ddvPercentage")}
-                  </label>
-                  <input
-                    type="number"
-                    name="ddv_Percentage"
-                    value={formData.ddv_Percentage}
-                    onChange={handleInputChange}
-                    step="0.01"
-                    placeholder="18"
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {translate("ddvAmount")}: MKD{" "}
-                    {(
-                      formData.price -
-                      formData.price / (1 + formData.ddv_Percentage / 100)
-                    ).toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    {translate("stockQuantity")}
-                  </label>
-                  <input
-                    type="number"
-                    name="quantity"
-                    value={formData.quantity}
-                    onChange={handleInputChange}
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Sale price (MKD)
-                  </label>
-                  <input
-                    type="number"
-                    name="compare_Price"
-                    value={formData.compare_Price}
-                    onChange={handleInputChange}
-                    step="0.01"
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Enter a price lower than the regular price. Enable Products on sale and set the end date in the product form.
-                  </p>
-                </div>
-
-                {/* ✅ ADDED: Loyalty Percentage Field */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    {translate("loyaltyPoints")} (%)
-                  </label>
-                  <input
-                    type="number"
-                    name="loyaltyPercentage"
-                    value={formData.loyaltyPercentage}
-                    onChange={handleInputChange}
-                    step="0.5"
-                    min="0"
-                    max="100"
-                    placeholder="2.0"
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Leave empty for default 2%
-                  </p>
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-1">
-                    {translate("mainVariantImage")}
-                  </label>
-                  <div className="flex items-center gap-4">
-                    {imagePreview ? (
-                      <div className="relative">
-                        <img
-                          src={imagePreview}
-                          className="w-20 h-20 object-cover border"
-                          alt="Preview"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setImagePreview(null);
-                            setImageFile(null);
-                          }}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="cursor-pointer bg-gray-100 px-4 py-2 hover:bg-gray-200">
-                        {uploadingImage
-                          ? translate("uploading")
-                          : translate("uploadImage")}
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          className="hidden"
-                          onChange={handleVariantImageSelect}
-                          disabled={uploadingImage}
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-
-                {/* Variant Gallery Manager */}
-                {editingVariant && editingVariant.variant_Id && (
-                  <div className="col-span-2">
-                    <VariantGalleryManager
-                      variantId={editingVariant.variant_Id}
-                    />
-                  </div>
-                )}
-
-                <div className="col-span-2">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name="isDefault"
-                      checked={formData.isDefault}
-                      onChange={handleInputChange}
-                    />
-                    <span className="text-sm">
-                      {translate("setAsDefaultVariant")}
-                    </span>
-                  </label>
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-1">
-                    {translate("variantName")}
-                  </label>
-                  <input
-                    type="text"
-                    name="variant_Name"
-                    value={formData.variant_Name}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Chocolate 500g"
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-1">
-                    {translate("ingredients")}
-                  </label>
-                  <textarea
-                    name="ingredients"
-                    value={formData.ingredients}
-                    onChange={handleInputChange}
-                    rows="3"
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                </div>
-
-                {/* Dynamic Nutrition Table Editor */}
-                {editingVariant && editingVariant.variant_Id && (
-                  <div className="col-span-2">
-                    <NutritionTableEditor
-                      variantId={editingVariant.variant_Id}
-                      variantName={
-                        formData.variant_Name ||
-                        `Variant ${editingVariant.variant_Id}`
-                      }
-                    />
-                  </div>
-                )}
-
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-1">
-                    {translate("descriptionOptional")}
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    rows="3"
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                </div>
-              </div>
-              <div className="sticky bottom-0 bg-white flex justify-end gap-3 mt-6 py-4 border-t">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddModal(false);
-                    setEditingVariant(null);
-                    resetForm();
-                  }}
-                  className="px-4 py-2 border border-[#c2c2c2] hover:bg-[#e3e3e3]"
-                >
-                  {translate("cancel")}
-                </button>
-                <button
-                  type="button"
-                  onClick={
-                    editingVariant ? handleUpdateVariant : handleCreateVariant
-                  }
-                  disabled={uploadingImage}
-                  className="px-4 py-2 bg-[#2096D8] hover:bg-[#1a7ab9] text-white disabled:opacity-50"
-                >
-                  {uploadingImage
-                    ? translate("uploadingImage")
-                    : editingVariant
-                      ? translate("update")
-                      : translate("create")}{" "}
-                  {translate("variant")}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Bulk Create Modal */}
-      {showBulkModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white max-w-lg w-full">
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-              <h3 className="text-xl font-bold">
-                Bulk Create Variants - {productName}
-              </h3>
-              <button onClick={() => setShowBulkModal(false)}>
-                <TfiClose size={20} />
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Select Flavors *
-                  </label>
-                  <div className="max-h-40 overflow-y-auto border p-2">
-                    {flavors.map((flavor) => (
-                      <label
-                        key={flavor.flavor_Id || flavor.id}
-                        className="flex items-center gap-2 py-1"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={bulkForm.selectedFlavors.includes(
-                            flavor.flavor_Id || flavor.id,
+            </thead>
+            <tbody>
+              {variants.map((variant) => {
+                const gross = variant.price || 0;
+                const base = gross / (1 + vatRate(variant) / 100);
+                const weight = formatWeightGrams(getVariantWeight(variant));
+                const loyalty = variant.loyaltyPercentage || variant.LoyaltyPercentage;
+                return (
+                  <tr key={variant.variant_Id} className={trClass}>
+                    <td className={tdClass}>
+                      <button type="button" onClick={() => openEdit(variant)} className="group flex items-center gap-3 text-left">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#f6f5f1] ring-1 ring-black/[0.05]">
+                          {variant.variant_Image_Path ? (
+                            <img src={variantImageUrl(variant.variant_Image_Path)} alt="" className="h-full w-full object-contain p-0.5" />
+                          ) : (
+                            <FiImage className="text-gray-300" aria-hidden="true" />
                           )}
-                          onChange={() =>
-                            handleBulkFlavorChange(
-                              flavor.flavor_Id || flavor.id,
-                            )
-                          }
-                        />
-                        <span>{flavor.flavor_Name || flavor.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Select Packaging *
-                  </label>
-                  <div className="max-h-40 overflow-y-auto border p-2">
-                    {packagingOptions.map((pkg) => (
-                      <label
-                        key={pkg.packaging_Id || pkg.Packaging_Id}
-                        className="flex items-center gap-2 py-1"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={bulkForm.selectedPackagings.includes(
-                            pkg.packaging_Id || pkg.Packaging_Id,
-                          )}
-                          onChange={() =>
-                            handleBulkPackagingChange(
-                              pkg.packaging_Id || pkg.Packaging_Id,
-                            )
-                          }
-                        />
-                        <span>
-                          {pkg.packaging_Name || pkg.Packaging_Name} (
-                          {formatWeightGrams(getPackagingWeightValue(pkg))})
                         </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Base Price (MKD) * - {translate("priceWithDDV")}
-                  </label>
-                  <input
-                    type="number"
-                    name="basePrice"
-                    value={bulkForm.basePrice}
-                    onChange={handleBulkInputChange}
-                    required
-                    step="0.01"
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                  <p className="text-xs text-green-600 mt-1">
-                    {translate("basePriceWithoutDDV")}: MKD{" "}
-                    {(
-                      bulkForm.basePrice /
-                      (1 + bulkForm.ddv_Percentage / 100)
-                    ).toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    DDV Percentage (%)
-                  </label>
-                  <input
-                    type="number"
-                    name="ddv_Percentage"
-                    value={bulkForm.ddv_Percentage}
-                    onChange={handleBulkInputChange}
-                    step="0.01"
-                    placeholder="18"
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {translate("ddvAmount")}: MKD{" "}
-                    {(
-                      bulkForm.basePrice -
-                      bulkForm.basePrice / (1 + bulkForm.ddv_Percentage / 100)
-                    ).toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Stock Quantity
-                  </label>
-                  <input
-                    type="number"
-                    name="quantity"
-                    value={bulkForm.quantity}
-                    onChange={handleBulkInputChange}
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                </div>
-
-                {/* ✅ ADDED: Loyalty Percentage for Bulk Create */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    {translate("loyaltyPoints")} (%)
-                  </label>
-                  <input
-                    type="number"
-                    name="loyaltyPercentage"
-                    value={bulkForm.loyaltyPercentage}
-                    onChange={handleBulkInputChange}
-                    step="0.5"
-                    min="0"
-                    max="100"
-                    placeholder="2.0"
-                    className="w-full border border-[#C8C8C8] py-2 px-4 outline-none"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Leave empty for default 2%
-                  </p>
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowBulkModal(false)}
-                  className="px-4 py-2 border"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBulkCreate}
-                  className="px-4 py-2 bg-[#2096D8] hover:bg-[#1a7ab9] text-white"
-                >
-                  Create{" "}
-                  {bulkForm.selectedFlavors.length *
-                    bulkForm.selectedPackagings.length}{" "}
-                  Variants
-                </button>
-              </div>
-            </div>
-          </div>
+                        <span>
+                          <span className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                            {variant.option_Type === "color" ? "Colour" : "Flavour"}
+                          </span>
+                          <span className="block font-semibold text-gray-900 group-hover:underline">{variant.flavor_Name}</span>
+                        </span>
+                      </button>
+                    </td>
+                    <td className={tdClass}>
+                      <span className="block">{variant.packaging_Name}</span>
+                      <span className={`block text-xs ${weight ? "text-gray-500" : "text-[#b3191f]"}`}>{weight || "No weight set"}</span>
+                    </td>
+                    <td className={`${tdClass} whitespace-nowrap text-right`}>
+                      <span className="block font-semibold tabular-nums">{formatMoney(gross)}</span>
+                      <span className="block text-xs tabular-nums text-gray-500">
+                        excl. VAT {formatMoney(base)}
+                        {loyalty > 0 ? ` · ${loyalty}% pts` : ""}
+                      </span>
+                    </td>
+                    <td className={`${tdClass} text-right`}>
+                      {Number(variant.quantity) > 0 ? <span className="font-semibold tabular-nums">{variant.quantity}</span> : <Badge tone="red">Out</Badge>}
+                    </td>
+                    <td className={tdClass}>
+                      {variant.isDefault ? (
+                        <Badge tone="ink">Default</Badge>
+                      ) : (
+                        <button type="button" onClick={() => handleSetDefault(variant.variant_Id)} className="text-xs font-semibold text-gray-500 hover:text-gray-900 hover:underline">
+                          Make default
+                        </button>
+                      )}
+                    </td>
+                    <td className={`${tdClass} text-right`}>
+                      <div className="flex justify-end">
+                        <IconButton icon={FiEdit2} label={`Edit ${variant.flavor_Name}`} onClick={() => openEdit(variant)} />
+                        <IconButton icon={FiTrash2} tone="danger" label={`Delete ${variant.flavor_Name}`} onClick={() => handleDeleteVariant(variant)} />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

@@ -37,8 +37,10 @@ BEGIN
         RETURN;
     END
 
-    INSERT INTO dbo.ProductCategories (Category_Name, Category_Slug, Parent_Category_Id, Display_Order)
-    VALUES (@Name, @Slug, @ParentId, @DisplayOrder);
+    -- A subcategory of a clothing category is clothing too.
+    INSERT INTO dbo.ProductCategories (Category_Name, Category_Slug, Parent_Category_Id, Display_Order, Is_Apparel)
+    VALUES (@Name, @Slug, @ParentId, @DisplayOrder,
+            ISNULL((SELECT Is_Apparel FROM dbo.ProductCategories WHERE Category_Id = @ParentId), 0));
 
     DECLARE @Id INT = CAST(SCOPE_IDENTITY() AS INT);
 

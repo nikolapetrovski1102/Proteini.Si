@@ -69,5 +69,7 @@ public class Product
     public string? VariantFlavorName { get; set; }
     public int PackagingCount { get; set; }
     public int FlavorCount { get; set; }
+    /// <summary>Clothing: listed once per product, variants are colours and packagings are sizes.</summary>
+    public bool IsApparel { get; set; }
     public int SearchRank { get; set; }
 }

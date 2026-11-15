@@ -8,6 +8,9 @@ public interface IUserService
     Task<AuthResponseDto> LoginAsync(UserForLoginDto login);
     Task<AuthResponseDto> VerifyEmailAsync(VerifyEmailDto request);
     Task<ResendVerificationResponseDto> ResendVerificationCodeAsync(ResendVerificationCodeDto request);
+    Task<AuthResponseDto> ExternalSignInAsync(ExternalSignInDto request);
+    Task<EmailCodeSentDto> SendSignInCodeAsync(EmailCodeSendDto request);
+    Task<AuthResponseDto> SignInWithEmailCodeAsync(EmailCodeSignInDto request);
     Task<StatusMessageDto> ForgotPasswordAsync(ForgotPasswordDto request);
     Task<StatusMessageDto> ResetPasswordAsync(ResetPasswordDto request);
     Task<UserProfileDto> GetCurrentAsync(int userId);

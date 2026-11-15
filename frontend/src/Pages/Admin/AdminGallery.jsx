@@ -1,40 +1,47 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { FiArrowDown, FiArrowUp, FiEdit2, FiImage, FiLink, FiMonitor, FiPlus, FiSmartphone, FiTrash2 } from "react-icons/fi";
 import { api } from "../../services/api";
-import ResetCacheButton from "./ResetCacheButton";
+import {
+  AdminPage,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  IconButton,
+  ImagePicker,
+  Loading,
+  Modal,
+  Notice,
+  Toggle,
+  VisibilityBadge,
+  inputClass,
+} from "./AdminKit";
+import { useConfirm, useToast } from "./adminFeedback";
+import { formatDate } from "./adminUtils";
+
+const emptyUpload = { image: null, mobileImage: null, clickUrl: "", previewUrl: null, mobilePreviewUrl: null };
 
 export default function AdminGallery() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [sliders, setSliders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedSlider, setSelectedSlider] = useState(null);
-  const [uploadForm, setUploadForm] = useState({
-    image: null,
-    mobileImage: null,
-    clickUrl: "",
-    previewUrl: null,
-    mobilePreviewUrl: null,
-  });
-  const [editForm, setEditForm] = useState({
-    clickUrl: "",
-    isActive: true,
-  });
+  const [uploadForm, setUploadForm] = useState(emptyUpload);
+  const [editForm, setEditForm] = useState({ clickUrl: "", isActive: true });
   const [uploading, setUploading] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [reordering, setReordering] = useState(false);
 
-  // Fetch all sliders
   const fetchSliders = async () => {
     try {
-      setLoading(true);
       const data = await api.getAllHomeSliders();
-      // Sort by display order
-      const sorted = data.sort((a, b) => a.displayOrder - b.displayOrder);
-      setSliders(sorted);
+      setSliders([...data].sort((a, b) => a.displayOrder - b.displayOrder));
       setError(null);
     } catch (err) {
-      setError("Failed to load sliders");
+      setError("Failed to load banners");
       console.error(err);
     } finally {
       setLoading(false);
@@ -45,88 +52,37 @@ export default function AdminGallery() {
     fetchSliders();
   }, []);
 
-  // Handle file selection for upload
-  const handleFileSelect = (e, type) => {
-    const file = e.target.files[0];
-    if (file) {
-      const previewUrl = URL.createObjectURL(file);
-      if (type === "desktop") {
-        setUploadForm({
-          ...uploadForm,
-          image: file,
-          previewUrl: previewUrl,
-        });
-      } else {
-        setUploadForm({
-          ...uploadForm,
-          mobileImage: file,
-          mobilePreviewUrl: previewUrl,
-        });
-      }
-    }
+  const closeUpload = () => {
+    setShowUploadModal(false);
+    setUploadForm(emptyUpload);
   };
 
-  // Handle upload form change
-  const handleUploadChange = (e) => {
-    setUploadForm({
-      ...uploadForm,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  // Submit new slider
   const handleUpload = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!uploadForm.image) {
-      alert("Please select a desktop image");
+      toast.error("Please choose a desktop image.");
       return;
     }
-
     setUploading(true);
     try {
-      await api.uploadHomeSlider(
-        uploadForm.image,
-        uploadForm.mobileImage || null,
-        uploadForm.clickUrl || null,
-      );
+      await api.uploadHomeSlider(uploadForm.image, uploadForm.mobileImage || null, uploadForm.clickUrl || null);
       await fetchSliders();
-      setShowUploadModal(false);
-      setUploadForm({
-        image: null,
-        mobileImage: null,
-        clickUrl: "",
-        previewUrl: null,
-        mobilePreviewUrl: null,
-      });
+      closeUpload();
+      toast.success("Banner added. It's now live at the end of the slider.");
     } catch (err) {
-      alert("Failed to upload slider: " + err.message);
+      toast.error("Upload failed: " + err.message);
     } finally {
       setUploading(false);
     }
   };
 
-  // Handle edit form change
-  const handleEditChange = (e) => {
-    setEditForm({
-      ...editForm,
-      [e.target.name]:
-        e.target.type === "checkbox" ? e.target.checked : e.target.value,
-    });
-  };
-
-  // Open edit modal
   const openEditModal = (slider) => {
     setSelectedSlider(slider);
-    setEditForm({
-      clickUrl: slider.clickUrl || "",
-      isActive: slider.isActive,
-    });
-    setShowEditModal(true);
+    setEditForm({ clickUrl: slider.clickUrl || "", isActive: slider.isActive });
   };
 
-  // Submit edit
   const handleEdit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setUpdating(true);
     try {
       await api.updateHomeSlider(selectedSlider.id, {
@@ -135,517 +91,205 @@ export default function AdminGallery() {
         isActive: editForm.isActive,
       });
       await fetchSliders();
-      setShowEditModal(false);
       setSelectedSlider(null);
+      toast.success("Banner updated.");
     } catch (err) {
-      alert("Failed to update slider: " + err.message);
+      toast.error("Update failed: " + err.message);
     } finally {
       setUpdating(false);
     }
   };
 
-  // Delete slider
-  const handleDelete = async (id) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to delete this slider? This action cannot be undone.",
-      )
-    ) {
-      return;
-    }
-
+  const handleDelete = async (slider) => {
+    const ok = await confirm({
+      title: "Delete this banner?",
+      message: "It will be removed from the homepage slider. This can't be undone — to hide it temporarily, turn off “Show on homepage” instead.",
+      confirmLabel: "Delete",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
-      await api.deleteHomeSlider(id);
+      await api.deleteHomeSlider(slider.id);
       await fetchSliders();
+      toast.success("Banner deleted.");
     } catch (err) {
-      alert("Failed to delete slider: " + err.message);
+      toast.error("Delete failed: " + err.message);
     }
   };
 
-  // Move slider up
-  const moveUp = async (index) => {
-    if (index === 0) return;
-
+  const move = async (index, delta) => {
+    const target = index + delta;
+    if (target < 0 || target >= sliders.length) return;
     setReordering(true);
-    const newSliders = [...sliders];
-    [newSliders[index - 1], newSliders[index]] = [
-      newSliders[index],
-      newSliders[index - 1],
-    ];
-    setSliders(newSliders);
-
-    // Prepare reorder data
-    const reorderData = newSliders.map((item, idx) => ({
-      id: item.id,
-      displayOrder: idx,
-    }));
-
+    const next = [...sliders];
+    [next[index], next[target]] = [next[target], next[index]];
+    setSliders(next);
     try {
-      await api.reorderHomeSliders(reorderData);
-      await fetchSliders(); // Refresh to get correct order from server
+      await api.reorderHomeSliders(next.map((item, idx) => ({ id: item.id, displayOrder: idx })));
     } catch (err) {
-      console.error("Failed to reorder:", err);
-      await fetchSliders(); // Revert on error
+      toast.error("Couldn't save the new order: " + err.message);
     } finally {
+      await fetchSliders();
       setReordering(false);
     }
   };
 
-  // Move slider down
-  const moveDown = async (index) => {
-    if (index === sliders.length - 1) return;
-
-    setReordering(true);
-    const newSliders = [...sliders];
-    [newSliders[index + 1], newSliders[index]] = [
-      newSliders[index],
-      newSliders[index + 1],
-    ];
-    setSliders(newSliders);
-
-    // Prepare reorder data
-    const reorderData = newSliders.map((item, idx) => ({
-      id: item.id,
-      displayOrder: idx,
-    }));
-
-    try {
-      await api.reorderHomeSliders(reorderData);
-      await fetchSliders(); // Refresh to get correct order from server
-    } catch (err) {
-      console.error("Failed to reorder:", err);
-      await fetchSliders(); // Revert on error
-    } finally {
-      setReordering(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-gray-500">Loading sliders...</div>
-      </div>
-    );
-  }
+  const activeCount = sliders.filter((s) => s.isActive).length;
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">
-            Home Slider Management
-          </h1>
-          <div className="flex items-start gap-3">
-            <ResetCacheButton />
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="bg-[#2096D8] hover:bg-[#007bff] text-white px-4 py-2 transition-colors"
-            >
-              + Add New Slide
-            </button>
-          </div>
-        </div>
+    <AdminPage
+      eyebrow="Homepage"
+      title="Banners"
+      count={loading ? undefined : sliders.length}
+      description="The large rotating images at the top of the homepage. They play in the order shown here — use the arrows to reorder."
+      actions={
+        <Button icon={FiPlus} onClick={() => setShowUploadModal(true)}>
+          New banner
+        </Button>
+      }
+    >
+      {error && <Notice tone="error">{error}</Notice>}
+      {!loading && sliders.length > 0 && activeCount === 0 && (
+        <Notice tone="warning">All banners are hidden, so the homepage slider is empty.</Notice>
+      )}
 
-        {/* Error message */}
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
-          </div>
-        )}
-
-        {/* Reordering indicator */}
-        {reordering && (
-          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-2 rounded mb-4 text-sm">
-            Updating order...
-          </div>
-        )}
-
-        {/* Sliders Grid */}
-        {sliders.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-gray-500">
-              No sliders found. Click "Add New Slide" to get started.
-            </p>
-          </div>
+      <Card bodyClassName="">
+        {loading ? (
+          <Loading label="Loading banners…" />
+        ) : sliders.length === 0 ? (
+          <EmptyState
+            icon={FiImage}
+            title="No banners yet"
+            text="Upload a wide image (2400 × 800 px) to show at the top of the homepage."
+            action={<Button icon={FiPlus} onClick={() => setShowUploadModal(true)}>New banner</Button>}
+          />
         ) : (
-          <div className="space-y-4">
+          <ol className={`divide-y divide-black/[0.06] ${reordering ? "pointer-events-none opacity-70" : ""}`}>
             {sliders.map((slider, index) => (
-              <div
-                key={slider.id}
-                className="bg-white rounded-lg shadow-md overflow-hidden transition-all hover:shadow-lg"
-              >
-                <div className="flex items-center p-4 gap-4">
-                  {/* Order number and reorder buttons */}
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-xs text-gray-400 font-medium">
-                      #{index + 1}
-                    </span>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => moveUp(index)}
-                        disabled={index === 0 || reordering}
-                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Move up"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 15l7-7 7 7"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => moveDown(index)}
-                        disabled={index === sliders.length - 1 || reordering}
-                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Move down"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 9l-7 7-7-7"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Image preview */}
-                  <div className="w-32 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
-                    <img
-                      src={slider.imageUrl}
-                      alt={`Slide ${slider.displayOrder}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          slider.isActive
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-500"
-                        }`}
-                      >
-                        {slider.isActive ? "Active" : "Inactive"}
+              <li key={slider.id} className={`flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5 ${slider.isActive ? "" : "bg-[#faf9f6]"}`}>
+                <div className="flex flex-col items-center">
+                  <IconButton icon={FiArrowUp} label="Move up" disabled={index === 0 || reordering} onClick={() => move(index, -1)} className="h-8 w-8" />
+                  <span className="font-display text-sm font-bold tabular-nums text-gray-400">{index + 1}</span>
+                  <IconButton icon={FiArrowDown} label="Move down" disabled={index === sliders.length - 1 || reordering} onClick={() => move(index, 1)} className="h-8 w-8" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openEditModal(slider)}
+                  className={`relative aspect-[3/1] w-36 shrink-0 overflow-hidden rounded-lg bg-[#f6f5f1] sm:w-56 ${slider.isActive ? "" : "opacity-50 grayscale"}`}
+                  aria-label={`Edit banner ${index + 1}`}
+                >
+                  <img src={slider.imageUrl} alt="" className="h-full w-full object-cover" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <VisibilityBadge active={slider.isActive} />
+                    {slider.mobileImageUrl && (
+                      <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                        <FiSmartphone size={12} aria-hidden="true" /> Mobile image
                       </span>
-                      <span className="text-xs text-gray-400">
-                        Order: {slider.displayOrder}
-                      </span>
-                    </div>
-                    {slider.clickUrl && (
-                      <p className="text-sm text-gray-600 truncate">
-                        URL: {slider.clickUrl}
-                      </p>
-                    )}
-                    {!slider.clickUrl && (
-                      <p className="text-sm text-gray-400 italic">
-                        No click URL set
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-400 mt-1">
-                      ID: {slider.id} | Created:{" "}
-                      {new Date(slider.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => openEditModal(slider)}
-                      className="text-blue-600 hover:text-blue-800 p-2 transition-colors"
-                      title="Edit"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                        />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleDelete(slider.id)}
-                      className="text-red-600 hover:text-red-800 p-2 transition-colors"
-                      title="Delete"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Upload Modal */}
-      {showUploadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-xl font-bold mb-4">Add New Slide</h2>
-              <form onSubmit={handleUpload}>
-                {/* Image upload */}
-                {/* Desktop Image upload */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Desktop Image (required) *
-                  </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                    {uploadForm.previewUrl ? (
-                      <div>
-                        <img
-                          src={uploadForm.previewUrl}
-                          alt="Desktop Preview"
-                          className="max-h-48 mx-auto mb-2 rounded"
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setUploadForm({
-                              ...uploadForm,
-                              image: null,
-                              previewUrl: null,
-                            })
-                          }
-                          className="text-sm text-red-600 hover:text-red-800"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ) : (
-                      <div>
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          onChange={(e) => handleFileSelect(e, "desktop")}
-                          className="hidden"
-                          id="desktop-image-upload"
-                        />
-                        <label
-                          htmlFor="desktop-image-upload"
-                          className="cursor-pointer text-[#e98286] hover:text-[#d47175]"
-                        >
-                          Click to upload desktop image
-                        </label>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Recommended: 1920x570px
-                        </p>
-                      </div>
                     )}
                   </div>
-                </div>
-
-                {/* Mobile Image upload */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Mobile Image (optional)
-                  </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                    {uploadForm.mobilePreviewUrl ? (
-                      <div>
-                        <img
-                          src={uploadForm.mobilePreviewUrl}
-                          alt="Mobile Preview"
-                          className="max-h-48 mx-auto mb-2 rounded"
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setUploadForm({
-                              ...uploadForm,
-                              mobileImage: null,
-                              mobilePreviewUrl: null,
-                            })
-                          }
-                          className="text-sm text-red-600 hover:text-red-800"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ) : (
-                      <div>
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          onChange={(e) => handleFileSelect(e, "mobile")}
-                          className="hidden"
-                          id="mobile-image-upload"
-                        />
-                        <label
-                          htmlFor="mobile-image-upload"
-                          className="cursor-pointer text-[#e98286] hover:text-[#d47175]"
-                        >
-                          Click to upload mobile image
-                        </label>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Recommended: 800x400px. If not provided, desktop image
-                          will be used.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Click URL */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Click URL (optional)
-                  </label>
-                  <input
-                    type="url"
-                    name="clickUrl"
-                    value={uploadForm.clickUrl}
-                    onChange={handleUploadChange}
-                    placeholder="https://example.com/product"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Leave empty if you don't want the slide to be clickable.
+                  <p className={`mt-1 flex items-center gap-1.5 truncate text-sm ${slider.clickUrl ? "text-gray-700" : "italic text-gray-400"}`}>
+                    <FiLink size={13} className="shrink-0" aria-hidden="true" />
+                    <span className="truncate">{slider.clickUrl || "Not clickable"}</span>
                   </p>
+                  {slider.createdAt && <p className="mt-0.5 text-xs text-gray-400">Added {formatDate(slider.createdAt)}</p>}
                 </div>
+                <div className="flex gap-1">
+                  <IconButton icon={FiEdit2} label="Edit banner" onClick={() => openEditModal(slider)} />
+                  <IconButton icon={FiTrash2} tone="danger" label="Delete banner" onClick={() => handleDelete(slider)} />
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
 
-                {/* Buttons */}
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowUploadModal(false);
-                      setUploadForm({
-                        image: null,
-                        clickUrl: "",
-                        previewUrl: null,
-                      });
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={uploading}
-                    className="flex-1 px-4 py-2 bg-[#e98286] text-white rounded-lg hover:bg-[#d47175] disabled:opacity-50"
-                  >
-                    {uploading ? "Uploading..." : "Upload"}
-                  </button>
-                </div>
-              </form>
-            </div>
+      <p className="text-xs text-gray-500">
+        Still seeing an old banner on the site after saving? Use <span className="font-semibold">Refresh live site</span> in the menu.
+      </p>
+
+      {/* upload */}
+      <Modal
+        open={showUploadModal}
+        onClose={closeUpload}
+        size="lg"
+        title="New banner"
+        description="Upload the wide desktop image. A separate mobile image is optional but looks much better on phones."
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeUpload}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpload} loading={uploading} disabled={!uploadForm.image}>
+              {uploading ? "Uploading…" : "Upload banner"}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleUpload} className="space-y-5">
+          <Field label={<span className="inline-flex items-center gap-1.5"><FiMonitor size={14} /> Desktop image</span>} required>
+            <ImagePicker
+              preview={uploadForm.previewUrl}
+              aspect="aspect-[3/1]"
+              accept="image/jpeg,image/png,image/webp"
+              label="Choose desktop image"
+              hint="JPG, PNG or WebP."
+              promptKey="bannerDesktop"
+              onFile={(file) => setUploadForm((f) => ({ ...f, image: file, previewUrl: URL.createObjectURL(file) }))}
+              onClear={() => setUploadForm((f) => ({ ...f, image: null, previewUrl: null }))}
+            />
+          </Field>
+          <div className="grid gap-5 sm:grid-cols-[200px_minmax(0,1fr)]">
+            <Field label={<span className="inline-flex items-center gap-1.5"><FiSmartphone size={14} /> Mobile image</span>}>
+              <ImagePicker
+                preview={uploadForm.mobilePreviewUrl}
+                aspect="aspect-square"
+                accept="image/jpeg,image/png,image/webp"
+                label="Optional"
+                hint="Optional."
+                promptKey="bannerMobile"
+                onFile={(file) => setUploadForm((f) => ({ ...f, mobileImage: file, mobilePreviewUrl: URL.createObjectURL(file) }))}
+                onClear={() => setUploadForm((f) => ({ ...f, mobileImage: null, mobilePreviewUrl: null }))}
+              />
+            </Field>
+            <Field label="Link when clicked" hint="Optional. A page on the shop (/products?search=whey) or a full web address. Leave empty to make the banner not clickable.">
+              <input className={inputClass} value={uploadForm.clickUrl} onChange={(e) => setUploadForm((f) => ({ ...f, clickUrl: e.target.value }))} placeholder="/products?search=whey" />
+            </Field>
           </div>
-        </div>
-      )}
+          <button type="submit" className="hidden" />
+        </form>
+      </Modal>
 
-      {/* Edit Modal */}
-      {showEditModal && selectedSlider && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="p-6">
-              <h2 className="text-xl font-bold mb-4">Edit Slide</h2>
-              <form onSubmit={handleEdit}>
-                {/* Image preview */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Current Image
-                  </label>
-                  <img
-                    src={selectedSlider.imageUrl}
-                    alt="Current slide"
-                    className="w-full h-32 object-cover rounded-lg"
-                  />
-                </div>
-
-                {/* Click URL */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Click URL (optional)
-                  </label>
-                  <input
-                    type="url"
-                    name="clickUrl"
-                    value={editForm.clickUrl}
-                    onChange={handleEditChange}
-                    placeholder="https://example.com/product"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                  />
-                </div>
-
-                {/* Active status */}
-                <div className="mb-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="isActive"
-                      checked={editForm.isActive}
-                      onChange={handleEditChange}
-                      className="w-4 h-4 text-[#e98286] focus:ring-[#e98286]"
-                    />
-                    <span className="text-sm font-medium text-gray-700">
-                      Active (visible on homepage)
-                    </span>
-                  </label>
-                </div>
-
-                {/* Buttons */}
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowEditModal(false);
-                      setSelectedSlider(null);
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={updating}
-                    className="flex-1 px-4 py-2 bg-[#e98286] text-white rounded-lg hover:bg-[#d47175] disabled:opacity-50"
-                  >
-                    {updating ? "Saving..." : "Save Changes"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      {/* edit */}
+      <Modal
+        open={Boolean(selectedSlider)}
+        onClose={() => setSelectedSlider(null)}
+        size="md"
+        title="Edit banner"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setSelectedSlider(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEdit} loading={updating}>
+              Save changes
+            </Button>
+          </>
+        }
+      >
+        {selectedSlider && (
+          <form onSubmit={handleEdit} className="space-y-4">
+            <img src={selectedSlider.imageUrl} alt="" className="aspect-[3/1] w-full rounded-xl bg-[#f6f5f1] object-cover" />
+            <p className="text-xs text-gray-500">To change the image, upload a new banner and delete this one.</p>
+            <Field label="Link when clicked" hint="Leave empty to make the banner not clickable.">
+              <input data-autofocus className={inputClass} value={editForm.clickUrl} onChange={(e) => setEditForm((f) => ({ ...f, clickUrl: e.target.value }))} placeholder="/products?search=whey" />
+            </Field>
+            <Toggle checked={editForm.isActive} onChange={(v) => setEditForm((f) => ({ ...f, isActive: v }))} label="Show on homepage" description="Turn off to hide the banner without deleting it." />
+            <button type="submit" className="hidden" />
+          </form>
+        )}
+      </Modal>
+    </AdminPage>
   );
 }

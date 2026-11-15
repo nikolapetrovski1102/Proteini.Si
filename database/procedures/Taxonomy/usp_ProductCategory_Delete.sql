@@ -22,6 +22,9 @@ BEGIN
 
     DELETE FROM dbo.CategorySlugHistory WHERE CategoryId = @Id;
 
+    IF OBJECT_ID(N'dbo.CategoryPairings', N'U') IS NOT NULL
+        DELETE FROM dbo.CategoryPairings WHERE Category_Id = @Id OR Paired_Category_Id = @Id;
+
     DELETE FROM dbo.ProductCategories WHERE Category_Id = @Id;
 
     DECLARE @RowsAffected INT = @@ROWCOUNT;

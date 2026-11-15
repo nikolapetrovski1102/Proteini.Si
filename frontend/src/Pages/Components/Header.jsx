@@ -1,35 +1,29 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { TfiClose } from "react-icons/tfi";
 import { FiArrowRight, FiChevronRight, FiMapPin, FiMoon, FiSearch, FiShoppingBag, FiSun, FiUser } from "react-icons/fi";
 import LanguageModal from "./LanguageModal";
 import DropdownMenu from "./DropdownMenu";
-import { BrandDirectory, MobileMenu, OfferList } from "./HeaderMenus";
+import { BrandsPanel, MobileMenu, OfferList } from "./HeaderMenus";
 import MobileTabBar from "./MobileTabBar";
-import { buildCategoryNav, buildOfferItems, FALLBACK_BRANDS } from "./headerNav";
+import { buildCategoryNav, buildOfferItems, FALLBACK_BRANDS, pruneCategoryNav } from "./headerNav";
 import { useLanguage } from "../translation/LanguageContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../Hooks/useCart";
 import { useTheme } from "../Hooks/useTheme";
 import { api } from "../../services/api";
+import Price from "./Price";
+import { CountryFlag } from "./AddressFields";
 
-const IMAGE_BASE_URL = import.meta.env.VITE_IMAGE_BASE_URL || "";
 const SEARCH_DEBOUNCE_MS = 300;
 
-const FLAG_ICONS = {
-  al: "/logos/flags/al.svg",
-  mk: "/logos/flags/mk.svg",
-  sl: "/logos/flags/sl.svg",
-  hr: "/logos/flags/hr.svg",
-  rs: "/logos/flags/serbia.svg",
-  ba: "/logos/flags/bosnia.svg",
-  me: "/logos/flags/montenegro.svg",
-};
-
-const toImageUrl = (path) => {
-  if (!path) return "";
-  if (/^https?:\/\//i.test(path)) return path;
-  return `${IMAGE_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+const FLAG_ISO = {
+  al: "AL",
+  mk: "MK",
+  sl: "SI",
+  hr: "HR",
+  rs: "RS",
+  ba: "BA",
+  me: "ME",
 };
 
 const getInitials = (fullName) => {
@@ -72,7 +66,6 @@ const normalizeSearchProduct = (product) => {
   };
 };
 
-const formatPrice = (value) => `${Number(value || 0).toFixed(2)} MKD`;
 
 const IconButton = ({ label, onClick, children, className = "", ...rest }) => (
   <button
@@ -119,11 +112,11 @@ function SearchResult({ product, onSelect }) {
       <div className="whitespace-nowrap text-right text-sm">
         {product.salePrice ? (
           <>
-            <p className="text-xs text-gray-400 line-through">{formatPrice(product.price)}</p>
-            <p className="font-semibold text-[#BF243E]">{formatPrice(product.salePrice)}</p>
+            <p className="text-xs text-gray-400 line-through"><Price value={product.price} /></p>
+            <p className="font-semibold text-[#BF243E]"><Price value={product.salePrice} /></p>
           </>
         ) : (
-          <p className="font-semibold text-gray-900">{formatPrice(product.price)}</p>
+          <p className="font-semibold text-gray-900"><Price value={product.price} /></p>
         )}
       </div>
     </button>
@@ -219,8 +212,6 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mobileSegment, setMobileSegment] = useState("products");
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-  const [isOffersOpen, setIsOffersOpen] = useState(false);
-  const [offerSections, setOfferSections] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showDesktopResults, setShowDesktopResults] = useState(false);
@@ -229,6 +220,8 @@ export default function Header() {
   const searchRef = useRef(null);
 
   const [brands, setBrands] = useState(null);
+  const [featuredBrands, setFeaturedBrands] = useState([]);
+  const [shopCategories, setShopCategories] = useState(null);
   const brandsRequested = useRef(false);
 
   const loggedIn = isAuthenticated();
@@ -241,7 +234,7 @@ export default function Header() {
   const userInitials = user ? getInitials(user.user_FullName) : "";
   const cartCount = (cart?.items || []).reduce((sum, item) => sum + (item.quantity || 1), 0);
 
-  const categories = buildCategoryNav(translate);
+  const categories = pruneCategoryNav(buildCategoryNav(translate), shopCategories);
   const offerItems = buildOfferItems(translate);
   const brandItems = brands?.length ? brands : FALLBACK_BRANDS;
 
@@ -256,16 +249,22 @@ export default function Header() {
     if (brandsRequested.current) return;
     brandsRequested.current = true;
     api
-      .getFilterOptions()
+      .getShopFilterOptions()
       .then((options) => {
-        const list = (options?.brands || [])
+        const rows = (options?.brands || [])
           .map((brand) => ({
             label: brand.brand_Name || brand.Brand_Name,
             link: `/all-products?brand=${brand.brand_Slug || brand.Brand_Slug}`,
+            image: brand.header_Image_Url || brand.Header_Image_Url || null,
+            logo: brand.logo_Url || brand.Logo_Url || null,
+            featured: !!(brand.is_Featured ?? brand.Is_Featured),
+            order: brand.display_Order ?? brand.Display_Order ?? 0,
           }))
-          .filter((brand) => brand.label)
-          .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+          .filter((brand) => brand.label);
+        const list = [...rows].sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
         if (list.length) setBrands(list);
+        // Up to four brands picked in the admin are shown with their photo on the left of the Brands menu.
+        setFeaturedBrands(rows.filter((brand) => brand.featured).sort((a, b) => a.order - b.order).slice(0, 4));
       })
       .catch((error) => {
         brandsRequested.current = false;
@@ -273,21 +272,17 @@ export default function Header() {
       });
   };
 
-  // The offers drawer content is only fetched the first time it is opened.
+  // Categories with no products are left out of the menus (everything shows until this loads, or if it fails).
   useEffect(() => {
-    if (!isOffersOpen || offerSections) return;
     let cancelled = false;
     api
-      .getLandingPageSections()
-      .then((data) => !cancelled && setOfferSections((data || []).slice(0, 3)))
-      .catch((error) => {
-        console.error("Error fetching offer sections:", error);
-        if (!cancelled) setOfferSections([]);
-      });
+      .getShopFilterOptions()
+      .then((options) => !cancelled && setShopCategories(options?.categories || null))
+      .catch((error) => console.error("Failed to load header categories:", error));
     return () => {
       cancelled = true;
     };
-  }, [isOffersOpen, offerSections]);
+  }, []);
 
   // New products as suggestions when the mobile search opens with an empty term.
   useEffect(() => {
@@ -325,12 +320,12 @@ export default function Header() {
 
   // Lock page scroll while a full-screen overlay is open.
   useEffect(() => {
-    const locked = isMobileMenuOpen || isMobileSearchOpen || isOffersOpen;
+    const locked = isMobileMenuOpen || isMobileSearchOpen;
     document.body.style.overflow = locked ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isMobileMenuOpen, isMobileSearchOpen, isOffersOpen]);
+  }, [isMobileMenuOpen, isMobileSearchOpen]);
 
   // Close desktop search results when clicking outside.
   useEffect(() => {
@@ -350,7 +345,6 @@ export default function Header() {
       setShowDesktopResults(false);
       setIsMobileSearchOpen(false);
       setIsMobileMenuOpen(false);
-      setIsOffersOpen(false);
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
@@ -387,56 +381,17 @@ export default function Header() {
 
   const openMobileMenu = (segment) => {
     setIsMobileSearchOpen(false);
-    setIsOffersOpen(false);
     changeMobileSegment(segment);
     setIsMobileMenuOpen(true);
   };
 
-  const renderOfferSection = (section) => {
-    switch (section.sectionType) {
-      case "image":
-        return (
-          <img
-            key={section.id}
-            src={toImageUrl(section.imagePath)}
-            alt={section.title || translate("todaysOffer")}
-            className="w-full"
-            onError={(e) => {
-              e.currentTarget.src = "/img/proteini-landing.jpg";
-            }}
-          />
-        );
-      case "title":
-        return (
-          <p key={section.id} className="text-xl font-bold">
-            {section.title}
-          </p>
-        );
-      case "paragraph":
-        return (
-          <p key={section.id} className="leading-relaxed text-gray-600">
-            {section.content}
-          </p>
-        );
-      case "highlight":
-        return (
-          <p key={section.id} className="font-semibold">
-            <span className="font-bold">{section.title}:</span> {section.content}
-          </p>
-        );
-      default:
-        return null;
-    }
-  };
-
-  const flagIcon = FLAG_ICONS[language] || "/logos/eu.svg";
+  const flagIso = FLAG_ISO[language] || "EU";
 
   return (
     <>
-      {/* Promo bar: one line on every screen; the whole bar opens today's offer. */}
-      <button
-        type="button"
-        onClick={() => setIsOffersOpen(true)}
+      {/* Promo bar: one line on every screen; the whole bar links to today's offer page. */}
+      <Link
+        to="/landing"
         className="group flex w-full items-center justify-center gap-1 bg-[#FDC700] px-4 py-2 text-[11px] font-bold leading-none text-[#141409] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#141409] sm:gap-3 sm:py-1.5 sm:text-[12px] sm:leading-normal"
       >
         <span className="truncate">{translate("freeShipping")}</span>
@@ -444,24 +399,24 @@ export default function Header() {
           {translate("exploreOffers")}
         </span>
         <FiChevronRight aria-hidden="true" className="h-3.5 w-3.5 flex-shrink-0 sm:hidden" strokeWidth={3} />
-      </button>
+      </Link>
 
       <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white">
         {/* Single row: logo · navigation · search · actions */}
-        <div className="mx-auto flex h-14 max-w-[1240px] items-center gap-3 px-4 lg:h-[72px] lg:gap-6">
+        <div className="mx-auto flex h-[68px] max-w-[1240px] items-center gap-3 px-4 lg:h-[88px] lg:gap-6">
           <Link
             to="/"
             className="flex-shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141409] focus-visible:ring-offset-4"
             aria-label="Proteini.si"
           >
-            <img src={theme === "dark" ? "/logos/proteini-dark.svg" : "/logos/proteini.svg"} className="w-[118px] sm:w-[150px] lg:w-[180px]" alt="Proteini.si" />
+            <img src={theme === "dark" ? "/logos/proteini-dark.svg" : "/logos/proteini.svg"} className="w-[150px] sm:w-[180px] lg:w-[220px]" alt="Proteini.si" />
           </Link>
 
           {/* Mobile: search is the one header action; menu, cart and account live in the tab bar. */}
           <button
             type="button"
             onClick={() => setIsMobileSearchOpen(true)}
-            className="flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-full bg-gray-100 px-4 text-left text-[14px] text-gray-500 transition-colors active:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141409] lg:hidden"
+            className="flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-gray-100 px-4 text-left text-[14px] text-gray-500 transition-colors active:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141409] lg:hidden"
           >
             <FiSearch aria-hidden="true" className="h-[18px] w-[18px] flex-shrink-0 text-gray-800" strokeWidth={2.4} />
             <span className="truncate">{translate("findAProduct")}</span>
@@ -476,7 +431,7 @@ export default function Header() {
               viewAllLabel={translate("viewAll")}
             />
             <DropdownMenu title={translate("brands")} onOpen={loadBrands}>
-              <BrandDirectory brands={brandItems} translate={translate} />
+              <BrandsPanel featured={featuredBrands} brands={brandItems} translate={translate} />
             </DropdownMenu>
             <DropdownMenu title={translate("offers")} highlight>
               <OfferList items={offerItems} translate={translate} />
@@ -527,7 +482,7 @@ export default function Header() {
               label={translate("language")}
               onClick={() => setIsLanguageModalOpen(true)}
             >
-              <img src={flagIcon} className="h-5 w-5" alt="" />
+              <CountryFlag iso2={flagIso} alt="" size="sm" />
             </IconButton>
 
             <IconButton label={themeToggleLabel} onClick={toggleTheme} aria-pressed={theme === "dark"}>
@@ -540,8 +495,8 @@ export default function Header() {
 
             {isSuperAdmin && (
               <Link
-                to="/admin-orders"
-                className="mx-1 rounded-full border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:border-black hover:text-black"
+                to="/admin"
+                className="mx-1 rounded-lg border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:border-black hover:text-black"
               >
                 {translate("admin")}
               </Link>
@@ -571,50 +526,6 @@ export default function Header() {
           </div>
         </div>
       </header>
-
-      {/* Offers drawer */}
-      {isOffersOpen && (
-        <div className="fixed inset-x-0 top-0 bottom-[var(--bottom-nav-h,0px)] z-50" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setIsOffersOpen(false)} />
-          <div className="absolute right-0 top-0 h-full w-full max-w-[460px] overflow-y-auto bg-white px-8 pb-10 pt-16 shadow-2xl">
-            <button
-              type="button"
-              onClick={() => setIsOffersOpen(false)}
-              className="absolute right-5 top-5 rounded-full p-2 hover:bg-gray-100"
-              aria-label={translate("close")}
-            >
-              <TfiClose size={18} />
-            </button>
-            <div className="flex flex-col items-center gap-4 text-center">
-              <h2 className="text-2xl font-bold">{translate("todaysOffer")}</h2>
-              <div className="h-1 w-16 bg-[#FDC700]" />
-              {offerSections === null ? (
-                <div className="py-8">
-                  <img src="/loaders/scoop.svg" alt="" aria-hidden="true" className="h-24 w-auto select-none" draggable={false} />
-                </div>
-              ) : offerSections.length > 0 ? (
-                offerSections.map(renderOfferSection)
-              ) : (
-                <>
-                  <img src="/img/proteini-landing.jpg" alt="" />
-                  <p className="text-xl font-bold">{translate("todaysOfferDesc")}</p>
-                  <p>{translate("aTrustedChoice")}</p>
-                </>
-              )}
-              <button
-                type="button"
-                className="mt-2 w-full max-w-[270px] bg-[#2096D8] py-2.5 text-sm font-semibold text-white hover:bg-[#1b84bf]"
-                onClick={() => {
-                  setIsOffersOpen(false);
-                  navigate("/landing");
-                }}
-              >
-                {translate("shopHere")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Mobile search */}
       {isMobileSearchOpen && (
@@ -682,6 +593,7 @@ export default function Header() {
           onSegmentChange={changeMobileSegment}
           categories={categories}
           brands={brandItems}
+          featuredBrands={featuredBrands}
           offers={offerItems}
           translate={translate}
           onClose={() => setIsMobileMenuOpen(false)}
@@ -697,7 +609,7 @@ export default function Header() {
                 <span className="truncate">{loggedIn ? user?.user_FullName || translate("myAccount") : translate("signInRegister")}</span>
               </Link>
               {isSuperAdmin && (
-                <Link to="/admin-orders" className="shrink-0 text-xs font-bold text-gray-500 underline underline-offset-4">
+                <Link to="/admin" className="shrink-0 text-xs font-bold text-gray-500 underline underline-offset-4">
                   {translate("admin")}
                 </Link>
               )}
@@ -713,7 +625,7 @@ export default function Header() {
                 }}
                 className="flex min-h-[48px] w-full items-center gap-3 text-sm font-medium text-gray-700"
               >
-                <img src={flagIcon} className="h-5 w-5" alt="" />
+                <CountryFlag iso2={flagIso} alt="" size="sm" />
                 <span className="flex-1 text-left">{translate("language")}</span>
                 <span className="text-xs font-bold text-gray-500">{language.toUpperCase()}</span>
               </button>
@@ -745,7 +657,6 @@ export default function Header() {
         cartCount={cartCount}
         loggedIn={loggedIn}
         isMenuOpen={isMobileMenuOpen}
-        menuSegment={mobileSegment}
         onOpenMenu={openMobileMenu}
         onCloseMenu={() => setIsMobileMenuOpen(false)}
         translate={translate}

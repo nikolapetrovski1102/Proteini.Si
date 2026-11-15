@@ -1,163 +1,104 @@
-// FilterDropdown.jsx
-import { useState, memo, useEffect, useRef } from "react";
+import { memo, useEffect, useRef, useState } from "react";
+import { FiCheck, FiChevronDown } from "react-icons/fi";
 
-const FilterDropdown = memo(
-  ({ title, items, selectedIds, onCheckboxChange, dropdownKey }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const dropdownRef = useRef(null);
+const getItemId = (item) =>
+  item.id || item.category_Id || item.sport_Id || item.goal_Id || item.useTiming_Id || item.flavor_Id || item.tag_Id || item.brand_Id;
 
-    useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (
-          dropdownRef.current &&
-          !dropdownRef.current.contains(event.target)
-        ) {
-          setIsOpen(false);
-        }
-      };
+const getItemName = (item) =>
+  item.name || item.category_Name || item.sport_Name || item.goal_Name || item.useTiming_Name || item.flavor_Name || item.tag_Name || item.brand_Name;
 
-      if (isOpen) {
-        document.addEventListener("mousedown", handleClickOutside);
+/** Multi-select dropdown with checkboxes; shows the chosen names on the button. */
+const FilterDropdown = memo(({ title, items, selectedIds, onCheckboxChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setIsOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setIsOpen(false);
       }
-
-      return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-      };
-    }, [isOpen]);
-
-    if (!items || items.length === 0) return null;
-
-    const getItemId = (item) => {
-      return (
-        item.id ||
-        item.category_Id ||
-        item.sport_Id ||
-        item.goal_Id ||
-        item.useTiming_Id ||
-        item.flavor_Id ||
-        item.tag_Id ||
-        item.brand_Id
-      );
     };
-
-    const getItemName = (item) => {
-      return (
-        item.name ||
-        item.category_Name ||
-        item.sport_Name ||
-        item.goal_Name ||
-        item.useTiming_Name ||
-        item.flavor_Name ||
-        item.tag_Name ||
-        item.brand_Name
-      );
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", onKey, true);
     };
+  }, [isOpen]);
 
-    // Build hierarchical structure for categories only
-    const buildHierarchy = (itemsList) => {
-      if (title !== "Categories")
-        return itemsList.map((item) => ({ ...item, level: 0 }));
+  if (!items || items.length === 0) return null;
 
-      const itemMap = {};
-      itemsList.forEach((item) => {
-        const id = getItemId(item);
-        itemMap[id] = { ...item, children: [], level: 0 };
-      });
+  const selectedNames = items.filter((item) => selectedIds.includes(getItemId(item))).map(getItemName);
+  const filtered = query ? items.filter((item) => getItemName(item)?.toLowerCase().includes(query.toLowerCase())) : items;
 
-      const rootItems = [];
-      itemsList.forEach((item) => {
-        const id = getItemId(item);
-        const parentId = item.parent_Category_Id;
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <p className="mb-1.5 text-[13px] font-semibold text-gray-800">{title}</p>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-white px-3.5 py-2.5 text-left text-sm transition ${
+          isOpen ? "border-[#141409] ring-2 ring-[#141409]/10" : "border-black/[0.12] hover:border-black/30"
+        }`}
+      >
+        <span className={`truncate ${selectedNames.length ? "text-gray-900" : "text-gray-400"}`}>
+          {selectedNames.length ? selectedNames.join(", ") : "None"}
+        </span>
+        <span className="flex shrink-0 items-center gap-1.5">
+          {selectedNames.length > 0 && (
+            <span className="rounded-full bg-[#141409] px-1.5 text-[11px] font-bold tabular-nums text-[#FDC700]">{selectedNames.length}</span>
+          )}
+          <FiChevronDown className={`text-gray-500 transition ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+        </span>
+      </button>
 
-        if (parentId && itemMap[parentId]) {
-          itemMap[parentId].children.push(itemMap[id]);
-        } else if (!parentId) {
-          rootItems.push(itemMap[id]);
-        }
-      });
-
-      const flatList = [];
-      const flatten = (item, level) => {
-        flatList.push({ ...item, level });
-        item.children.forEach((child) => flatten(child, level + 1));
-      };
-
-      rootItems.forEach((item) => flatten(item, 0));
-      return flatList;
-    };
-
-    const hierarchicalItems = buildHierarchy(items);
-
-    const getDisplayName = (item) => {
-      const name = getItemName(item);
-      const level = item.level || 0;
-      if (level === 0) return name;
-      return "  " + "—".repeat(level) + " " + name;
-    };
-
-    return (
-      <div className="relative" ref={dropdownRef}>
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex justify-between items-center px-3 py-2 border border-gray-300 rounded-lg bg-white hover:border-[#2096D8] transition-colors"
-        >
-          <span className="text-sm text-gray-700">
-            {title}{" "}
-            {selectedIds.length > 0 && `(${selectedIds.length} selected)`}
-          </span>
-          <svg
-            className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
-        </button>
-
-        {isOpen && (
-          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-            <div className="p-2">
-              {(title === "Categories" ? hierarchicalItems : items).map(
-                (item) => {
-                  const itemId = getItemId(item);
-                  const itemName =
-                    title === "Categories"
-                      ? getDisplayName(item)
-                      : getItemName(item);
-
-                  return (
-                    <label
-                      key={itemId}
-                      className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(itemId)}
-                        onChange={() => onCheckboxChange(itemId)}
-                        className="w-4 h-4 text-[#2096D8] focus:ring-[#2096D8] rounded"
-                      />
-                      <span
-                        className={`text-sm text-gray-700 ${item.level > 0 ? "font-normal" : "font-medium"}`}
-                      >
-                        {itemName}
-                      </span>
-                    </label>
-                  );
-                },
-              )}
+      {isOpen && (
+        <div className="absolute z-20 mt-1.5 w-full overflow-hidden rounded-xl bg-white shadow-[0_16px_40px_-12px_rgba(20,20,9,0.35)] ring-1 ring-black/[0.08]">
+          {items.length > 8 && (
+            <div className="border-b border-black/[0.06] p-2">
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={`Search ${title.toLowerCase()}…`}
+                className="w-full rounded-lg bg-[#f6f5f1] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#141409]/15"
+              />
             </div>
+          )}
+          <div className="max-h-60 overflow-y-auto p-1.5">
+            {filtered.length === 0 && <p className="px-3 py-2 text-sm text-gray-500">No matches</p>}
+            {filtered.map((item) => {
+              const itemId = getItemId(item);
+              const checked = selectedIds.includes(itemId);
+              return (
+                <label key={itemId} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-gray-800 hover:bg-[#f6f5f1]">
+                  <input type="checkbox" checked={checked} onChange={() => onCheckboxChange(itemId)} className="peer sr-only" />
+                  <span
+                    className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border transition peer-focus-visible:ring-2 peer-focus-visible:ring-[#141409]/30 ${
+                      checked ? "border-[#141409] bg-[#141409] text-[#FDC700]" : "border-black/25 bg-white"
+                    }`}
+                    aria-hidden="true"
+                  >
+                    {checked && <FiCheck size={12} strokeWidth={3} />}
+                  </span>
+                  {getItemName(item)}
+                </label>
+              );
+            })}
           </div>
-        )}
-      </div>
-    );
-  },
-);
+        </div>
+      )}
+    </div>
+  );
+});
+
+FilterDropdown.displayName = "FilterDropdown";
 
 export default FilterDropdown;

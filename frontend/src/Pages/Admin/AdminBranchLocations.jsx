@@ -1,5 +1,23 @@
 import { useEffect, useState } from "react";
+import { FiClock, FiEdit2, FiMapPin, FiPhone, FiPlus, FiTrash2 } from "react-icons/fi";
 import { api } from "../../services/api";
+import {
+  AdminPage,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  FormSection,
+  IconButton,
+  Loading,
+  Modal,
+  Segmented,
+  Toggle,
+  VisibilityBadge,
+  inputClass,
+  textareaClass,
+} from "./AdminKit";
+import { useConfirm, useToast } from "./adminFeedback";
 
 const emptyForm = {
   id: 0,
@@ -8,7 +26,7 @@ const emptyForm = {
   city: "",
   address: "",
   phone: "",
-  email: "makedonija@proteini.si",
+  email: "info@proteini.mk",
   workingHoursMonFri: "10:00 - 22:00",
   workingHoursSat: "Closed",
   workingHoursSun: "Closed",
@@ -17,45 +35,41 @@ const emptyForm = {
   isActive: true,
 };
 
+const TYPES = { shop: "Our stores", gym: "Partner gyms" };
+
 export default function AdminBranchLocations() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [type, setType] = useState("shop");
   const [formData, setFormData] = useState(emptyForm);
 
-  useEffect(() => {
-    fetchLocations();
-  }, []);
-
   const fetchLocations = async () => {
-    setLoading(true);
     try {
       const response = await api.getAllBranchLocations();
       setLocations(response.data || []);
     } catch (error) {
-      alert(error.message || "Failed to load locations");
+      toast.error(error.message || "Failed to load locations");
     } finally {
       setLoading(false);
     }
   };
 
-  const resetForm = () => {
-    setEditing(null);
-    setFormData(emptyForm);
-  };
+  useEffect(() => {
+    fetchLocations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleChange = (event) => {
-    const { name, value, type, checked } = event.target;
-    setFormData((current) => ({
-      ...current,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : name === "displayOrder"
-            ? Number(value)
-            : value,
-    }));
+  const setField = (key, value) => setFormData((current) => ({ ...current, [key]: value }));
+
+  const startNew = () => {
+    setEditing(null);
+    setFormData({ ...emptyForm, type, displayOrder: locations.filter((l) => l.type === type).length });
+    setOpen(true);
   };
 
   const handleEdit = (location) => {
@@ -75,223 +89,190 @@ export default function AdminBranchLocations() {
       displayOrder: location.displayOrder || 0,
       isActive: location.isActive !== false,
     });
+    setOpen(true);
   };
 
   const handleSubmit = async (event) => {
-    event.preventDefault();
+    event?.preventDefault();
+    if (!formData.name.trim() || !formData.address.trim()) {
+      toast.error("Name and address are required.");
+      return;
+    }
     setSaving(true);
     try {
-      if (editing) {
-        await api.updateBranchLocation(formData);
-      } else {
-        await api.createBranchLocation(formData);
-      }
-      resetForm();
+      if (editing) await api.updateBranchLocation(formData);
+      else await api.createBranchLocation(formData);
+      toast.success(editing ? "Location updated." : "Location added.");
+      setOpen(false);
+      setType(formData.type);
       await fetchLocations();
     } catch (error) {
-      alert(error.message || "Failed to save location");
+      toast.error(error.message || "Failed to save location");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (location) => {
-    if (!window.confirm(`Delete ${location.name}?`)) return;
-
-    setSaving(true);
+    const ok = await confirm({
+      title: `Delete “${location.name}”?`,
+      message: "It will be removed from the stores page. To hide it temporarily, turn off “Show on website” instead.",
+      confirmLabel: "Delete",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
       await api.deleteBranchLocation(location.id);
+      toast.success("Location deleted.");
       await fetchLocations();
     } catch (error) {
-      alert(error.message || "Failed to delete location");
-    } finally {
-      setSaving(false);
+      toast.error(error.message || "Failed to delete location");
     }
   };
 
-  const currentLocations = locations.filter((location) => location.type === formData.type);
+  const current = locations.filter((location) => location.type === type);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Branch Locations
-            </h1>
-            <p className="text-sm text-gray-500">
-              Add shops and partners shown on the locations page.
-            </p>
-          </div>
-          <button
-            onClick={resetForm}
-            className="border border-gray-300 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-100"
-          >
-            New Location
-          </button>
-        </div>
+    <AdminPage
+      eyebrow="Content"
+      title="Stores"
+      description="Your own stores and partner gyms, shown on the stores page with address, phone and opening hours."
+      actions={
+        <Button icon={FiPlus} onClick={startNew}>
+          New location
+        </Button>
+      }
+    >
+      <Segmented
+        value={type}
+        onChange={setType}
+        options={Object.entries(TYPES).map(([value, label]) => ({
+          value,
+          label,
+          count: loading ? undefined : locations.filter((l) => l.type === value).length,
+        }))}
+      />
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[420px_1fr]">
-          <form onSubmit={handleSubmit} className="bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold">
-              {editing ? "Edit location" : "Add location"}
-            </h2>
-
-            <div className="space-y-3">
-              <select
-                name="type"
-                value={formData.type}
-                onChange={handleChange}
-                className="w-full border border-gray-300 px-3 py-2"
-              >
-                <option value="shop">Shop</option>
-                <option value="gym">Partner</option>
-              </select>
-              <input
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                placeholder="Name"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                name="city"
-                value={formData.city}
-                onChange={handleChange}
-                placeholder="City"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <textarea
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                required
-                placeholder="Address"
-                rows="3"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="Phone"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="Email"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                name="workingHoursMonFri"
-                value={formData.workingHoursMonFri}
-                onChange={handleChange}
-                placeholder="Monday - Friday"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                name="workingHoursSat"
-                value={formData.workingHoursSat}
-                onChange={handleChange}
-                placeholder="Saturday"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                name="workingHoursSun"
-                value={formData.workingHoursSun}
-                onChange={handleChange}
-                placeholder="Sunday"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                name="coordinates"
-                value={formData.coordinates}
-                onChange={handleChange}
-                placeholder="Coordinates or map search text"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <input
-                type="number"
-                name="displayOrder"
-                value={formData.displayOrder}
-                onChange={handleChange}
-                placeholder="Display order"
-                className="w-full border border-gray-300 px-3 py-2"
-              />
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="isActive"
-                  checked={formData.isActive}
-                  onChange={handleChange}
-                />
-                Active
-              </label>
-            </div>
-
-            <button
-              disabled={saving}
-              className="mt-4 w-full bg-[#2096D8] px-4 py-2 font-semibold text-white disabled:opacity-60"
-            >
-              {saving ? "Saving..." : "Save Location"}
-            </button>
-          </form>
-
-          <div className="bg-white shadow-sm">
-            <div className="border-b px-5 py-4">
-              <h2 className="font-semibold">
-                {formData.type === "shop" ? "Shops" : "Partners"}
-              </h2>
-            </div>
-            {loading ? (
-              <div className="p-6 text-gray-500">Loading...</div>
-            ) : currentLocations.length === 0 ? (
-              <div className="p-6 text-gray-500">No locations yet.</div>
-            ) : (
-              <div className="divide-y">
-                {currentLocations.map((location) => (
-                  <div
-                    key={location.id}
-                    className="flex flex-wrap items-start justify-between gap-4 p-5"
-                  >
-                    <div>
-                      <h3 className="font-semibold">{location.name}</h3>
-                      <p className="text-sm text-gray-600">
-                        {location.address}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {location.city} | {location.phone}
-                      </p>
-                      {!location.isActive && (
-                        <span className="mt-2 inline-block bg-gray-100 px-2 py-1 text-xs uppercase text-gray-600">
-                          Inactive
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(location)}
-                        className="border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(location)}
-                        className="border border-red-300 px-3 py-1 text-sm text-red-700 hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
-                    </div>
+      <Card bodyClassName="">
+        {loading ? (
+          <Loading label="Loading locations…" />
+        ) : current.length === 0 ? (
+          <EmptyState
+            icon={FiMapPin}
+            title={`No ${type === "shop" ? "stores" : "partners"} yet`}
+            text="Add a location and it will appear on the website."
+            action={<Button icon={FiPlus} onClick={startNew}>New location</Button>}
+          />
+        ) : (
+          <ul className="divide-y divide-black/[0.06]">
+            {current.map((location) => (
+              <li key={location.id} className={`flex flex-wrap items-start gap-4 px-5 py-4 sm:flex-nowrap ${location.isActive ? "" : "opacity-60"}`}>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f6f5f1] text-gray-700">
+                  <FiMapPin size={18} aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-bold text-gray-900">{location.name}</h3>
+                    <VisibilityBadge active={location.isActive} />
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+                  <p className="mt-0.5 text-sm text-gray-600">
+                    {location.address}
+                    {location.city ? `, ${location.city}` : ""}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                    {location.phone && (
+                      <span className="inline-flex items-center gap-1">
+                        <FiPhone size={12} aria-hidden="true" /> {location.phone}
+                      </span>
+                    )}
+                    {location.workingHoursMonFri && (
+                      <span className="inline-flex items-center gap-1">
+                        <FiClock size={12} aria-hidden="true" /> Mon–Fri {location.workingHoursMonFri}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <IconButton icon={FiEdit2} label={`Edit ${location.name}`} onClick={() => handleEdit(location)} />
+                  <IconButton icon={FiTrash2} tone="danger" label={`Delete ${location.name}`} onClick={() => handleDelete(location)} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        size="lg"
+        title={editing ? "Edit location" : "New location"}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} loading={saving}>
+              {editing ? "Save changes" : "Add location"}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <FormSection title="Basics">
+            <Field label="Type">
+              <Segmented value={formData.type} onChange={(v) => setField("type", v)} options={Object.entries(TYPES).map(([value, label]) => ({ value, label }))} />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Name" required>
+                <input data-autofocus className={inputClass} value={formData.name} onChange={(e) => setField("name", e.target.value)} placeholder="Proteini.si Centar" />
+              </Field>
+              <Field label="City">
+                <input className={inputClass} value={formData.city} onChange={(e) => setField("city", e.target.value)} placeholder="Skopje" />
+              </Field>
+            </div>
+            <Field label="Address" required>
+              <textarea rows={2} className={textareaClass} value={formData.address} onChange={(e) => setField("address", e.target.value)} />
+            </Field>
+            <Field label="Map location" hint="Coordinates (41.99, 21.43) or a search text like “Proteini Skopje”. Used for the map pin.">
+              <input className={inputClass} value={formData.coordinates} onChange={(e) => setField("coordinates", e.target.value)} />
+            </Field>
+          </FormSection>
+
+          <FormSection title="Contact">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Phone">
+                <input type="tel" className={inputClass} value={formData.phone} onChange={(e) => setField("phone", e.target.value)} />
+              </Field>
+              <Field label="Email">
+                <input type="email" className={inputClass} value={formData.email} onChange={(e) => setField("email", e.target.value)} />
+              </Field>
+            </div>
+          </FormSection>
+
+          <FormSection title="Opening hours" description="Write “Closed” for days you are not open.">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Monday – Friday">
+                <input className={inputClass} value={formData.workingHoursMonFri} onChange={(e) => setField("workingHoursMonFri", e.target.value)} />
+              </Field>
+              <Field label="Saturday">
+                <input className={inputClass} value={formData.workingHoursSat} onChange={(e) => setField("workingHoursSat", e.target.value)} />
+              </Field>
+              <Field label="Sunday">
+                <input className={inputClass} value={formData.workingHoursSun} onChange={(e) => setField("workingHoursSun", e.target.value)} />
+              </Field>
+            </div>
+          </FormSection>
+
+          <FormSection title="Display">
+            <Field label="Position" hint="Lower numbers are shown first.">
+              <input type="number" min="0" className={`${inputClass} max-w-[140px]`} value={formData.displayOrder} onChange={(e) => setField("displayOrder", Number(e.target.value))} />
+            </Field>
+            <Toggle checked={formData.isActive} onChange={(v) => setField("isActive", v)} label="Show on website" description="Turn off to hide this location without deleting it." />
+          </FormSection>
+          <button type="submit" className="hidden" />
+        </form>
+      </Modal>
+    </AdminPage>
   );
 }

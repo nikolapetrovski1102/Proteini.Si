@@ -9,4 +9,6 @@ public interface IGiftVoucherService
     Task<PagedResult<GiftVoucher>> GetPagedAsync(string? search, string? status, int page, int pageSize);
     Task UpdateStatusAsync(int id, GiftVoucherStatusDto update);
     Task<CsvExport> ExportReportAsync();
+    Task<GiftVoucherDetails> GetDetailsAsync(string code);
+    Task<GiftVoucherDetails> RedeemInStoreAsync(GiftVoucherRedeemDto redeem, string? redeemedBy);
 }

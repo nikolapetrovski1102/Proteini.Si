@@ -1,0 +1,23 @@
+[Unit]
+Description=Proteini.mk automatic marketing emails (%i): welcome, abandoned checkout, reorder reminder
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/srv/proteinisi/%i/reports
+# Each template is sent once a day, in the first run at or after its send time (Skopje),
+# and only when it is switched on in the admin and Marketing__Enabled=true.
+ExecStart=/usr/bin/dotnet /srv/proteinisi/%i/reports/ProteiniSi.Reports.dll marketing
+# Connection string and mail settings come from the API's environment file;
+# Marketing__* overrides from reports.env.
+EnvironmentFile=/etc/proteinisi/%i.env
+EnvironmentFile=-/etc/proteinisi/reports.env
+Environment=DOTNET_NOLOGO=1
+TimeoutStartSec=30min
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true

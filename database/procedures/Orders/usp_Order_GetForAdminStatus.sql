@@ -10,7 +10,7 @@ BEGIN
 
     SELECT o.Order_Id, o.Order_Number, o.Order_Status, o.Payment_Status, o.Billing_Email,
            o.Billing_FullName, o.Payment_Method, o.Total_Amount, o.Transaction_Id,
-           o.Tracking_Number, o.Tracking_Url
+           o.Tracking_Number, o.Tracking_Url, o.Language
     FROM dbo.Orders o
     WHERE o.Order_Id = @OrderId;
 END

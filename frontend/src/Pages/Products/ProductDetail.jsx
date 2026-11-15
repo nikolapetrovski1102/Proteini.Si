@@ -5,7 +5,6 @@ import { api } from "../../services/api";
 import { IoIosStarOutline } from "react-icons/io";
 import {
   FiArrowRight,
-  FiChevronDown,
   FiChevronLeft,
   FiChevronRight,
   FiHeart,
@@ -23,12 +22,34 @@ import {
   parsePackagingWeightGrams,
 } from "../../utils/variantWeight";
 import { BrandLoader } from "../Components/Loaders/BrandLoader";
+import ReferralOfferCard from "../Components/ReferralOfferCard";
+import ProductRecommendations from "./ProductRecommendations";
+import StickyOptionPicker from "./StickyOptionPicker";
+import {
+  offerAppliesTo,
+  referralPrice,
+  showsPerProductPrice,
+  useReferralOffer,
+} from "../../utils/referralOffer";
+import { notify } from "../Components/Feedback/siteFeedback";
+import Price from "../Components/Price";
+import { Starburst } from "../HomePages/sections/Decor";
+import { metaViewContent } from "../../services/metaPixel";
 
 const EMPTY_NUTRITION = { columns: [], rows: [] };
 
 const sortPackagingsByWeight = (a, b) =>
   (a.weightGrams ?? parsePackagingWeightGrams(a.name)) -
   (b.weightGrams ?? parsePackagingWeightGrams(b.name));
+
+const CLOTHING_SIZE_ORDER = ["XXS", "XS", "S", "S/M", "M", "M/L", "L", "L/XL", "XL", "XXL", "2XL", "XXL/2XL", "XXXL", "3XL", "XXXL/3XL", "4XL"];
+const clothingSizeRank = (name) => {
+  const index = CLOTHING_SIZE_ORDER.indexOf(String(name || "").trim().toUpperCase());
+  return index < 0 ? CLOTHING_SIZE_ORDER.length : index;
+};
+const sortClothingSizes = (a, b) =>
+  clothingSizeRank(a.name) - clothingSizeRank(b.name) ||
+  String(a.name).localeCompare(String(b.name), undefined, { numeric: true });
 
 function CollapsibleDescription({ html, showMoreLabel, showLessLabel }) {
   const [expanded, setExpanded] = useState(false);
@@ -40,14 +61,14 @@ function CollapsibleDescription({ html, showMoreLabel, showLessLabel }) {
       <div className={`relative ${canCollapse && !expanded ? "max-h-[430px] overflow-hidden" : ""}`}>
         <div className="product-description" dangerouslySetInnerHTML={{ __html: html }} />
         {canCollapse && !expanded && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[var(--card)] to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[var(--paper)] to-transparent" />
         )}
       </div>
       {canCollapse && (
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
-          className="mt-4 rounded-full border border-current px-5 py-2 text-sm font-semibold hover:bg-[#FDC700] hover:border-[#FDC700] hover:text-[#141409]"
+          className="mt-4 border-b border-current pb-0.5 text-sm font-semibold hover:opacity-70"
         >
           {expanded ? showLessLabel : showMoreLabel}
         </button>
@@ -69,6 +90,7 @@ export default function ProductDetail() {
   const { addToCart } = useCart();
   const [adding, setAdding] = useState(false);
   const { translate, language } = useLanguage();
+  const referralOffer = useReferralOffer();
   const [voucherAmount, setVoucherAmount] = useState(500);
   const [nutritionResult, setNutritionResult] = useState(null);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -79,7 +101,10 @@ export default function ProductDetail() {
   // Variant states
   const [variants, setVariants] = useState([]);
   const [selectedVariant, setSelectedVariant] = useState(null);
+  // Clothing: variants are colours and the "packaging" is the size; no nutrition or instructions.
+  const isApparel = Boolean(productData?.product?.isApparel);
   const variantOptionType =
+    isApparel ||
     selectedVariant?.option_Type === "color" ||
     (!selectedVariant && variants.some((variant) => variant.option_Type === "color"))
       ? "color"
@@ -101,9 +126,11 @@ export default function ProductDetail() {
   const packageVariants = variants.filter(
     (variant) => variant.packaging_Name === selectedPackagingName,
   );
+  // Clothes list every colour; those missing or sold out in the selected size are shown disabled.
+  const colorSourceVariants = isApparel ? variants : packageVariants;
   const availableFlavors = [
     ...new Map(
-      packageVariants
+      colorSourceVariants
         .filter((variant) => String(variant.flavor_Name || "").trim())
         .map((variant) => [
           variant.flavor_Name,
@@ -169,7 +196,7 @@ export default function ProductDetail() {
   // Toggle favorite
   const handleToggleFavorite = async () => {
     if (!isAuthenticated) {
-      alert("Please login to add products to favorites");
+      notify(translate("favoritesLoginRequired"));
       navigate("/login");
       return;
     }
@@ -188,7 +215,7 @@ export default function ProductDetail() {
       }
     } catch (error) {
       console.error("Error toggling favorite:", error);
-      alert("Failed to update favorites. Please try again.");
+      notify(translate("favoritesUpdateFailed"), { tone: "error" });
     } finally {
       setFavoriteLoading(false);
     }
@@ -340,12 +367,26 @@ export default function ProductDetail() {
     );
   };
 
+  // Clothes: keep the size when the colour has it, otherwise the first size of that colour in stock.
+  const findVariantForColor = (flavorName, packagingName) => {
+    const ofColor = variants.filter((variant) => variant.flavor_Name === flavorName);
+    const inStock = (variant) => variant.quantity > 0 && variant.isActive;
+    const bySize = [...ofColor].sort((a, b) =>
+      sortClothingSizes({ name: a.packaging_Name }, { name: b.packaging_Name }),
+    );
+    return (
+      ofColor.find((variant) => variant.packaging_Name === packagingName && inStock(variant)) ||
+      bySize.find(inStock) ||
+      ofColor.find((variant) => variant.packaging_Name === packagingName) ||
+      bySize[0]
+    );
+  };
+
   const handleFlavorSelect = (flavorName) => {
     setSelectedFlavorName(flavorName);
-    const bestVariant = findBestMatchingVariant(
-      flavorName,
-      selectedPackagingName,
-    );
+    const bestVariant = isApparel
+      ? findVariantForColor(flavorName, selectedPackagingName)
+      : findBestMatchingVariant(flavorName, selectedPackagingName);
     syncNutritionToVariant(bestVariant);
     if (bestVariant && selectedVariant?.variant_Id !== bestVariant.variant_Id) {
       setSelectedVariant(bestVariant);
@@ -590,7 +631,7 @@ export default function ProductDetail() {
   const getImageUrl = (path) => {
     if (!path) return "/placeholder-image.jpg";
     if (path.startsWith("http")) return path;
-    return `https://proteini.mk${path}`;
+    return `${import.meta.env.VITE_IMAGE_BASE_URL || "https://proteini.mk"}${path}`;
   };
 
   const getMainDescriptions = () => {
@@ -646,6 +687,18 @@ export default function ProductDetail() {
     currentPrice = Number(voucherAmount) || 0;
     originalPrice = currentPrice;
   }
+
+  // Meta Pixel: one ViewContent per product/variant shown (ids match the catalog feed).
+  const metaProductId = productData?.product?.product_Id;
+  const metaVariantId = selectedVariant?.variant_Id || null;
+  const metaName = productData?.product?.name;
+  const metaPrice = productData?.product?.isGiftVoucher ? 0 : currentPrice;
+  useEffect(() => {
+    if (!metaProductId || loading) return;
+    if (variants.length > 0 && !metaVariantId) return;
+    metaViewContent({ productId: metaProductId, variantId: metaVariantId, name: metaName, price: metaPrice });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metaProductId, metaVariantId, loading]);
 
   let currentStock = 0;
   if (selectedVariant) {
@@ -733,7 +786,7 @@ export default function ProductDetail() {
           <p className="text-red-500 text-xl">{error || "Product not found"}</p>
           <button
             onClick={() => navigate("/")}
-            className="mt-4 rounded-full bg-[#141409] px-6 py-2.5 font-semibold text-white"
+            className="mt-4 rounded-lg bg-[#141409] px-6 py-2.5 font-semibold text-white"
           >
             Go Back Home
           </button>
@@ -781,7 +834,7 @@ export default function ProductDetail() {
       : product.instructionsOnHowToUseIt;
   const hasVariants = variants.length > 0;
   const hasDescription = descriptionHtml.replace(/<[^>]*>/g, "").trim().length > 0;
-  const hasNutrition = Boolean(
+  const hasNutrition = !isApparel && Boolean(
     localizedNutritionIngredients ||
       localizedNutritionDescription ||
       localizedNutritionInformation ||
@@ -791,7 +844,7 @@ export default function ProductDetail() {
       variantNutritionData.columns?.length ||
       variantNutritionData.rows?.length,
   );
-  const hasInstructions = Boolean(
+  const hasInstructions = !isApparel && Boolean(
     localizedInstructionsTitle ||
       localizedInstructionsDescription ||
       localizedDetailedInstructions,
@@ -827,7 +880,7 @@ export default function ProductDetail() {
       /од кои|заситени|шеќер|prej t|ngopur|sheqer|of which|saturat|sugar/i.test(label);
     const stats = [
       { key: "protein", match: /протеин|protein/i },
-      { key: "energy", match: /енергиј|energji|energy|kcal/i },
+      { key: "energy", match: /енерг|energ|kcal/i },
       { key: "carbs", match: /јаглехидрат|karbohidrat|carbohydrat/i },
       { key: "fat", match: /масти|yndyr|fat/i },
     ]
@@ -842,7 +895,7 @@ export default function ProductDetail() {
           const kcal = value.match(/([\d.,]+)\s*kcal/i);
           if (kcal) value = `${kcal[1]} kcal`;
         }
-        return { key, label: row.rowLabel, value };
+        return { key, value: roundMacro(value) };
       })
       .filter(Boolean);
     return stats.length ? { column: columns[column], stats } : null;
@@ -895,12 +948,32 @@ export default function ProductDetail() {
     setImageDirection(direction > 0 ? "left" : "right");
   };
 
+  // The visitor's affiliate code: shown here, applied at checkout (the cart keeps the regular price).
+  const withCode = (price) =>
+    referralPrice(referralOffer, {
+      productId: productData?.product?.product_Id,
+      price,
+      isGiftVoucher: productData?.product?.isGiftVoucher,
+    });
+  const codePrice = withCode(currentPrice);
+  const displayPrice = codePrice ?? currentPrice;
+  // Fixed-amount or minimum-order codes can't be shown per product, so the card explains them instead.
+  const showReferralCard =
+    Boolean(referralOffer) &&
+    !productData?.product?.isGiftVoucher &&
+    (showsPerProductPrice(referralOffer)
+      ? codePrice != null
+      : offerAppliesTo(referralOffer, productData?.product?.product_Id));
+
   const hasDiscount = originalPrice > 0 && originalPrice !== currentPrice;
-  const discountPercent = hasDiscount
-    ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
-    : 0;
+  const badgePercent =
+    originalPrice > 0 && displayPrice < originalPrice
+      ? Math.round(((originalPrice - displayPrice) / originalPrice) * 100)
+      : 0;
   const isOutOfStock = currentStock === 0;
-  const sortedPackagings = [...availablePackagings].sort(sortPackagingsByWeight);
+  const sortedPackagings = [...availablePackagings].sort(
+    isApparel ? sortClothingSizes : sortPackagingsByWeight,
+  );
   const allFlavorNames = [
     ...new Set(
       variants
@@ -912,7 +985,11 @@ export default function ProductDetail() {
     if (!hasDescription) return "";
     const body = new DOMParser().parseFromString(descriptionHtml, "text/html")
       .body;
-    const blocks = [...body.querySelectorAll("p, li, h1, h2, h3, h4")]
+    const blockSelector = "p, li, h1, h2, h3, h4";
+    // Only innermost blocks: editor HTML wraps list items as <li><p>…</p></li>,
+    // and taking both the <li> and its <p> printed every bullet twice.
+    const blocks = [...body.querySelectorAll(blockSelector)]
+      .filter((node) => !node.querySelector(blockSelector))
       .map((node) => node.textContent.replace(/\s+/g, " ").trim())
       .filter(Boolean)
       .map((text) => (/[.!?:;]$/.test(text) ? text : `${text}.`));
@@ -930,7 +1007,6 @@ export default function ProductDetail() {
     : isOutOfStock
       ? translate("outOfStock")
       : translate("addToCart");
-  const formatPrice = (value) => `MKD ${Number(value || 0).toFixed(2)}`;
 
   const quantityStepper = (
     <div className="flex h-14 shrink-0 items-center rounded-full border border-gray-300 bg-white">
@@ -981,7 +1057,7 @@ export default function ProductDetail() {
         <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2 lg:gap-12">
           {/* Gallery */}
           <div className="md:sticky md:top-[calc(var(--header-h)+20px)]">
-            <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-3xl border border-gray-200 bg-white">
+            <div className="pdp-plate relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-3xl border border-gray-200 bg-white">
               <img
                 key={activeImagePath}
                 src={getImageUrl(activeImagePath)}
@@ -1010,31 +1086,32 @@ export default function ProductDetail() {
                   {nutritionStats.stats.map((stat) => (
                     <div
                       key={stat.key}
-                      className={`rounded-2xl px-1.5 py-2 text-center shadow-sm backdrop-blur-md sm:px-2 sm:py-2.5 ${
-                        stat.key === "protein"
-                          ? "bg-[#FDC700] text-[#141409]"
-                          : "border border-gray-200/80 bg-white/85 text-[var(--ink)]"
-                      }`}
+                      className="px-1 text-center text-[var(--ink)]"
                     >
-                      <p className="text-[13px] font-bold leading-tight sm:text-base">
+                      {/* One line each: values like "389 kcal" and labels never break or get cut. */}
+                      <p className="whitespace-nowrap text-[13px] font-bold leading-tight sm:text-base">
                         {stat.value}
                       </p>
-                      <p
-                        className={`mt-0.5 truncate text-[10px] font-semibold uppercase leading-tight tracking-wide sm:text-[11px] ${
-                          stat.key === "protein" ? "" : "text-gray-500"
-                        }`}
-                      >
-                        {stat.label}
+                      <p className="mt-0.5 whitespace-nowrap text-[10px] font-semibold leading-tight text-gray-500 sm:text-[11px]">
+                        {translate(MACRO_LABELS[stat.key])}
                       </p>
                     </div>
                   ))}
                 </div>
               )}
 
-              {hasDiscount && (
-                <span className="absolute left-4 top-4 rounded-full bg-[#FDC700] px-3 py-1 text-xs font-bold text-[#141409]">
-                  −{discountPercent}% {translate("promotionBadge")}
-                </span>
+              {/* Same red starburst as the product cards; counts the affiliate code price too. */}
+              {badgePercent > 0 && (
+                <div className="pointer-events-none absolute left-3 top-3 z-10">
+                  <Starburst
+                    color="#E3262F"
+                    textColor="#ffffff"
+                    rotate={-12}
+                    className="h-16 w-16 text-xl sm:h-20 sm:w-20 sm:text-2xl"
+                  >
+                    −{badgePercent}%
+                  </Starburst>
+                </div>
               )}
 
               <button
@@ -1087,7 +1164,7 @@ export default function ProductDetail() {
                       }
                       aria-label={img.flavor_Name || displayName}
                       aria-current={isActive}
-                      className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 bg-white p-1 transition sm:h-20 sm:w-20 ${
+                      className={`pdp-plate h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 bg-white p-1 transition sm:h-20 sm:w-20 ${
                         isActive
                           ? "border-[var(--ink)]"
                           : "border-transparent opacity-70 hover:opacity-100"
@@ -1128,7 +1205,7 @@ export default function ProductDetail() {
             </div>
 
             {descriptionExcerpt && (
-              <p className="mt-4 line-clamp-3 text-sm leading-relaxed text-gray-600">
+              <p className="mt-4 line-clamp-3 text-[15px] font-medium leading-relaxed text-gray-900 sm:text-base">
                 {descriptionExcerpt}
               </p>
             )}
@@ -1150,42 +1227,50 @@ export default function ProductDetail() {
             )}
 
             {/* At a glance: flavours, sizes, stock */}
-            <div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold">
-              {allFlavorNames.length > 0 && (
-                <span className="rounded-full border border-gray-300 bg-white px-3 py-1.5">
-                  {allFlavorNames.length}{" "}
-                  {variantOptionType === "color"
-                    ? translate("pdpColorsShort")
-                    : translate("pdpFlavorsShort")}
-                </span>
-              )}
-              {sortedPackagings.length > 0 && (
-                <span className="rounded-full border border-gray-300 bg-white px-3 py-1.5">
-                  {sortedPackagings.length} {translate("pdpSizesShort")}
-                </span>
-              )}
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 ${
-                  isOutOfStock
-                    ? "bg-red-50 text-red-700"
-                    : "bg-[#FDC700] text-[#141409]"
-                }`}
-              >
+            <div className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-600">
+              {[
+                allFlavorNames.length > 0 && (
+                  <span key="flavors">
+                    {allFlavorNames.length}{" "}
+                    {variantOptionType === "color"
+                      ? translate("pdpColorsShort")
+                      : translate("pdpFlavorsShort")}
+                  </span>
+                ),
+                sortedPackagings.length > 0 && (
+                  <span key="sizes">
+                    {sortedPackagings.length}{" "}
+                    {translate(isApparel ? "cardSizes" : "pdpSizesShort")}
+                  </span>
+                ),
                 <span
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    isOutOfStock ? "bg-red-600" : "bg-[#141409]"
+                  key="stock"
+                  className={`font-semibold ${
+                    isOutOfStock ? "text-red-700" : "text-green-700"
                   }`}
-                />
-                {isOutOfStock ? translate("outOfStock") : translate("pdpInStock")}
-              </span>
-              {product.shortExpiry && (
-                <span className="rounded-full bg-amber-100 px-3 py-1.5 text-amber-900">
-                  {translate("shortExpiry")}
-                  {product.expiryDate
-                    ? ` · ${translate("bestBefore")} ${new Date(product.expiryDate).toLocaleDateString()}`
-                    : ""}
-                </span>
-              )}
+                >
+                  {isOutOfStock ? translate("outOfStock") : translate("pdpInStock")}
+                </span>,
+                product.shortExpiry && (
+                  <span key="expiry" className="text-amber-800">
+                    {translate("shortExpiry")}
+                    {product.expiryDate
+                      ? ` · ${translate("bestBefore")} ${new Date(product.expiryDate).toLocaleDateString()}`
+                      : ""}
+                  </span>
+                ),
+              ]
+                .filter(Boolean)
+                .flatMap((item, index) =>
+                  index === 0
+                    ? [item]
+                    : [
+                        <span key={`sep-${index}`} aria-hidden="true" className="text-gray-300">
+                          ·
+                        </span>,
+                        item,
+                      ]
+                )}
             </div>
 
             <div className="my-6 h-px bg-gray-200" />
@@ -1210,7 +1295,10 @@ export default function ProductDetail() {
                   className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-lg font-semibold outline-none focus:border-[var(--ink)]"
                 />
                 <span className="mt-1 block text-xs font-normal text-gray-500">
-                  {translate("voucherMinimum")} {Number(product.voucherMinAmount || 500).toFixed(0)} MKD
+                  {translate("voucherMinimum")} <Price value={product.voucherMinAmount || 500} />
+                </span>
+                <span className="mt-2 block text-xs font-normal text-gray-600">
+                  {translate("giftVoucherCardOnlyNotice")}
                 </span>
               </label>
             )}
@@ -1231,12 +1319,12 @@ export default function ProductDetail() {
             {hasVariants && sortedPackagings.length > 0 && (
               <div className="mb-6">
                 <p className="mb-3 text-sm font-semibold">
-                  {translate("packaging")}:{" "}
+                  {translate(isApparel ? "size" : "packaging")}:{" "}
                   <span className="font-normal text-gray-600">
                     {selectedPackagingName}
                   </span>
                 </p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className={`grid gap-3 ${isApparel ? "grid-cols-3 sm:grid-cols-4" : "grid-cols-2"}`}>
                   {sortedPackagings.map((packaging) => {
                     const variant = findBestMatchingVariant(
                       selectedFlavorName,
@@ -1257,12 +1345,14 @@ export default function ProductDetail() {
                           isSelected
                             ? "border-[var(--ink)] bg-[var(--card)] shadow-sm"
                             : hasStock
-                              ? "border-gray-200 bg-[var(--card)] shadow-sm hover:border-gray-400"
-                              : "cursor-not-allowed border-dashed border-gray-300 bg-[var(--card-muted)]"
+                              ? "border-gray-200 bg-transparent hover:border-gray-400"
+                              : "cursor-not-allowed border-dashed border-gray-300 bg-transparent"
                         }`}
                       >
                         <span
-                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                          className={`mt-0.5 h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                            isApparel ? "hidden" : "flex"
+                          } ${
                             isSelected
                               ? "border-[var(--ink)]"
                               : hasStock
@@ -1288,7 +1378,7 @@ export default function ProductDetail() {
                             }`}
                           >
                             {hasStock
-                              ? formatPrice(priceForVariant(variant))
+                              ? <Price value={withCode(priceForVariant(variant)) ?? priceForVariant(variant)} />
                               : translate("outOfStock")}
                           </span>
                         </span>
@@ -1301,12 +1391,17 @@ export default function ProductDetail() {
 
             {/* Price */}
             <div className="mb-4 flex flex-wrap items-end gap-x-3 gap-y-1">
-              <p className="text-3xl font-bold text-[var(--ink)]">
-                {formatPrice(currentPrice)}
+              <p className={`text-3xl font-bold ${codePrice != null ? "text-[#E3262F]" : "text-[var(--ink)]"}`}>
+                <Price value={displayPrice} />
               </p>
-              {hasDiscount && (
+              {(hasDiscount || codePrice != null) && (
                 <p className="pb-1 text-base text-gray-400 line-through">
-                  {formatPrice(originalPrice)}
+                  <Price value={originalPrice} />
+                </p>
+              )}
+              {codePrice != null && (
+                <p className="w-full text-xs font-semibold text-[#8a5a00]">
+                  {translate("referralPriceWithCode")} · {referralOffer.code}
                 </p>
               )}
               {hasDiscount && saleEndDate && (
@@ -1316,6 +1411,8 @@ export default function ProductDetail() {
               )}
             </div>
 
+            {showReferralCard && <ReferralOfferCard offer={referralOffer} compact className="mb-4" />}
+
             {/* Quantity + Add to cart */}
             <div ref={ctaRef} className="flex gap-3">
               {quantityStepper}
@@ -1323,7 +1420,7 @@ export default function ProductDetail() {
                 type="button"
                 onClick={handleAddToCart}
                 disabled={adding || isOutOfStock}
-                className="pdp-cta flex h-14 min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 text-[15px] font-semibold sm:px-6 transition disabled:cursor-not-allowed disabled:opacity-50"
+                className="pdp-cta flex h-14 min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 text-[15px] font-semibold sm:px-6 transition disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <FiShoppingBag size={18} className="hidden shrink-0 sm:block" />
                 {addToCartLabel}
@@ -1357,7 +1454,7 @@ export default function ProductDetail() {
                     aria-selected={isActive}
                     aria-controls={`pdp-panel-${tab.id}`}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex-1 shrink-0 whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold transition sm:flex-none sm:px-7 ${
+                    className={`flex-1 shrink-0 whitespace-nowrap rounded-lg px-5 py-2.5 text-sm font-semibold transition sm:flex-none sm:px-7 ${
                       isActive
                         ? "bg-[var(--ink)] text-[var(--paper)]"
                         : "text-gray-600 hover:bg-gray-100"
@@ -1374,7 +1471,7 @@ export default function ProductDetail() {
               role="tabpanel"
               id={`pdp-panel-${currentTab}`}
               aria-labelledby={`pdp-tab-${currentTab}`}
-              className="animate-fadeIn mt-4 rounded-3xl border border-gray-200 bg-[var(--card)] p-5 sm:p-8"
+              className="animate-fadeIn mt-6"
             >
               {currentTab === "description" && (
                 <CollapsibleDescription
@@ -1561,6 +1658,8 @@ export default function ProductDetail() {
         )}
 
         <ProductQuestionForm productName={displayName} />
+
+        <ProductRecommendations productId={product.product_Id} />
       </div>
 
       {/* Sticky bottom bar: options + price + add to cart */}
@@ -1577,7 +1676,7 @@ export default function ProductDetail() {
             <img
               src={getImageUrl(activeImagePath)}
               alt=""
-              className="h-12 w-12 shrink-0 rounded-xl border border-gray-200 bg-white object-contain p-0.5"
+              className="pdp-plate h-12 w-12 shrink-0 rounded-xl border border-gray-200 bg-white object-contain p-0.5"
             />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{displayName}</p>
@@ -1590,59 +1689,48 @@ export default function ProductDetail() {
           {hasVariants && (availableFlavors.length > 0 || sortedPackagings.length > 0) && (
             <div className="flex w-full gap-2 md:w-auto">
               {availableFlavors.length > 0 && (
-                <label className="relative min-w-0 flex-1 md:w-48 md:flex-none">
-                  <span className="sr-only">{variantOptionLabel}</span>
-                  <select
-                    value={selectedFlavorName || ""}
-                    onChange={(event) => handleFlavorSelect(event.target.value)}
-                    tabIndex={showStickyBar ? 0 : -1}
-                    className="h-10 w-full appearance-none truncate rounded-full border border-gray-300 bg-white pl-4 pr-9 text-sm font-medium outline-none focus:border-[var(--ink)]"
-                  >
-                    {availableFlavors.map((flavor) => {
-                      const variant = packageVariants.find(
-                        (item) => item.flavor_Name === flavor.id,
-                      );
-                      return (
-                        <option
-                          key={flavor.id}
-                          value={flavor.id}
-                          disabled={!isVariantAvailable(variant)}
-                        >
-                          {flavor.name}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  <FiChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
-                </label>
+                <StickyOptionPicker
+                  label={variantOptionLabel}
+                  value={selectedFlavorName}
+                  hidden={!showStickyBar}
+                  onSelect={handleFlavorSelect}
+                  className="flex-1 md:w-56 md:flex-none"
+                  options={availableFlavors.map((flavor) => {
+                    const sizeVariant = packageVariants.find((item) => item.flavor_Name === flavor.id);
+                    const anyVariant = sizeVariant || variants.find((item) => item.flavor_Name === flavor.id);
+                    const available = isVariantAvailable(sizeVariant);
+                    return {
+                      id: flavor.id,
+                      name: flavor.name,
+                      image: anyVariant?.variant_Image_Path ? getImageUrl(anyVariant.variant_Image_Path) : null,
+                      meta: available ? null : translate("outOfStock"),
+                      disabled: !available,
+                    };
+                  })}
+                />
               )}
               {sortedPackagings.length > 0 && (
-                <label className="relative min-w-0 flex-1 md:w-36 md:flex-none">
-                  <span className="sr-only">{translate("packaging")}</span>
-                  <select
-                    value={selectedPackagingName || ""}
-                    onChange={(event) => handlePackagingSelect(event.target.value)}
-                    tabIndex={showStickyBar ? 0 : -1}
-                    className="h-10 w-full appearance-none truncate rounded-full border border-gray-300 bg-white pl-4 pr-9 text-sm font-medium outline-none focus:border-[var(--ink)]"
-                  >
-                    {sortedPackagings.map((packaging) => (
-                      <option
-                        key={packaging.id}
-                        value={packaging.id}
-                        disabled={
-                          !variants.some(
-                            (v) =>
-                              v.packaging_Name === packaging.id &&
-                              isVariantAvailable(v),
-                          )
-                        }
-                      >
-                        {packaging.name}
-                      </option>
-                    ))}
-                  </select>
-                  <FiChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
-                </label>
+                <StickyOptionPicker
+                  label={translate(isApparel ? "size" : "packaging")}
+                  value={selectedPackagingName}
+                  hidden={!showStickyBar}
+                  onSelect={handlePackagingSelect}
+                  align={availableFlavors.length > 0 ? "right" : "left"}
+                  className={availableFlavors.length > 0 ? "w-[42%] shrink-0 md:w-44" : "flex-1 md:w-56 md:flex-none"}
+                  options={sortedPackagings.map((packaging) => {
+                    const variant = findBestMatchingVariant(selectedFlavorName, packaging.id);
+                    const available = variants.some(
+                      (v) => v.packaging_Name === packaging.id && isVariantAvailable(v),
+                    );
+                    const price = priceForVariant(variant);
+                    return {
+                      id: packaging.id,
+                      name: packaging.name,
+                      meta: available ? <Price value={withCode(price) ?? price} /> : translate("outOfStock"),
+                      disabled: !available,
+                    };
+                  })}
+                />
               )}
             </div>
           )}
@@ -1650,11 +1738,11 @@ export default function ProductDetail() {
           <div className="flex w-full items-center gap-3 md:w-auto">
             <div className="min-w-0 flex-1 md:flex-none md:text-right">
               <p className="text-lg font-bold leading-tight text-[var(--ink)]">
-                {formatPrice(currentPrice * quantity)}
+                <Price value={displayPrice * quantity} />
               </p>
               {quantity > 1 && (
                 <p className="text-[11px] text-gray-500">
-                  {quantity} × {formatPrice(currentPrice)}
+                  {quantity} × <Price value={displayPrice} />
                 </p>
               )}
             </div>
@@ -1663,7 +1751,7 @@ export default function ProductDetail() {
               onClick={handleAddToCart}
               disabled={adding || isOutOfStock}
               tabIndex={showStickyBar ? 0 : -1}
-              className="pdp-cta flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-sm sm:px-6 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+              className="pdp-cta flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-5 text-sm sm:px-6 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               <FiShoppingBag size={16} />
               {addToCartLabel}
@@ -1675,6 +1763,15 @@ export default function ProductDetail() {
       <style>{`
         .pdp { --card: #ffffff; --card-muted: #ecebe6; --ink: #141409; --paper: #f6f5f1; --cta-bg: #141409; --cta-fg: #ffffff; --cta-hover: #2c2c22; }
         html[data-theme="dark"] .pdp { --card: var(--d-surface); --card-muted: var(--d-raised); --ink: #ececee; --paper: var(--d-bg); --cta-bg: #fdc700; --cta-fg: #141409; --cta-hover: #ffe066; }
+        /* Product photos ship on white; in dark mode give them a light plate so they
+           don't sit as a glaring white box or get multiplied into the dark card. */
+        html[data-theme="dark"] .pdp-plate { background-color: #f1f1ee !important; }
+        html[data-theme="dark"] .pdp-plate > * { --ink: #141409; }
+        html[data-theme="dark"] .pdp-plate img { mix-blend-mode: multiply; }
+        html[data-theme="dark"] .pdp-plate .bg-white { background-color: #ffffff !important; }
+        html[data-theme="dark"] .pdp-plate .border-gray-200 { border-color: #e5e7eb !important; }
+        html[data-theme="dark"] .pdp-plate .text-gray-500 { color: #6b7280 !important; }
+        html[data-theme="dark"] .pdp-plate button { color: #141409; }
         .pdp-cta { background: var(--cta-bg); color: var(--cta-fg); }
         .pdp-cta:not(:disabled):hover { background: var(--cta-hover); }
         .pdp-cta:not(:disabled):active { transform: scale(0.98); }
@@ -1713,12 +1810,10 @@ function FlavorImageSelector({
       </p>
       <div className="grid grid-cols-3 gap-3">
         {flavors.map((flavor) => {
-          const variant =
-            packageVariants.find((item) => item.flavor_Name === flavor.id) ||
-            variants.find((item) => item.flavor_Name === flavor.id);
-          const hasStock = Boolean(
-            variant && variant.quantity > 0 && variant.isActive,
-          );
+          // Available only in the selected size/packaging; other sizes still give the swatch image.
+          const sizeVariant = packageVariants.find((item) => item.flavor_Name === flavor.id);
+          const variant = sizeVariant || variants.find((item) => item.flavor_Name === flavor.id);
+          const hasStock = Boolean(sizeVariant && sizeVariant.quantity > 0 && sizeVariant.isActive);
           const isSelected = selectedFlavorName === flavor.id;
 
           return (
@@ -1733,16 +1828,16 @@ function FlavorImageSelector({
                 isSelected
                   ? "border-[var(--ink)] bg-[var(--card)] shadow-sm"
                   : hasStock
-                    ? "border-gray-200 bg-[var(--card)] shadow-sm hover:border-gray-400"
-                    : "cursor-not-allowed border-dashed border-gray-300 bg-[var(--card-muted)]"
+                    ? "border-gray-200 bg-transparent hover:border-gray-400"
+                    : "cursor-not-allowed border-dashed border-gray-300 bg-transparent"
               }`}
             >
-              <span className="flex h-24 w-full items-center justify-center sm:h-28">
+              <span className="pdp-plate flex h-24 w-full items-center justify-center rounded-xl sm:h-28">
                 {variant?.variant_Image_Path ? (
                   <img
                     src={imageUrl(variant.variant_Image_Path)}
                     alt=""
-                    className={`h-full w-full object-contain transition-transform ${
+                    className={`h-full w-full object-contain mix-blend-multiply transition-transform ${
                       hasStock ? "group-hover:scale-105" : "opacity-40 grayscale"
                     }`}
                   />
@@ -1762,7 +1857,7 @@ function FlavorImageSelector({
                 {flavor.name}
               </span>
               {!hasStock && (
-                <span className="absolute left-1/2 top-2 -translate-x-1/2 whitespace-nowrap rounded-full border border-dashed border-gray-300 bg-[var(--card)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                <span className="mt-1 text-xs text-gray-400">
                   {soldOutLabel}
                 </span>
               )}
@@ -1774,22 +1869,48 @@ function FlavorImageSelector({
   );
 }
 
+// Short labels for the macro strip on the photo; the nutrition table's own row labels
+// ("Енергетска вредност", ...) are too long for a quarter of the image width.
+const MACRO_LABELS = {
+  protein: "macroProtein",
+  energy: "macroEnergy",
+  carbs: "macroCarbs",
+  fat: "macroFat",
+};
+
+// Headline badges read better rounded the way food labels do it:
+// 26,48 g -> 26 g, 0,92 g -> <1 g, 0,19 g -> 0 g, 389,4 kcal -> 389 kcal.
+function roundMacro(value) {
+  const match = String(value).match(/^([<>~]?)\s*(\d[\d.,]*)\s*(.*)$/);
+  if (!match) return value;
+  const [, prefix, raw, unit] = match;
+  const normalized = raw.includes(",") ? raw.replace(/\./g, "").replace(",", ".") : raw;
+  const number = Number.parseFloat(normalized);
+  if (!Number.isFinite(number)) return value;
+  const suffix = unit ? ` ${unit}` : "";
+  if (prefix === "<") return `<${Math.max(1, Math.ceil(number))}${suffix}`;
+  if (number < 0.5) return `0${suffix}`;
+  if (number < 1) return `<1${suffix}`;
+  return `${prefix}${Math.round(number)}${suffix}`;
+}
+
 function ProductQuestionForm({ productName }) {
+  const { translate } = useLanguage();
   const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const subject = `Product question: ${productName}`;
+    const subject = `Прашање за производ: ${productName}`;
     const body = [
-      `Product: ${productName}`,
-      `Name: ${form.get("name")}`,
-      `Email: ${form.get("email")}`,
+      `Производ: ${productName}`,
+      `Име: ${form.get("name")}`,
+      `Е-пошта: ${form.get("email")}`,
       "",
       String(form.get("question") || ""),
     ].join("\n");
     const link = document.createElement("a");
-    link.href = `mailto:makedonija@proteini.si?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    link.href = `mailto:info@proteini.mk?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     link.click();
     setSubmitted(true);
   };
@@ -1797,11 +1918,11 @@ function ProductQuestionForm({ productName }) {
   return (
     <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 lg:p-8" aria-labelledby="product-question-title">
       <h2 id="product-question-title" className="mb-6 text-2xl font-bold">
-        Frequently Asked Questions
+        {translate("productQuestionTitle")}
       </h2>
       <form onSubmit={handleSubmit} className="grid gap-4">
         <label className="grid gap-1 text-sm font-medium">
-          Name
+          {translate("productQuestionName")}
           <input
             name="name"
             required
@@ -1810,7 +1931,7 @@ function ProductQuestionForm({ productName }) {
           />
         </label>
         <label className="grid gap-1 text-sm font-medium">
-          Email
+          {translate("productQuestionEmail")}
           <input
             name="email"
             type="email"
@@ -1820,7 +1941,7 @@ function ProductQuestionForm({ productName }) {
           />
         </label>
         <label className="grid gap-1 text-sm font-medium">
-          Question about {productName}
+          {translate("productQuestionAbout").replace("{product}", productName)}
           <textarea
             name="question"
             required
@@ -1830,17 +1951,17 @@ function ProductQuestionForm({ productName }) {
         </label>
         <label className="flex items-start gap-2 text-xs text-gray-600">
           <input type="checkbox" required className="mt-0.5 accent-[#FDC700]" />
-          I agree that my details may be used to answer this product question.
+          {translate("productQuestionConsent")}
         </label>
         <button
           type="submit"
-          className="rounded-full bg-[#FDC700] px-5 py-3 font-semibold text-[#141409] hover:bg-[#e7b700]"
+          className="rounded-lg bg-[#FDC700] px-5 py-3 font-semibold text-[#141409] hover:bg-[#e7b700]"
         >
-          Send a question
+          {translate("productQuestionSend")}
         </button>
         {submitted && (
           <p className="text-sm text-gray-600">
-            Your email application has been opened with the product details filled in.
+            {translate("productQuestionOpened")}
           </p>
         )}
       </form>

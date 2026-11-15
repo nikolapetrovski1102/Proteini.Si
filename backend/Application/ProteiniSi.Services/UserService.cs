@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using ProteiniSi.Contracts.Exceptions;
@@ -13,13 +14,24 @@ using ProteiniSi.Services.Helpers;
 
 namespace ProteiniSi.Services;
 
-public class UserService(IUserProvider provider, IEmailSender emailSender, IConfiguration config) : IUserService
+public class UserService(
+    IUserProvider provider,
+    IEmailSender emailSender,
+    IConfiguration config,
+    IMemoryCache cache,
+    IEnumerable<IExternalIdentityVerifier> verifiers,
+    IAddressLookupService? addressLookup = null) : IUserService
 {
     private const string GenericForgotMessage = "If your email exists in our system, you will receive a password reset link.";
     private const string GenericResendMessage = "If this account is waiting for confirmation, a new code has been sent.";
     private const int CodeValidMinutes = 15;
     private const int CodeResendCooldownSeconds = 60;
     private const int MaxCodeAttempts = 5;
+    private const int MaxSignInCodesPerHour = 5;
+
+    // dbo.[User].User_Email and User_FullName are NVARCHAR(45).
+    private const int MaxEmailLength = 45;
+    private const int MaxNameLength = 45;
 
     public async Task<RegistrationResponseDto> RegisterAsync(UserForRegistrationDto registration)
     {
@@ -47,15 +59,35 @@ public class UserService(IUserProvider provider, IEmailSender emailSender, IConf
         if (!validation.IsValid)
             throw new BadRequestException("Weak password", StrengthBody(validation.Errors, validation));
 
+        var (emailValid, normalizedEmail, emailError, _) = CheckoutFieldValidator.ValidateEmail(registration.User_Email, MaxEmailLength);
+        if (!emailValid)
+            throw Error("Invalid email address", emailError!);
+
+        var domainError = await CheckoutFieldValidator.ValidateEmailDomainAsync(normalizedEmail!);
+        if (domainError != null)
+            throw Error("Invalid email address", domainError);
+
+        registration.User_Email = normalizedEmail!;
+
         if (await provider.EmailExistsAsync(registration.User_Email))
             throw EmailTaken();
 
-        if (string.IsNullOrWhiteSpace(registration.User_Email) || !registration.User_Email.Contains('@'))
-            throw Error("Invalid email address", "Please provide a valid email address (e.g., name@example.com)");
+        var options = addressLookup != null ? await addressLookup.GetCheckoutOptionsAsync() : null;
+        var phoneCountries = options?.PhoneCountries ?? CheckoutFieldValidator.DefaultCountries;
+        var shippingCountries = options?.ShippingCountries ?? CheckoutFieldValidator.DefaultCountries;
+        var cities = options?.Cities;
+
+        string normalizedUserPhone = "";
+        if (!string.IsNullOrWhiteSpace(registration.User_Phone))
+        {
+            normalizedUserPhone = CheckoutFieldValidator.NormalizePhone(registration.User_Phone, phoneCountries)
+                ?? throw Error("Invalid phone number", "Please enter a valid phone number for an allowed country (e.g. +389 71 000 000).");
+        }
 
         var passwordSalt = PasswordHasher.CreateSalt();
         var passwordHash = GetPasswordHash(registration.Password, passwordSalt);
 
+        string? normalizedCompanyPhone = null;
         if (registration.User_IsCompany)
         {
             var companyErrors = new List<string>();
@@ -72,12 +104,40 @@ public class UserService(IUserProvider provider, IEmailSender emailSender, IConf
             if (string.IsNullOrEmpty(registration.Company_Country))
                 companyErrors.Add("Country is required");
 
+            if (companyErrors.Count == 0)
+            {
+                var canonicalCountry = CheckoutFieldValidator.NormalizeShippingCountry(registration.Company_Country, shippingCountries);
+                if (canonicalCountry == null)
+                    companyErrors.Add("Country must be North Macedonia");
+                else
+                    registration.Company_Country = canonicalCountry;
+
+                var (cityValid, canonicalCity, canonicalPostCode, cityError) =
+                    CheckoutFieldValidator.ValidateCityAndPostCode(registration.Company_City, registration.Company_PostCode, cities);
+                if (!cityValid)
+                {
+                    companyErrors.Add(cityError!);
+                }
+                else
+                {
+                    registration.Company_City = canonicalCity;
+                    registration.Company_PostCode = canonicalPostCode;
+                }
+
+                if (!string.IsNullOrWhiteSpace(registration.Company_Phone))
+                {
+                    normalizedCompanyPhone = CheckoutFieldValidator.NormalizePhone(registration.Company_Phone, phoneCountries);
+                    if (normalizedCompanyPhone == null)
+                        companyErrors.Add("Please enter a valid company phone number (e.g. +389 71 000 000)");
+                }
+            }
+
             if (companyErrors.Count > 0)
             {
-                throw new BadRequestException("Missing required company information", new
+                throw new BadRequestException("Missing or invalid company information", new
                 {
                     status = false,
-                    message = "Missing required company information",
+                    message = "Missing or invalid company information",
                     errors = companyErrors
                 });
             }
@@ -89,11 +149,11 @@ public class UserService(IUserProvider provider, IEmailSender emailSender, IConf
 
         var newUser = registration.User_IsCompany
             ? new NewUser(registration.Company_Name, registration.User_Email, true, passwordHash, passwordSalt,
-                registration.User_Phone ?? "", registration.Company_Name, registration.Company_Address,
+                normalizedUserPhone, registration.Company_Name, registration.Company_Address,
                 registration.Company_TaxNumber, registration.Company_PostCode, registration.Company_City,
-                registration.Company_Country, registration.Company_Phone ?? "")
+                registration.Company_Country, normalizedCompanyPhone ?? "")
             : new NewUser(registration.User_FullName, registration.User_Email, false, passwordHash, passwordSalt,
-                registration.User_Phone ?? "", null, null, null, null, null, null, null);
+                normalizedUserPhone, null, null, null, null, null, null, null);
 
         var userId = await provider.RegisterAsync(newUser) ?? throw EmailTaken();
 
@@ -105,6 +165,7 @@ public class UserService(IUserProvider provider, IEmailSender emailSender, IConf
                 errors = new[] { "Please try logging in with your new account." }
             });
 
+        await RememberLanguageAsync(userId, registration.Language);
         await SendVerificationCodeAsync(user, registration.Language);
 
         return new RegistrationResponseDto(true, true, user.User_Email,
@@ -142,6 +203,7 @@ public class UserService(IUserProvider provider, IEmailSender emailSender, IConf
             });
         }
 
+        await RememberLanguageAsync(user.User_Id, login.Language);
         return new AuthResponseDto(true, CreateToken(user), "✅ Login successful! Welcome back!", ToAuthUser(user));
     }
 
@@ -236,6 +298,207 @@ public class UserService(IUserProvider provider, IEmailSender emailSender, IConf
         await emailSender.SendAsync([user.User_Email], subject, html);
     }
 
+    /* ----------------------------------------------------------- Google */
+
+    public async Task<AuthResponseDto> ExternalSignInAsync(ExternalSignInDto request)
+    {
+        var verifier = verifiers.FirstOrDefault(v =>
+            string.Equals(v.Provider, request.Provider?.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (verifier is not { IsConfigured: true })
+            throw Error("Sign-in method not available", "This sign-in method is not available. Please use another one.");
+
+        if (string.IsNullOrWhiteSpace(request.Token))
+            throw Error("Missing token", "Sign-in was cancelled. Please try again.");
+
+        var identity = await verifier.VerifyAsync(request.Token.Trim())
+            ?? throw new UnauthorizedException("External sign-in failed", new
+            {
+                status = false,
+                message = "External sign-in failed",
+                errors = new[] { "We could not confirm your sign-in. Please try again." }
+            });
+
+        // Only an address the provider verified may attach to an existing account.
+        var email = NormalizeEmail(identity.Email);
+        if (email != null && !identity.EmailVerified)
+            email = null;
+
+        var name = CleanName(identity.Name) ?? CleanName(email?.Split('@')[0]);
+        var result = await provider.SignInExternalAsync(identity.Provider, identity.ProviderKey, email, name, identity.EmailVerified);
+
+        switch (result.Outcome)
+        {
+            case ExternalSignInOutcome.EmailRequired:
+                throw new BadRequestException("Email required", new
+                {
+                    status = false,
+                    message = "Email required",
+                    emailRequired = true,
+                    errors = new[] { "We did not receive a usable email address from this account. Please sign in with an email code instead." }
+                });
+            case ExternalSignInOutcome.LinkNotAllowed:
+                throw new ConflictException("Account already exists", new
+                {
+                    status = false,
+                    message = "Account already exists",
+                    accountExists = true,
+                    email,
+                    errors = new[] { "An account with this email already exists. Please sign in with your password or an email code." }
+                });
+        }
+
+        return await SignedInAsync(result, "✅ Login successful! Welcome!", request.Language);
+    }
+
+    /* --------------------------------------------- passwordless email code */
+
+    private sealed class PendingSignInCode
+    {
+        public required byte[] Hash { get; init; }
+        public required DateTime ExpiresAt { get; init; }
+        public required DateTime SentAt { get; init; }
+        public int Attempts;
+    }
+
+    private sealed class SendCounter
+    {
+        public int Count;
+    }
+
+    public async Task<EmailCodeSentDto> SendSignInCodeAsync(EmailCodeSendDto request)
+    {
+        var email = NormalizeEmail(request.User_Email)
+            ?? throw Error("Invalid email address", "Please provide a valid email address (e.g., name@example.com)");
+
+        var isNew = !await provider.EmailExistsAsync(email);
+        const string sent = "We sent a 6-digit code to your email.";
+
+        var now = DateTime.UtcNow;
+        if (cache.TryGetValue(SignInCodeKey(email), out PendingSignInCode? existing) && existing != null)
+        {
+            var wait = CodeResendCooldownSeconds - (int)(now - existing.SentAt).TotalSeconds;
+            if (wait > 0)
+                return new EmailCodeSentDto(true, sent, wait, isNew);
+        }
+
+        var counter = cache.GetOrCreate($"signin-code-sends:{email}", entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
+            return new SendCounter();
+        })!;
+        if (Interlocked.Increment(ref counter.Count) > MaxSignInCodesPerHour)
+            throw Error("Too many codes requested", "Too many codes were requested for this email. Please try again in an hour.");
+
+        var code = EmailVerificationCode.Generate();
+        cache.Set(SignInCodeKey(email), new PendingSignInCode
+        {
+            Hash = SignInCodeHash(email, code),
+            ExpiresAt = now.AddMinutes(CodeValidMinutes),
+            SentAt = now
+        }, TimeSpan.FromMinutes(CodeValidMinutes));
+
+        var (subject, html) = VerificationEmailTemplate.BuildSignIn(code, CodeValidMinutes, request.Language);
+        await emailSender.SendAsync([email], subject, html);
+
+        return new EmailCodeSentDto(true, sent, CodeResendCooldownSeconds, isNew);
+    }
+
+    public async Task<AuthResponseDto> SignInWithEmailCodeAsync(EmailCodeSignInDto request)
+    {
+        var email = NormalizeEmail(request.User_Email)
+            ?? throw Error("Invalid email address", "Please provide a valid email address (e.g., name@example.com)");
+        var code = EmailVerificationCode.Normalize(request.Code)
+            ?? throw Error("Invalid code", "Please enter the 6-digit code from the email.");
+
+        var name = CleanName(request.User_FullName);
+        if (name == null && !await provider.EmailExistsAsync(email))
+            throw new BadRequestException("Full name is required", new
+            {
+                status = false,
+                message = "Full name is required",
+                requiresName = true,
+                errors = new[] { "Please enter your full name" }
+            });
+
+        if (!cache.TryGetValue(SignInCodeKey(email), out PendingSignInCode? pending) || pending == null || pending.ExpiresAt < DateTime.UtcNow)
+            throw CodeExpired();
+
+        var attempts = Interlocked.Increment(ref pending.Attempts);
+        if (attempts > MaxCodeAttempts)
+        {
+            cache.Remove(SignInCodeKey(email));
+            throw TooManyAttempts();
+        }
+
+        if (!EmailVerificationCode.Matches(pending.Hash, SignInCodeHash(email, code)))
+        {
+            var left = MaxCodeAttempts - attempts;
+            if (left <= 0)
+            {
+                cache.Remove(SignInCodeKey(email));
+                throw TooManyAttempts();
+            }
+
+            throw new BadRequestException("Invalid code", new
+            {
+                status = false,
+                message = "Invalid code",
+                attemptsLeft = left,
+                errors = new[] { $"The code is not correct. You have {left} attempt(s) left." }
+            });
+        }
+
+        cache.Remove(SignInCodeKey(email));
+
+        var result = await provider.SignInExternalAsync(null, null, email, name, allowLink: true);
+        return await SignedInAsync(result, "✅ Login successful! Welcome!", request.Language);
+    }
+
+    private async Task<AuthResponseDto> SignedInAsync(ExternalSignInResult result, string message, string? language = null)
+    {
+        var user = (result.UserId is { } id ? await provider.GetByIdAsync(id) : null)
+            ?? throw new InvalidOperationException($"Sign-in resolved to no user (outcome {result.Outcome}).");
+        await RememberLanguageAsync(user.User_Id, language);
+
+        return new AuthResponseDto(true, CreateToken(user), message, ToAuthUser(user),
+            result.Outcome == ExternalSignInOutcome.Created);
+    }
+
+    /// <summary>Stores the site language the customer uses, so later emails (marketing) match it. Never blocks sign-in.</summary>
+    private async Task RememberLanguageAsync(int userId, string? language)
+    {
+        if (EmailLanguage.OrNull(language) is not { } lang) return;
+        try { await provider.SetLanguageAsync(userId, lang); }
+        catch { /* the column may not exist yet during a deployment */ }
+    }
+
+    private static string SignInCodeKey(string email) => $"signin-code:{email}";
+
+    private byte[] SignInCodeHash(string email, string code) =>
+        HMACSHA256.HashData(Encoding.UTF8.GetBytes(TokenKey()), Encoding.UTF8.GetBytes($"signin-code:{email}:{code}"));
+
+    /// <summary>Trimmed, lower-cased address, or null when it is not a plausible email or does not fit the column.</summary>
+    private static string? NormalizeEmail(string? email)
+    {
+        var value = email?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(value) || value.Length > MaxEmailLength)
+            return null;
+
+        var at = value.IndexOf('@');
+        return at > 0 && at == value.LastIndexOf('@') && value.IndexOf('.', at) > at + 1 && !value.EndsWith('.') && !value.Any(char.IsWhiteSpace)
+            ? value
+            : null;
+    }
+
+    private static string? CleanName(string? name)
+    {
+        var value = string.Join(' ', (name ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (value.Length == 0)
+            return null;
+
+        return value.Length <= MaxNameLength ? value : value[..MaxNameLength].TrimEnd();
+    }
+
     public async Task<StatusMessageDto> ForgotPasswordAsync(ForgotPasswordDto request)
     {
         var userId = await provider.GetIdByEmailAsync(request.User_Email);
@@ -256,10 +519,9 @@ public class UserService(IUserProvider provider, IEmailSender emailSender, IConf
 
         await provider.SetResetTokenAsync(userId, tokenString, DateTime.UtcNow.AddHours(1));
 
-        await emailSender.SendAsync(
-            [request.User_Email],
-            "Password Reset Request",
-            $"Please reset your password by clicking here: <a href=\"https://proteini.mk/reset-password?token={tokenString}\">Reset Password</a>");
+        var (subject, html) = VerificationEmailTemplate.BuildPasswordReset(
+            $"{EmailLayout.SiteUrl}/reset-password?token={Uri.EscapeDataString(tokenString)}", request.Language);
+        await emailSender.SendAsync([request.User_Email], subject, html);
 
         return new StatusMessageDto(true, GenericForgotMessage);
     }
@@ -333,6 +595,57 @@ public class UserService(IUserProvider provider, IEmailSender emailSender, IConf
     {
         try
         {
+            var options = addressLookup != null ? await addressLookup.GetCheckoutOptionsAsync() : null;
+            var phoneCountries = options?.PhoneCountries ?? CheckoutFieldValidator.DefaultCountries;
+            var shippingCountries = options?.ShippingCountries ?? CheckoutFieldValidator.DefaultCountries;
+            var cities = options?.Cities;
+
+            if (!string.IsNullOrWhiteSpace(info.User_Phone))
+            {
+                info.User_Phone = CheckoutFieldValidator.NormalizePhone(info.User_Phone, phoneCountries)
+                    ?? throw Error("Invalid phone number", "Please enter a valid phone number for an allowed country (e.g. +389 71 000 000).");
+            }
+
+            if (!string.IsNullOrWhiteSpace(info.User_Country))
+            {
+                info.User_Country = CheckoutFieldValidator.NormalizeShippingCountry(info.User_Country, shippingCountries)
+                    ?? throw Error("Invalid country", "Shipping is only available in North Macedonia.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(info.User_City) || !string.IsNullOrWhiteSpace(info.User_PostCode))
+            {
+                var (cityValid, canonicalCity, canonicalPostCode, cityError) =
+                    CheckoutFieldValidator.ValidateCityAndPostCode(info.User_City, info.User_PostCode, cities);
+                if (!cityValid)
+                    throw Error("Invalid city or post code", cityError!);
+
+                info.User_City = canonicalCity;
+                info.User_PostCode = canonicalPostCode;
+            }
+
+            if (!string.IsNullOrWhiteSpace(info.Company_Phone))
+            {
+                info.Company_Phone = CheckoutFieldValidator.NormalizePhone(info.Company_Phone, phoneCountries)
+                    ?? throw Error("Invalid company phone number", "Please enter a valid company phone number (e.g. +389 71 000 000).");
+            }
+
+            if (!string.IsNullOrWhiteSpace(info.Company_Country))
+            {
+                info.Company_Country = CheckoutFieldValidator.NormalizeShippingCountry(info.Company_Country, shippingCountries)
+                    ?? throw Error("Invalid company country", "Country must be North Macedonia.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(info.Company_City) || !string.IsNullOrWhiteSpace(info.Company_PostCode))
+            {
+                var (cCityValid, cCanonicalCity, cCanonicalPostCode, cCityError) =
+                    CheckoutFieldValidator.ValidateCityAndPostCode(info.Company_City, info.Company_PostCode, cities);
+                if (!cCityValid)
+                    throw Error("Invalid company city or post code", cCityError!);
+
+                info.Company_City = cCanonicalCity;
+                info.Company_PostCode = cCanonicalPostCode;
+            }
+
             var rowsAffected = await provider.UpdateBillingInfoAsync(userId, info);
 
             if (rowsAffected < 0)

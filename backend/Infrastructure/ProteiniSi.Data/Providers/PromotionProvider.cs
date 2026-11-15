@@ -16,7 +16,23 @@ public class PromotionProvider(ISqlHelper sql) : IPromotionProvider
 
     public async Task<(PromotionWriteResult Result, int? PromoCodeId)> CreateCodeAsync(PromoCodeValues values)
     {
-        var row = await sql.QuerySingleOrDefaultAsync<WriteRow>(StoredProcedures.Promotions.CreateCode, values);
+        var row = await sql.QuerySingleOrDefaultAsync<WriteRow>(StoredProcedures.Promotions.CreateCode, new
+        {
+            values.Code,
+            values.Description,
+            values.DiscountType,
+            values.DiscountValue,
+            values.MinimumOrderAmount,
+            values.MaximumDiscountAmount,
+            values.UsageLimit,
+            values.PerCustomerLimit,
+            values.ValidFrom,
+            values.ValidUntil,
+            values.IsActive,
+            values.Scope.AppliesTo,
+            ProductIds = TableParameters.IntList(values.Scope.ProductIds),
+            CategoryIds = TableParameters.IntList(values.Scope.CategoryIds)
+        });
         return ((PromotionWriteResult)row!.Result, row.PromoCodeId);
     }
 
@@ -34,8 +50,21 @@ public class PromotionProvider(ISqlHelper sql) : IPromotionProvider
             values.PerCustomerLimit,
             values.ValidFrom,
             values.ValidUntil,
-            values.IsActive
+            values.IsActive,
+            values.Scope.AppliesTo,
+            ProductIds = TableParameters.IntList(values.Scope.ProductIds),
+            CategoryIds = TableParameters.IntList(values.Scope.CategoryIds)
         });
+
+    public async Task<HashSet<int>> GetEligibleProductIdsAsync(int promoCodeId, IEnumerable<int> productIds) =>
+        [.. await sql.QueryAsync<int>(StoredProcedures.Promotions.GetEligibleProducts, new
+        {
+            PromoCodeId = promoCodeId,
+            ProductIds = TableParameters.IntList(productIds)
+        })];
+
+    public Task<List<int>> GetTargetProductIdsAsync(int promoCodeId) =>
+        sql.QueryAsync<int>(StoredProcedures.Promotions.GetTargetProducts, new { PromoCodeId = promoCodeId });
 
     public async Task<PromotionDeleteResult> DeleteCodeAsync(int id) =>
         (PromotionDeleteResult)await sql.ExecuteScalarAsync<int>(StoredProcedures.Promotions.DeleteCode, new { Id = id });

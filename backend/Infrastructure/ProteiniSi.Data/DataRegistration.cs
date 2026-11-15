@@ -16,11 +16,15 @@ public static class DataRegistration
         services.AddScoped<IAboutCompanyProvider, AboutCompanyProvider>();
         services.AddScoped<ILandingPageProvider, LandingPageProvider>();
         services.AddScoped<IPartnerProvider, PartnerProvider>();
+        services.AddScoped<IBrandProvider, BrandProvider>();
+        services.AddScoped<IDiscountProvider, DiscountProvider>();
+        services.AddScoped<IProductPlacementProvider, ProductPlacementProvider>();
         services.AddScoped<IYouTubeVideoProvider, YouTubeVideoProvider>();
         services.AddScoped<IInstagramPostProvider, InstagramPostProvider>();
         services.AddScoped<IHomeSliderProvider, HomeSliderProvider>();
         services.AddScoped<IPackagingProvider, PackagingProvider>();
         services.AddScoped<IShippingSettingsProvider, ShippingSettingsProvider>();
+        services.AddScoped<IHomeShowcaseProvider, HomeShowcaseProvider>();
         services.AddScoped<IDynamicSectionProvider, DynamicSectionProvider>();
         services.AddScoped<ITaxonomyProvider, TaxonomyProvider>();
         services.AddScoped<IMarketingProvider, MarketingProvider>();
@@ -28,12 +32,16 @@ public static class DataRegistration
         services.AddScoped<IGiftVoucherProvider, GiftVoucherProvider>();
         services.AddScoped<ICartProvider, CartProvider>();
         services.AddScoped<IPromotionProvider, PromotionProvider>();
+        services.AddScoped<IAffiliateProvider, AffiliateProvider>();
         services.AddScoped<IUserProvider, UserProvider>();
         services.AddScoped<ILoyaltyProvider, LoyaltyProvider>();
         services.AddScoped<IRelatedProductProvider, RelatedProductProvider>();
         services.AddScoped<IProductProvider, ProductProvider>();
         services.AddScoped<IProductVariantProvider, ProductVariantProvider>();
         services.AddScoped<IOrderProvider, OrderProvider>();
+        services.AddScoped<IAnalyticsProvider, AnalyticsProvider>();
+        services.AddScoped<IMarketingAutomationProvider, MarketingAutomationProvider>();
+        services.AddScoped<IAddressLookupProvider, AddressLookupProvider>();
 
         return services;
     }

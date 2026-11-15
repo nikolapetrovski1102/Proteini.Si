@@ -5,6 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Google.Apis.Auth" Version="1.76.0" />
     <PackageReference Include="HtmlSanitizer" Version="9.2.1039" />
     <PackageReference Include="MailKit" Version="4.17.0" />
     <!-- MimeKit pulls Pkcs 10.0.0, which has GHSA-846f-f764-76mx / GHSA-2fmv-rv2c-59x7. -->

@@ -1,6 +1,5 @@
 import { FiArrowRight } from "react-icons/fi";
-import { Sparkle } from "../HomePages/sections/Decor";
-import { BrandLoader } from "../Components/Loaders/BrandLoader";
+import { InlineLoader } from "../Components/Loaders/BrandLoader";
 
 export const headingClass =
   "font-display font-bold uppercase tracking-tight leading-[0.95] text-gray-900 [text-wrap:balance]";
@@ -11,10 +10,10 @@ export const eyebrowClass =
 export const cardClass = "rounded-2xl bg-white ring-1 ring-black/[0.06]";
 
 export const pillButtonClass =
-  "group inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#141409] px-7 text-sm font-bold text-white transition hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDC700] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+  "ink-btn group inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-[#141409] px-7 text-sm font-bold text-white transition hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDC700] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const ghostButtonClass =
-  "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full px-5 text-sm font-bold text-gray-900 ring-1 ring-black/[0.12] transition hover:bg-black/[0.04] hover:ring-black/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141409] disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-5 text-sm font-bold text-gray-900 ring-1 ring-black/[0.12] transition hover:bg-black/[0.04] hover:ring-black/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141409] disabled:cursor-not-allowed disabled:opacity-50";
 
 /** Page title row used by every profile tab. */
 export function ProfileHeader({ eyebrow, title, count, action }) {
@@ -39,21 +38,18 @@ export function ProfileHeader({ eyebrow, title, count, action }) {
 export function ProfileLoading({ label }) {
   return (
     <div className={`${cardClass} flex flex-col items-center justify-center py-16`}>
-      <BrandLoader variant="scoop" size={110} />
+      <InlineLoader size={32} />
       {label && <p className="mt-4 text-sm text-gray-500">{label}</p>}
     </div>
   );
 }
 
-/** Yellow empty-state card with sparkles, matching the empty cart. */
+/** Yellow empty-state card, matching the empty cart. */
 export function ProfileEmpty({ icon, title, text, actionLabel, onAction }) {
   const Icon = icon;
   return (
     <div className="relative overflow-hidden rounded-3xl bg-[#FDC700] px-6 py-12 text-center sm:py-16">
-      <Sparkle color="#141409" className="absolute left-[8%] top-[16%] h-6 w-6 rotate-12" />
-      <Sparkle color="#ffffff" className="absolute bottom-[18%] left-[16%] h-4 w-4" />
-      <Sparkle color="#E3262F" className="absolute right-[10%] top-[22%] h-8 w-8" />
-      <div className="relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#141409] text-[#FDC700] shadow-[4px_4px_0_rgba(20,20,9,0.18)]">
+      <div className="relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#141409] text-[#FDC700]">
         <Icon size={28} />
       </div>
       <p className="relative font-display text-3xl font-bold uppercase leading-[0.95] tracking-tight text-[#141409]">

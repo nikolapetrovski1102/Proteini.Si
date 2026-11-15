@@ -1,150 +1,113 @@
-import { useState, useEffect } from "react";
+import { createElement, useEffect, useState } from "react";
+import { FiAlignLeft, FiArrowDown, FiArrowUp, FiAward, FiBriefcase, FiEdit2, FiFileText, FiPlus, FiTrash2, FiType, FiVideo } from "react-icons/fi";
 import { api } from "../../services/api";
+import {
+  AdminPage,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  IconButton,
+  ImagePicker,
+  Loading,
+  Modal,
+  inputClass,
+  textareaClass,
+} from "./AdminKit";
+import { useConfirm, useToast } from "./adminFeedback";
+
+const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+
+/** What each block type looks like and which fields it uses. */
+const TYPES = {
+  title: { label: "Title", icon: FiType, tone: "ink", hint: "A large heading that starts a new part of the page.", title: "required" },
+  subtitle: { label: "Subtitle", icon: FiAlignLeft, tone: "blue", hint: "A smaller heading under a title.", title: "required" },
+  paragraph: { label: "Paragraph", icon: FiFileText, tone: "neutral", hint: "A block of regular text.", content: true },
+  video: { label: "Video", icon: FiVideo, tone: "pink", hint: "An embedded YouTube video with an optional thumbnail.", title: "optional", video: true, image: "Video thumbnail" },
+  award: { label: "Award", icon: FiAward, tone: "yellow", hint: "An award or certificate with a short description.", title: "required", content: true },
+  "business-cooperation": { label: "Business cooperation", icon: FiBriefcase, tone: "green", hint: "Image, heading and text shown on the Business cooperation page.", title: "required", content: true, image: "Image" },
+};
+
+const emptyForm = { sectionType: "paragraph", title: "", videoUrl: "", content: "", displayOrder: 0 };
+
+const toEmbedUrl = (url) => {
+  const value = (url || "").trim();
+  const match = value.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : value;
+};
+
+const getImageUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith("http") || path.startsWith("blob:")) return path;
+  if (path.startsWith("/")) return `${import.meta.env.VITE_IMAGE_BASE_URL || "https://proteini.mk"}${path}`;
+  return path;
+};
+
+const adminName = () => {
+  const user = api.getUser();
+  return user?.fullName || user?.email || "Admin";
+};
 
 export default function AdminAboutCompany() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [sections, setSections] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [reordering, setReordering] = useState(false);
   const [editingSection, setEditingSection] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    sectionType: "paragraph",
-    title: "",
-    videoUrl: "",
-    content: "",
-    displayOrder: 0,
-    createdBy: "",
-  });
+  const [formData, setFormData] = useState(emptyForm);
   const [selectedThumbnailFile, setSelectedThumbnailFile] = useState(null);
   const [thumbnailPreview, setThumbnailPreview] = useState("");
 
-  // Fetch all sections on component mount
-  useEffect(() => {
-    fetchSections();
-  }, []);
-
   const fetchSections = async () => {
-    setLoading(true);
     try {
       const data = await api.getAllAboutCompanySections();
-      setSections(data);
+      setSections([...data].sort((a, b) => a.displayOrder - b.displayOrder));
     } catch (error) {
       console.error("Error fetching sections:", error);
-      alert("Failed to fetch about company sections");
+      toast.error("Failed to load the About page");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleThumbnailSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const allowedTypes = [
-        "image/jpeg",
-        "image/jpg",
-        "image/png",
-        "image/gif",
-        "image/webp",
-      ];
-      if (!allowedTypes.includes(file.type)) {
-        alert("Invalid file type. Only JPG, PNG, GIF, and WEBP are allowed.");
-        return;
-      }
+  useEffect(() => {
+    fetchSections();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-      if (file.size > 5 * 1024 * 1024) {
-        alert("File size too large. Maximum 5MB allowed.");
-        return;
-      }
+  const type = TYPES[formData.sectionType] || TYPES.paragraph;
+  const setField = (key, value) => setFormData((prev) => ({ ...prev, [key]: value }));
 
-      setSelectedThumbnailFile(file);
-      const previewUrl = URL.createObjectURL(file);
-      setThumbnailPreview(previewUrl);
+  const handleThumbnailSelect = (file) => {
+    if (!ALLOWED.includes(file.type)) {
+      toast.error("Only JPG, PNG, GIF and WebP images are allowed.");
+      return;
     }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image is too large. Maximum 5 MB.");
+      return;
+    }
+    setSelectedThumbnailFile(file);
+    setThumbnailPreview(URL.createObjectURL(file));
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === "displayOrder" ? parseInt(value) || 0 : value,
-    }));
-  };
-
-  const resetForm = () => {
-    setFormData({
-      sectionType: "paragraph",
-      title: "",
-      videoUrl: "",
-      content: "",
-      displayOrder: 0,
-      createdBy: "",
-    });
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingSection(null);
     setSelectedThumbnailFile(null);
     setThumbnailPreview("");
+  };
+
+  const startNew = () => {
     setEditingSection(null);
-    setShowForm(false);
-  };
-
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const user = api.getUser();
-      const sectionData = {
-        sectionType: formData.sectionType,
-        title: formData.title || null,
-        videoUrl: formData.videoUrl || null,
-        content: formData.content || null,
-        displayOrder: formData.displayOrder,
-        createdBy: user?.fullName || user?.email || "Admin",
-      };
-
-      if (selectedThumbnailFile) {
-        sectionData.videoThumbnail = selectedThumbnailFile;
-      }
-
-      await api.createAboutCompanySection(sectionData);
-      alert("Section created successfully");
-      resetForm();
-      fetchSections();
-    } catch (error) {
-      console.error("Error creating section:", error);
-      alert("Failed to create section");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const user = api.getUser();
-      const sectionData = {
-        id: editingSection.id,
-        sectionType: formData.sectionType,
-        title: formData.title || null,
-        videoUrl: formData.videoUrl || null,
-        content: formData.content || null,
-        displayOrder: formData.displayOrder,
-        isActive: editingSection.isActive,
-        updatedBy: user?.fullName || user?.email || "Admin",
-      };
-
-      if (selectedThumbnailFile) {
-        sectionData.videoThumbnail = selectedThumbnailFile;
-      }
-
-      await api.updateAboutCompanySection(sectionData);
-      alert("Section updated successfully");
-      resetForm();
-      fetchSections();
-    } catch (error) {
-      console.error("Error updating section:", error);
-      alert("Failed to update section");
-    } finally {
-      setLoading(false);
-    }
+    setFormData({ ...emptyForm, displayOrder: sections.length });
+    setSelectedThumbnailFile(null);
+    setThumbnailPreview("");
+    setShowForm(true);
   };
 
   const handleEdit = (section) => {
@@ -155,35 +118,72 @@ export default function AdminAboutCompany() {
       videoUrl: section.videoUrl || "",
       content: section.content || "",
       displayOrder: section.displayOrder,
-      createdBy: "",
     });
-    if (section.videoThumbnailPath) {
-      setThumbnailPreview(section.videoThumbnailPath);
-    }
+    setThumbnailPreview(getImageUrl(section.videoThumbnailPath) || "");
     setSelectedThumbnailFile(null);
     setShowForm(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this section?"))
+  const handleSubmit = async (e) => {
+    e?.preventDefault();
+    if (type.title === "required" && !formData.title.trim()) {
+      toast.error("Please enter a heading.");
       return;
-
-    setLoading(true);
+    }
+    if (type.content && !formData.content.trim()) {
+      toast.error("Please enter the text.");
+      return;
+    }
+    setSaving(true);
     try {
-      await api.deleteAboutCompanySection(id);
-      alert("Section deleted successfully");
-      fetchSections();
+      const sectionData = {
+        sectionType: formData.sectionType,
+        title: type.title ? formData.title || null : null,
+        videoUrl: type.video ? toEmbedUrl(formData.videoUrl) || null : null,
+        content: type.content ? formData.content || null : null,
+        displayOrder: formData.displayOrder,
+      };
+      if (type.image && selectedThumbnailFile) sectionData.videoThumbnail = selectedThumbnailFile;
+
+      if (editingSection) {
+        await api.updateAboutCompanySection({ ...sectionData, id: editingSection.id, isActive: editingSection.isActive, updatedBy: adminName() });
+        toast.success("Block updated.");
+      } else {
+        await api.createAboutCompanySection({ ...sectionData, createdBy: adminName() });
+        toast.success("Block added.");
+      }
+      closeForm();
+      await fetchSections();
+    } catch (error) {
+      console.error("Error saving section:", error);
+      toast.error("Failed to save the block.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (section) => {
+    const ok = await confirm({
+      title: "Delete this block?",
+      message: "It will be removed from the page. To hide it for now, turn off its switch instead.",
+      confirmLabel: "Delete",
+      tone: "danger",
+    });
+    if (!ok) return;
+    try {
+      await api.deleteAboutCompanySection(section.id);
+      toast.success("Block deleted.");
+      await fetchSections();
     } catch (error) {
       console.error("Error deleting section:", error);
-      alert("Failed to delete section");
-    } finally {
-      setLoading(false);
+      toast.error("Failed to delete the block.");
     }
   };
 
   const toggleActive = async (section) => {
+    const isActive = !section.isActive;
+    setSections((prev) => prev.map((s) => (s.id === section.id ? { ...s, isActive } : s)));
     try {
-      const user = api.getUser();
       await api.updateAboutCompanySection({
         id: section.id,
         sectionType: section.sectionType,
@@ -191,483 +191,205 @@ export default function AdminAboutCompany() {
         videoUrl: section.videoUrl,
         content: section.content,
         displayOrder: section.displayOrder,
-        isActive: !section.isActive,
-        updatedBy: user?.fullName || user?.email || "Admin",
+        isActive,
+        updatedBy: adminName(),
       });
-      fetchSections();
+      toast.success(isActive ? "Block is now visible." : "Block hidden.");
     } catch (error) {
       console.error("Error toggling section:", error);
-      alert("Failed to update section status");
+      toast.error("Couldn't change visibility.");
+      await fetchSections();
     }
   };
 
-  const moveUp = async (index) => {
-    if (index === 0) return;
-
-    const newSections = [...sections];
-    [newSections[index - 1], newSections[index]] = [
-      newSections[index],
-      newSections[index - 1],
-    ];
-
-    const reorderData = newSections.map((item, idx) => ({
-      id: item.id,
-      displayOrder: idx,
-    }));
-
+  const move = async (index, delta) => {
+    const target = index + delta;
+    if (target < 0 || target >= sections.length) return;
+    const next = [...sections];
+    [next[index], next[target]] = [next[target], next[index]];
+    setSections(next);
+    setReordering(true);
     try {
-      await api.reorderAboutCompanySections(reorderData);
-      fetchSections();
+      await api.reorderAboutCompanySections(next.map((item, idx) => ({ id: item.id, displayOrder: idx })));
     } catch (error) {
       console.error("Failed to reorder:", error);
-      fetchSections();
+      toast.error("Couldn't save the new order.");
+    } finally {
+      await fetchSections();
+      setReordering(false);
     }
   };
 
-  const moveDown = async (index) => {
-    if (index === sections.length - 1) return;
-
-    const newSections = [...sections];
-    [newSections[index + 1], newSections[index]] = [
-      newSections[index],
-      newSections[index + 1],
-    ];
-
-    const reorderData = newSections.map((item, idx) => ({
-      id: item.id,
-      displayOrder: idx,
-    }));
-
-    try {
-      await api.reorderAboutCompanySections(reorderData);
-      fetchSections();
-    } catch (error) {
-      console.error("Failed to reorder:", error);
-      fetchSections();
-    }
-  };
-
-  const getSectionTypeLabel = (type) => {
-    switch (type) {
-      case "video":
-        return "🎬 Video";
-      case "title":
-        return "📌 Title";
-      case "subtitle":
-        return "📝 Subtitle";
-      case "paragraph":
-        return "📄 Paragraph";
-      case "award":
-        return "🏆 Award";
-      case "business-cooperation":
-        return "🤝 Business Cooperation";
-      default:
-        return type;
-    }
-  };
-
-  const getSectionTypeColor = (type) => {
-    switch (type) {
-      case "video":
-        return "bg-purple-100 text-purple-700";
-      case "title":
-        return "bg-blue-100 text-blue-700";
-      case "subtitle":
-        return "bg-green-100 text-green-700";
-      case "paragraph":
-        return "bg-yellow-100 text-yellow-700";
-      case "award":
-        return "bg-red-100 text-red-700";
-      case "business-cooperation":
-        return "bg-cyan-100 text-cyan-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
-
-  const usesImageUpload =
-    formData.sectionType === "video" ||
-    formData.sectionType === "business-cooperation";
-
-  if (loading && !sections.length) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-gray-500">Loading sections...</div>
-      </div>
-    );
-  }
+  const embed = toEmbedUrl(formData.videoUrl);
+  const recognised = /youtube\.com\/embed\/[A-Za-z0-9_-]{11}/.test(embed);
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">
-            About Company Management
-          </h1>
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-[#e98286] hover:bg-[#d47175] text-white px-4 py-2 rounded-lg transition-colors"
-          >
-            + Add New Section
-          </button>
-        </div>
-
-        {/* Sections List */}
-        {sections.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-gray-500">
-              No sections found. Click "Add New Section" to get started.
-            </p>
-          </div>
+    <AdminPage
+      eyebrow="Content"
+      title="About us"
+      count={loading ? undefined : sections.length}
+      description="The About us page is built from these blocks, top to bottom. Use the arrows to reorder and the switch to hide a block without deleting it."
+      actions={
+        <Button icon={FiPlus} onClick={startNew}>
+          Add block
+        </Button>
+      }
+    >
+      <Card bodyClassName="">
+        {loading ? (
+          <Loading label="Loading page blocks…" />
+        ) : sections.length === 0 ? (
+          <EmptyState
+            icon={FiFileText}
+            title="The page is empty"
+            text="Start with a title, then add paragraphs, videos or awards below it."
+            action={<Button icon={FiPlus} onClick={startNew}>Add block</Button>}
+          />
         ) : (
-          <div className="space-y-4">
-            {sections.map((section, index) => (
-              <div
-                key={section.id}
-                className={`bg-white rounded-lg shadow-md overflow-hidden transition-all hover:shadow-lg ${
-                  !section.isActive ? "opacity-60 bg-gray-100" : ""
-                }`}
-              >
-                <div className="flex items-center p-4 gap-4">
-                  {/* Order number and reorder buttons */}
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-xs text-gray-400 font-medium">
-                      #{index + 1}
-                    </span>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => moveUp(index)}
-                        disabled={index === 0}
-                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Move up"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 15l7-7 7 7"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => moveDown(index)}
-                        disabled={index === sections.length - 1}
-                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Move down"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 9l-7 7-7-7"
-                          />
-                        </svg>
-                      </button>
-                    </div>
+          <ol className={`divide-y divide-black/[0.06] ${reordering ? "pointer-events-none opacity-70" : ""}`}>
+            {sections.map((section, index) => {
+              const t = TYPES[section.sectionType] || { label: section.sectionType, icon: FiFileText, tone: "neutral" };
+              const thumb = getImageUrl(section.videoThumbnailPath);
+              return (
+                <li key={section.id} className={`flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5 ${section.isActive ? "" : "bg-[#faf9f6]"}`}>
+                  <div className="flex flex-col items-center">
+                    <IconButton icon={FiArrowUp} label="Move up" disabled={index === 0 || reordering} onClick={() => move(index, -1)} className="h-8 w-8" />
+                    <span className="font-display text-sm font-bold tabular-nums text-gray-400">{index + 1}</span>
+                    <IconButton icon={FiArrowDown} label="Move down" disabled={index === sections.length - 1 || reordering} onClick={() => move(index, 1)} className="h-8 w-8" />
                   </div>
-
-                  {/* Type badge */}
-                  <div className="flex-shrink-0">
-                    <span
-                      className={`px-3 py-1 text-xs font-semibold rounded-full ${getSectionTypeColor(section.sectionType)}`}
-                    >
-                      {getSectionTypeLabel(section.sectionType)}
-                    </span>
-                  </div>
-
-                  {/* Content preview */}
-                  <div className="flex-1 min-w-0">
-                    {section.title && (
-                      <h3 className="font-semibold text-gray-800 truncate">
-                        {section.title}
-                      </h3>
-                    )}
-                    {section.content && (
-                      <p className="text-sm text-gray-600 truncate">
-                        {section.content.substring(0, 100)}
-                        {section.content.length > 100 ? "..." : ""}
-                      </p>
-                    )}
-                    {section.videoUrl && (
-                      <p className="text-sm text-gray-500 truncate">
-                        🎥 {section.videoUrl}
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-400 mt-1">
-                      Order: {section.displayOrder} | Created:{" "}
-                      {new Date(section.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-
-                  {/* Status toggle */}
-                  <button
-                    onClick={() => toggleActive(section)}
-                    className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-                      section.isActive
-                        ? "bg-green-100 text-green-700 hover:bg-green-200"
-                        : "bg-gray-200 text-gray-500 hover:bg-gray-300"
-                    }`}
-                  >
-                    {section.isActive ? "Active" : "Inactive"}
+                  {thumb && (
+                    <img src={thumb} alt="" className={`hidden aspect-video w-24 shrink-0 rounded-lg bg-[#f6f5f1] object-cover sm:block ${section.isActive ? "" : "opacity-50 grayscale"}`} />
+                  )}
+                  <button type="button" onClick={() => handleEdit(section)} className={`min-w-0 flex-1 text-left ${section.isActive ? "" : "opacity-60"}`}>
+                    <Badge tone={t.tone}>
+                      {createElement(t.icon, { size: 11, "aria-hidden": true })}
+                      {t.label}
+                    </Badge>
+                    {section.title && <p className="mt-1 truncate font-bold text-gray-900">{section.title}</p>}
+                    {section.content && <p className="mt-0.5 line-clamp-2 text-sm text-gray-600">{section.content}</p>}
+                    {section.videoUrl && <p className="mt-0.5 truncate text-xs text-gray-500">{section.videoUrl}</p>}
                   </button>
-
-                  {/* Actions */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEdit(section)}
-                      className="text-blue-600 hover:text-blue-800 p-2 transition-colors"
-                      title="Edit"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                        />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleDelete(section.id)}
-                      className="text-red-600 hover:text-red-800 p-2 transition-colors"
-                      title="Delete"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-xl font-bold mb-4">
-                {editingSection ? "Edit Section" : "Add New Section"}
-              </h2>
-              <form onSubmit={editingSection ? handleUpdate : handleCreate}>
-                <div className="space-y-4">
-                  {/* Section Type */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Section Type *
-                    </label>
-                    <select
-                      name="sectionType"
-                      value={formData.sectionType}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                    >
-                      <option value="video">🎬 Video</option>
-                      <option value="title">📌 Title</option>
-                      <option value="subtitle">📝 Subtitle</option>
-                      <option value="paragraph">📄 Paragraph</option>
-                      <option value="award">🏆 Award</option>
-                      <option value="business-cooperation">
-                        🤝 Business Cooperation
-                      </option>
-                    </select>
-                  </div>
-
-                  {/* Title (for title, subtitle, video, award types) */}
-                  {(formData.sectionType === "title" ||
-                    formData.sectionType === "subtitle" ||
-                    formData.sectionType === "video" ||
-                    formData.sectionType === "award" ||
-                    formData.sectionType === "business-cooperation") && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Title{" "}
-                        {formData.sectionType === "video" ? "(Optional)" : "*"}
-                      </label>
-                      <input
-                        type="text"
-                        name="title"
-                        value={formData.title}
-                        onChange={handleInputChange}
-                        required={formData.sectionType !== "video"}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                        placeholder="Enter title..."
-                      />
-                    </div>
-                  )}
-
-                  {/* Video URL (for video type only) */}
-                  {usesImageUpload && (
-                    <>
-                      {formData.sectionType === "video" && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            YouTube Video URL
-                          </label>
-                          <input
-                            type="url"
-                            name="videoUrl"
-                            value={formData.videoUrl}
-                            onChange={handleInputChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                            placeholder="https://www.youtube.com/embed/beU6PhV2fqA"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Use embed URL format:
-                            https://www.youtube.com/embed/VIDEO_ID
-                          </p>
-                        </div>
-                      )}
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {formData.sectionType === "business-cooperation"
-                            ? "Business Cooperation Image"
-                            : "Video Thumbnail (Optional)"}
-                        </label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                          {thumbnailPreview ? (
-                            <div>
-                              <img
-                                src={thumbnailPreview}
-                                alt="Thumbnail Preview"
-                                className="max-h-32 mx-auto mb-2 rounded object-contain"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedThumbnailFile(null);
-                                  setThumbnailPreview("");
-                                }}
-                                className="text-sm text-red-600 hover:text-red-800"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          ) : (
-                            <div>
-                              <input
-                                type="file"
-                                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                                onChange={handleThumbnailSelect}
-                                className="hidden"
-                                id="thumbnail-upload"
-                              />
-                              <label
-                                htmlFor="thumbnail-upload"
-                                className="cursor-pointer text-[#e98286] hover:text-[#d47175]"
-                              >
-                                Click to upload thumbnail
-                              </label>
-                              <p className="text-xs text-gray-500 mt-1">
-                                JPG, PNG, GIF, WEBP. Max 5MB.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Content (for paragraph and award types) */}
-                  {(formData.sectionType === "paragraph" ||
-                    formData.sectionType === "award" ||
-                    formData.sectionType === "business-cooperation") && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Content *
-                      </label>
-                      <textarea
-                        name="content"
-                        value={formData.content}
-                        onChange={handleInputChange}
-                        required
-                        rows="6"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                        placeholder="Enter content here..."
-                      />
-                    </div>
-                  )}
-
-                  {/* Display Order */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Display Order
-                    </label>
-                    <input
-                      type="number"
-                      name="displayOrder"
-                      value={formData.displayOrder}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e98286]"
-                      min="0"
-                      placeholder="0 = first position"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Lower numbers appear first
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-6">
                   <button
                     type="button"
-                    onClick={resetForm}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    role="switch"
+                    aria-checked={section.isActive}
+                    aria-label={section.isActive ? "Visible — click to hide" : "Hidden — click to show"}
+                    title={section.isActive ? "Visible" : "Hidden"}
+                    onClick={() => toggleActive(section)}
+                    className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141409] focus-visible:ring-offset-2 ${section.isActive ? "bg-[#141409]" : "bg-black/[0.15]"}`}
                   >
-                    Cancel
+                    <span className={`absolute h-5 w-5 rounded-full shadow transition-all ${section.isActive ? "left-[18px] bg-[#FDC700]" : "left-0.5 bg-white"}`} />
                   </button>
+                  <div className="flex gap-1">
+                    <IconButton icon={FiEdit2} label="Edit block" onClick={() => handleEdit(section)} />
+                    <IconButton icon={FiTrash2} tone="danger" label="Delete block" onClick={() => handleDelete(section)} />
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </Card>
+
+      <Modal
+        open={showForm}
+        onClose={closeForm}
+        size="lg"
+        title={editingSection ? "Edit block" : "Add block"}
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeForm}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} loading={saving}>
+              {editingSection ? "Save changes" : "Add block"}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <p className="mb-2 text-[13px] font-semibold text-gray-800">What kind of block?</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {Object.entries(TYPES).map(([value, t]) => {
+                const selected = formData.sectionType === value;
+                return (
                   <button
-                    type="submit"
-                    disabled={loading || uploadingImage}
-                    className="flex-1 px-4 py-2 bg-[#e98286] text-white rounded-lg hover:bg-[#d47175] disabled:opacity-50"
+                    key={value}
+                    type="button"
+                    onClick={() => setField("sectionType", value)}
+                    aria-pressed={selected}
+                    className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+                      selected ? "bg-[#141409] text-white" : "bg-[#f6f5f1] text-gray-800 hover:bg-[#efede6]"
+                    }`}
                   >
-                    {uploadingImage
-                      ? "Uploading..."
-                      : loading
-                        ? "Saving..."
-                        : editingSection
-                          ? "Update"
-                          : "Create"}
+                    {createElement(t.icon, { size: 15, className: selected ? "text-[#FDC700]" : "text-gray-500", "aria-hidden": true })}
+                    {t.label}
                   </button>
-                </div>
-              </form>
+                );
+              })}
             </div>
+            <p className="mt-2 text-xs text-gray-500">{type.hint}</p>
           </div>
-        </div>
-      )}
-    </div>
+
+          {type.title && (
+            <Field label="Heading" required={type.title === "required"} hint={type.title === "optional" ? "Optional." : undefined}>
+              <input className={inputClass} value={formData.title} onChange={(e) => setField("title", e.target.value)} />
+            </Field>
+          )}
+
+          {type.video && (
+            <Field
+              label="YouTube link"
+              hint="Paste any YouTube link — it's converted automatically."
+              error={formData.videoUrl && !recognised ? "This doesn't look like a YouTube link." : undefined}
+            >
+              <input className={inputClass} value={formData.videoUrl} onChange={(e) => setField("videoUrl", e.target.value)} placeholder="https://www.youtube.com/watch?v=…" />
+            </Field>
+          )}
+
+          {type.image && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={type.image} hint={type.video ? "Optional. Shown before the video plays." : undefined}>
+                <ImagePicker promptKey="about"
+                  preview={thumbnailPreview}
+                  aspect="aspect-video"
+                  accept={ALLOWED.join(",")}
+                  hint="JPG, PNG or WebP. Max 5 MB."
+                  onFile={handleThumbnailSelect}
+                  onClear={() => {
+                    setSelectedThumbnailFile(null);
+                    setThumbnailPreview("");
+                  }}
+                />
+              </Field>
+              {type.video && recognised && (
+                <div>
+                  <p className="mb-1.5 text-[13px] font-semibold text-gray-800">Preview</p>
+                  <iframe title="Video preview" src={embed} className="aspect-video w-full rounded-xl bg-black" allow="encrypted-media; picture-in-picture" allowFullScreen />
+                </div>
+              )}
+            </div>
+          )}
+
+          {type.content && (
+            <Field label="Text" required>
+              <textarea rows={6} className={textareaClass} value={formData.content} onChange={(e) => setField("content", e.target.value)} />
+            </Field>
+          )}
+
+          <Field label="Position" hint="1 = top of the page. You can also use the arrows on the list." className="max-w-[12rem]">
+            <input
+              type="number"
+              min="1"
+              className={inputClass}
+              value={formData.displayOrder + 1}
+              onChange={(e) => setField("displayOrder", Math.max(0, (parseInt(e.target.value) || 1) - 1))}
+            />
+          </Field>
+          <button type="submit" className="hidden" />
+        </form>
+      </Modal>
+    </AdminPage>
   );
 }

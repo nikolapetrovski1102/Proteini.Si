@@ -34,6 +34,9 @@ public class ProductProvider(ISqlHelper sql) : IProductProvider
     public Task<List<Product>> GetAllAsync() =>
         sql.QueryAsync<Product>(StoredProcedures.Products.GetAll);
 
+    public Task<List<ProductFeedItemDto>> GetAdFeedAsync() =>
+        sql.QueryAsync<ProductFeedItemDto>(StoredProcedures.Products.GetAdFeed);
+
     public Task<(ProductFilterOptionsDto Options, decimal MaximumPrice)> GetFilterOptionsAsync() =>
         sql.QueryMultipleAsync(StoredProcedures.Products.GetFilterOptions, null, async grid =>
         {
@@ -48,6 +51,8 @@ public class ProductProvider(ISqlHelper sql) : IProductProvider
                 Tags = (await grid.ReadAsync<ProductTag>()).ToList()
             };
             var maximumPrice = await grid.ReadSingleAsync<decimal>();
+            if (!grid.IsConsumed)
+                options.Sizes = (await grid.ReadAsync<string>()).ToList();
             return (options, maximumPrice);
         });
 
@@ -70,6 +75,7 @@ public class ProductProvider(ISqlHelper sql) : IProductProvider
             query.OnSale,
             query.UpcomingPromotions,
             query.NewProducts,
+            query.BestSellers,
             query.Outlet,
             query.GiftVouchers,
             query.JustForMe,
@@ -81,7 +87,12 @@ public class ProductProvider(ISqlHelper sql) : IProductProvider
             query.SortBy,
             query.SortDesc,
             query.Offset,
-            query.PageSize
+            query.PageSize,
+            Sizes = TableParameters.StringList(query.Sizes),
+            ProductIds = TableParameters.IntList(query.ProductIds),
+            PinCategoryIds = TableParameters.IntList(query.PinCategoryIds),
+            PinBrandIds = TableParameters.IntList(query.PinBrandIds),
+            query.PinAll
         }, async grid =>
         {
             var totalCount = await grid.ReadSingleAsync<int>();

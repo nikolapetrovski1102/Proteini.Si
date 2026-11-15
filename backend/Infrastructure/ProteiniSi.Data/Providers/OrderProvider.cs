@@ -24,6 +24,13 @@ public class OrderProvider(ISqlHelper sql) : IOrderProvider
     public Task<CheckoutPromotion?> GetPromotionAsync(string code, int userId, string customerEmail) =>
         sql.QuerySingleOrDefaultAsync<CheckoutPromotion>(StoredProcedures.Orders.GetPromotion, new { Code = code, UserId = userId, CustomerEmail = customerEmail });
 
+    public async Task<HashSet<int>> GetPromotionEligibleProductIdsAsync(int promoCodeId, IEnumerable<int> productIds) =>
+        [.. await sql.QueryAsync<int>(StoredProcedures.Promotions.GetEligibleProducts, new
+        {
+            PromoCodeId = promoCodeId,
+            ProductIds = TableParameters.IntList(productIds)
+        })];
+
     public Task<CheckoutFreeGift?> GetFreeGiftAsync(int freeGiftId, decimal subtotal) =>
         sql.QuerySingleOrDefaultAsync<CheckoutFreeGift>(StoredProcedures.Orders.GetFreeGift, new { FreeGiftId = freeGiftId, Subtotal = subtotal });
 
@@ -90,7 +97,11 @@ public class OrderProvider(ISqlHelper sql) : IOrderProvider
                 request.PointsEarned,
                 PointsText = request.PointsRedeemed.ToString(),
                 request.CartId,
-                Items = items
+                Items = items,
+                request.Language,
+                request.GiftRecipientName,
+                request.GiftRecipientEmail,
+                request.GiftMessage
             });
 
             return created ?? throw new InvalidOperationException("Order creation returned no result.");

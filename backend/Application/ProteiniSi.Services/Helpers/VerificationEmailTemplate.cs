@@ -24,52 +24,111 @@ public static class VerificationEmailTemplate
         "Nëse nuk keni krijuar llogari, injorojeni këtë mesazh.",
         "Proteini.si · Shkup, Maqedoni");
 
-    public static (string Subject, string Html) Build(string? name, string code, int validMinutes, string? language)
+    private static readonly Copy CheckoutMacedonian = Macedonian with
     {
-        var copy = string.Equals(language, "al", StringComparison.OrdinalIgnoreCase) ? Albanian : Macedonian;
+        Subject = "Код за потврда на нарачката",
+        Heading = "Потврдете ја нарачката",
+        Intro = "Внесете го кодот подолу на страницата за плаќање за да ја потврдите вашата нарачка со плаќање при достава.",
+        Ignore = "Ако не сте правеле нарачка на Proteini.si, слободно игнорирајте ја оваа порака."
+    };
+
+    private static readonly Copy CheckoutAlbanian = Albanian with
+    {
+        Subject = "Kodi për konfirmimin e porosisë",
+        Heading = "Konfirmoni porosinë",
+        Intro = "Shkruani kodin më poshtë në faqen e pagesës për të konfirmuar porosinë tuaj me pagesë në dorëzim.",
+        Ignore = "Nëse nuk keni bërë porosi në Proteini.si, injorojeni këtë mesazh."
+    };
+
+    private static readonly Copy SignInMacedonian = Macedonian with
+    {
+        Subject = "Вашиот код за најава",
+        Heading = "Најавете се на Proteini.si",
+        Intro = "Внесете го кодот подолу за да се најавите. Ако сè уште немате сметка, ќе ја креираме веднаш.",
+        Ignore = "Ако не сте побарале најава, слободно игнорирајте ја оваа порака. Никој не може да се најави без овој код."
+    };
+
+    private static readonly Copy SignInAlbanian = Albanian with
+    {
+        Subject = "Kodi juaj për hyrje",
+        Heading = "Hyni në Proteini.si",
+        Intro = "Shkruani kodin më poshtë për t'u kyçur. Nëse ende nuk keni llogari, do ta krijojmë menjëherë.",
+        Ignore = "Nëse nuk keni kërkuar hyrje, injorojeni këtë mesazh. Askush nuk mund të hyjë pa këtë kod."
+    };
+
+    /// <summary>Code email for signing in (or signing up) without a password.</summary>
+    public static (string Subject, string Html) BuildSignIn(string code, int validMinutes, string? language) =>
+        Render(IsAlbanian(language) ? SignInAlbanian : SignInMacedonian, null, code, validMinutes);
+
+    /// <summary>Code email for a guest confirming a cash-on-delivery order.</summary>
+    public static (string Subject, string Html) BuildCheckout(string? name, string code, int validMinutes, string? language) =>
+        Render(IsAlbanian(language) ? CheckoutAlbanian : CheckoutMacedonian, name, code, validMinutes);
+
+    public static (string Subject, string Html) Build(string? name, string code, int validMinutes, string? language) =>
+        Render(IsAlbanian(language) ? Albanian : Macedonian, name, code, validMinutes);
+
+    private sealed record ResetCopy(string Subject, string Heading, string Intro, string Button, string Expiry, string Fallback, string Ignore, string Footer);
+
+    private static readonly ResetCopy ResetMacedonian = new(
+        "Промена на лозинка",
+        "Поставете нова лозинка",
+        "Добивме барање за промена на лозинката за вашата сметка на Proteini.si. Кликнете на копчето подолу за да поставите нова лозинка.",
+        "Промени лозинка",
+        "Линкот важи 1 час и може да се искористи само еднаш.",
+        "Ако копчето не работи, копирајте го овој линк во прелистувачот:",
+        "Ако не сте побарале промена на лозинка, слободно игнорирајте ја оваа порака. Вашата лозинка останува иста.",
+        "Proteini.si · Скопје, Македонија");
+
+    private static readonly ResetCopy ResetAlbanian = new(
+        "Ndryshimi i fjalëkalimit",
+        "Vendosni fjalëkalim të ri",
+        "Morëm një kërkesë për ndryshimin e fjalëkalimit të llogarisë suaj në Proteini.si. Klikoni butonin më poshtë për të vendosur një fjalëkalim të ri.",
+        "Ndrysho fjalëkalimin",
+        "Lidhja është e vlefshme për 1 orë dhe mund të përdoret vetëm një herë.",
+        "Nëse butoni nuk funksionon, kopjoni këtë lidhje në shfletues:",
+        "Nëse nuk keni kërkuar ndryshim të fjalëkalimit, injorojeni këtë mesazh. Fjalëkalimi juaj mbetet i njëjtë.",
+        "Proteini.si · Shkup, Maqedoni");
+
+    /// <summary>Password reset link email.</summary>
+    public static (string Subject, string Html) BuildPasswordReset(string resetUrl, string? language)
+    {
+        var copy = IsAlbanian(language) ? ResetAlbanian : ResetMacedonian;
+        var safeUrl = WebUtility.HtmlEncode(resetUrl);
+
+        var rows =
+            EmailLayout.Hero(copy.Heading, null, EmailLayout.Tone.Yellow, WebUtility.HtmlEncode(copy.Intro)) +
+            EmailLayout.Row(
+                EmailLayout.Button(resetUrl, copy.Button) +
+                EmailLayout.Note(WebUtility.HtmlEncode(copy.Expiry), "14px 0 0 0")) +
+            EmailLayout.Row(
+                EmailLayout.Note(WebUtility.HtmlEncode(copy.Fallback)) +
+                $"<p style='margin:6px 0 0 0; font-size:12px; line-height:18px; word-break:break-all;'><a href='{safeUrl}' target='_blank' style='color:{EmailLayout.Ink};'>{safeUrl}</a></p>") +
+            EmailLayout.Row(EmailLayout.Note(WebUtility.HtmlEncode(copy.Ignore)), "0 36px 32px 36px");
+
+        return (copy.Subject, EmailLayout.Page(copy.Subject, copy.Intro, rows, locationLine: copy.Footer));
+    }
+
+    private static bool IsAlbanian(string? language) =>
+        string.Equals(language, "al", StringComparison.OrdinalIgnoreCase);
+
+    private static (string Subject, string Html) Render(Copy copy, string? name, string code, int validMinutes)
+    {
         var displayName = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(name) ? "" : name.Trim());
         var greeting = string.IsNullOrEmpty(displayName) ? copy.Greeting.Replace(" {0}", "") : string.Format(copy.Greeting, displayName);
-        var spacedCode = string.Join("&#8202;", code.ToCharArray());
+        // No separator characters between digits: letter-spacing does the spacing, so copy/paste yields exactly the six digits.
+        // Sized to fit a 320px-wide phone; the .code-box/.code rules in EmailLayout shrink it further on small screens.
+        var codeBox =
+            $"<table role='presentation' width='100%' cellpadding='0' cellspacing='0' border='0' style='background:{EmailLayout.Paper}; border-radius:14px;'><tr><td class='code-box' align='center' style='padding:26px 16px 22px 16px;'>" +
+            $"<div class='code' style='display:inline-block; background:{EmailLayout.Ink}; color:{EmailLayout.Yellow}; border-radius:12px; padding:14px 14px 14px 21px; font-size:30px; line-height:36px; font-weight:700; letter-spacing:7px; white-space:nowrap; font-family:\"Courier New\", Courier, monospace;'>{WebUtility.HtmlEncode(code)}</div>" +
+            $"<p style='margin:14px 0 0 0; font-size:13px; line-height:18px; color:{EmailLayout.Muted};'>{WebUtility.HtmlEncode(string.Format(copy.Expiry, validMinutes))}</p>" +
+            "</td></tr></table>";
 
-        var html = $@"<!DOCTYPE html>
-<html>
-<body style='margin:0; padding:0; background:#f6f5f1; font-family:Arial, Helvetica, sans-serif; color:#141409;'>
-  <table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='background:#f6f5f1; padding:32px 12px;'>
-    <tr>
-      <td align='center'>
-        <table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='max-width:520px; background:#ffffff; border-radius:16px; overflow:hidden; border-bottom:4px solid #FDC700;'>
-          <tr>
-            <td style='padding:28px 32px 8px 32px;'>
-              <img src='https://proteini.mk/logos/proteini-invoice-logo.png' width='180' alt='Proteini.si' style='display:block; border:0; max-width:180px; height:auto;'>
-            </td>
-          </tr>
-          <tr>
-            <td style='padding:16px 32px 0 32px;'>
-              <h1 style='margin:0; font-size:26px; line-height:30px; font-weight:800; text-transform:uppercase; letter-spacing:-0.3px;'>{WebUtility.HtmlEncode(copy.Heading)}</h1>
-              <p style='margin:18px 0 0 0; font-size:15px; line-height:22px;'>{greeting}</p>
-              <p style='margin:8px 0 0 0; font-size:15px; line-height:22px; color:#4b4b45;'>{WebUtility.HtmlEncode(copy.Intro)}</p>
-            </td>
-          </tr>
-          <tr>
-            <td align='center' style='padding:26px 32px;'>
-              <div style='display:inline-block; background:#141409; color:#FDC700; border-radius:14px; padding:18px 28px; font-size:36px; line-height:40px; font-weight:800; letter-spacing:10px; font-family:""Courier New"", Courier, monospace;'>{spacedCode}</div>
-              <p style='margin:14px 0 0 0; font-size:13px; line-height:18px; color:#6b6b63;'>{WebUtility.HtmlEncode(string.Format(copy.Expiry, validMinutes))}</p>
-            </td>
-          </tr>
-          <tr>
-            <td style='padding:0 32px 28px 32px;'>
-              <p style='margin:0; font-size:13px; line-height:19px; color:#6b6b63;'>{WebUtility.HtmlEncode(copy.Ignore)}</p>
-            </td>
-          </tr>
-          <tr>
-            <td style='padding:16px 32px; background:#141409; color:#bdbdb3; font-size:12px; line-height:16px;'>{WebUtility.HtmlEncode(copy.Footer)}</td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>";
+        var rows =
+            EmailLayout.Hero(copy.Heading, null, EmailLayout.Tone.Yellow, greeting, WebUtility.HtmlEncode(copy.Intro)) +
+            EmailLayout.Row(codeBox) +
+            EmailLayout.Row(EmailLayout.Note(WebUtility.HtmlEncode(copy.Ignore)), "0 36px 32px 36px");
+
+        var html = EmailLayout.Page(copy.Subject, $"{copy.Subject}: {code}", rows, locationLine: copy.Footer);
 
         return ($"{copy.Subject}: {code}", html);
     }

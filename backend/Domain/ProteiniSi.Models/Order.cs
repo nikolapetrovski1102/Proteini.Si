@@ -57,6 +57,7 @@ public class CheckoutPromotion
     public bool IsActive { get; set; }
     public int TimesUsed { get; set; }
     public int CustomerTimesUsed { get; set; }
+    public string AppliesTo { get; set; } = PromoScope.All;
 }
 
 public class CheckoutFreeGift
@@ -83,6 +84,7 @@ public class OrderCancelOutcome
     public decimal? Points_Redeemed { get; set; }
     public string? User_Email { get; set; }
     public string? User_FullName { get; set; }
+    public string? Language { get; set; }
 }
 
 public class OrderCancelInfo
@@ -104,6 +106,7 @@ public class OrderStatusSnapshot
     public string? Transaction_Id { get; set; }
     public string? Tracking_Number { get; set; }
     public string? Tracking_Url { get; set; }
+    public string? Language { get; set; }
 }
 
 public class OrderDocumentFile
@@ -122,10 +125,18 @@ public class LastOrder
 
 public class IssuedVoucher
 {
+    public int GiftVoucherId { get; set; }
     public string Code { get; set; } = string.Empty;
     public decimal InitialValue { get; set; }
     public decimal RemainingValue { get; set; }
     public DateTime? ExpiresAt { get; set; }
+    public string? PurchaserName { get; set; }
+    public string? PurchaserEmail { get; set; }
+    public string? RecipientName { get; set; }
+    public string? RecipientEmail { get; set; }
+    public string? GiftMessage { get; set; }
+    public string? Order_Number { get; set; }
+    public string? Language { get; set; }
 }
 
 public class EmailSendResult

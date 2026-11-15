@@ -10,6 +10,7 @@ public interface IOrderProvider
     Task<List<CheckoutCartItem>> GetCartItemsAsync(int cartId);
     Task<GuestCheckoutProduct?> GetGuestProductAsync(int productId, int? variantId);
     Task<CheckoutPromotion?> GetPromotionAsync(string code, int userId, string customerEmail);
+    Task<HashSet<int>> GetPromotionEligibleProductIdsAsync(int promoCodeId, IEnumerable<int> productIds);
     Task<CheckoutFreeGift?> GetFreeGiftAsync(int freeGiftId, decimal subtotal);
     Task<OrderCreated> CreateAsync(OrderCreateRequest request);
 

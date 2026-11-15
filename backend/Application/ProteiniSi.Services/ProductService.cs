@@ -112,6 +112,24 @@ public class ProductService(IProductProvider provider, IImageStorageService imag
         filters.FlavorIds = NormalizeFilterIds(filters.FlavorIds);
         filters.BrandIds = NormalizeFilterIds(filters.BrandIds);
         filters.TagIds = NormalizeFilterIds(filters.TagIds);
+        filters.ProductIds = NormalizeFilterIds(filters.ProductIds);
+        var sizes = (filters.Sizes ?? [])
+            .Where(size => !string.IsNullOrWhiteSpace(size))
+            .Select(size => size.Trim())
+            .Where(size => size.Length <= 40)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(20)
+            .ToList();
+
+        var sortBy = filters.SortBy.ToLower() switch
+        {
+            "price" or "name" or "createdat" or "product_id" or "soldcount" => filters.SortBy.ToLower(),
+            _ => "priority"
+        };
+        var sortDesc = filters.SortOrder == "DESC";
+        // The best-sellers filter lists the most-sold first unless the shopper picked another sort.
+        if (filters.BestSellers == true && sortBy == "priority")
+            (sortBy, sortDesc) = ("soldcount", true);
 
         var query = new ProductFilterQuery
         {
@@ -122,24 +140,34 @@ public class ProductService(IProductProvider provider, IImageStorageService imag
             TagIds = filters.TagIds,
             BrandIds = filters.BrandIds,
             FlavorIds = filters.FlavorIds,
+            Sizes = sizes,
+            ProductIds = filters.ProductIds,
             MinPrice = filters.MinPrice > 0 ? filters.MinPrice : null,
             MaxPrice = filters.MaxPrice > 0 ? filters.MaxPrice : null,
             InStock = filters.InStock == true,
             OnSale = filters.OnSale == true,
             UpcomingPromotions = filters.UpcomingPromotions == true,
             NewProducts = filters.NewProducts == true,
+            BestSellers = filters.BestSellers == true,
             Outlet = filters.Outlet == true,
             GiftVouchers = filters.GiftVouchers == true,
             JustForMe = filters.JustForMe == true,
-            SortBy = filters.SortBy.ToLower() switch
-            {
-                "price" or "name" or "createdat" or "product_id" => filters.SortBy.ToLower(),
-                _ => "priority"
-            },
-            SortDesc = filters.SortOrder == "DESC",
+            SortBy = sortBy,
+            SortDesc = sortDesc,
             Offset = (filters.Page - 1) * filters.PageSize,
             PageSize = filters.PageSize
         };
+
+        // Admin-pinned products lead the default order of the listing the shopper opened: the selected categories
+        // (as chosen, not expanded to subcategories), the selected brands, or the whole shop when neither is set.
+        // Search results and an explicit sort keep their own order.
+        var hasSearch = !string.IsNullOrEmpty(filters.SearchTerm) && filters.SearchTerm != "string";
+        if (sortBy == "priority" && !hasSearch && filters.ProductIds.Count == 0)
+        {
+            query.PinCategoryIds = filters.CategoryIds;
+            query.PinBrandIds = filters.BrandIds;
+            query.PinAll = filters.CategoryIds.Count == 0 && filters.BrandIds.Count == 0;
+        }
 
         if (!string.IsNullOrEmpty(filters.SearchTerm) && filters.SearchTerm != "string")
         {

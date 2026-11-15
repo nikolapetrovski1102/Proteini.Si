@@ -40,6 +40,7 @@ public class ResendVerificationCodeDto
 public class ForgotPasswordDto
 {
     public string? User_Email { get; set; }
+    public string? Language { get; set; }
 }
 
 public class ResetPasswordDto
@@ -84,7 +85,7 @@ public record AuthUserDto(
     string? User_Phone,
     UserCompanyDto? Company);
 
-public record AuthResponseDto(bool Status, string Token, string Message, AuthUserDto User);
+public record AuthResponseDto(bool Status, string Token, string Message, AuthUserDto User, bool IsNewAccount = false);
 
 public record UserProfileDto(
     int User_Id,
@@ -106,3 +107,32 @@ public record StatusMessageDto(bool Status, string Message);
 public record RegistrationResponseDto(bool Status, bool RequiresVerification, string Email, string Message, int RetryAfterSeconds);
 
 public record ResendVerificationResponseDto(bool Status, string Message, int RetryAfterSeconds);
+
+public class ExternalSignInDto
+{
+    public string? Language { get; set; }
+
+    /// <summary>"google".</summary>
+    public string? Provider { get; set; }
+
+    /// <summary>Google authorization code from the popup flow.</summary>
+    public string? Token { get; set; }
+}
+
+public class EmailCodeSendDto
+{
+    public string? User_Email { get; set; }
+    public string? Language { get; set; }
+}
+
+public class EmailCodeSignInDto
+{
+    public string? User_Email { get; set; }
+    public string? Code { get; set; }
+
+    /// <summary>Required only when the email has no account yet.</summary>
+    public string? User_FullName { get; set; }
+    public string? Language { get; set; }
+}
+
+public record EmailCodeSentDto(bool Status, string Message, int RetryAfterSeconds, bool IsNewAccount);

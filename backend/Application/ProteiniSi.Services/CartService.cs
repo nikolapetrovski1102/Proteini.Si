@@ -1,3 +1,4 @@
+using ProteiniSi.Services.Helpers;
 using ProteiniSi.Contracts.Exceptions;
 using ProteiniSi.Contracts.Providers;
 using ProteiniSi.Contracts.Services;
@@ -62,7 +63,7 @@ public class CartService(ICartProvider provider) : ICartService
 
         var displayName = product.Name;
         if (product.IsGiftVoucher)
-            displayName += $" - MKD {finalPrice:F2}";
+            displayName += $" - {PriceFormat.Mkd(finalPrice)}";
         if (!string.IsNullOrEmpty(variantName))
             displayName += $" - {variantName}";
         if (!string.IsNullOrEmpty(variantPackaging))

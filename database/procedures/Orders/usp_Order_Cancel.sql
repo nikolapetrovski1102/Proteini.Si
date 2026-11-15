@@ -14,7 +14,8 @@ BEGIN
     BEGIN TRANSACTION;
 
     DECLARE @Found BIT = 0, @OrderNumber NVARCHAR(50), @OrderDate DATETIME, @OrderStatus NVARCHAR(4000),
-            @PointsRedeemed DECIMAL(10, 2), @UserEmail NVARCHAR(4000), @UserFullName NVARCHAR(4000), @Result INT;
+            @PointsRedeemed DECIMAL(10, 2), @UserEmail NVARCHAR(4000), @UserFullName NVARCHAR(4000), @Result INT,
+            @Language NVARCHAR(2);
 
     SELECT
         @Found = 1,
@@ -23,7 +24,8 @@ BEGIN
         @OrderStatus = o.Order_Status,
         @PointsRedeemed = o.Points_Redeemed,
         @UserEmail = u.User_Email,
-        @UserFullName = u.User_FullName
+        @UserFullName = u.User_FullName,
+        @Language = COALESCE(o.Language, u.User_Language)
     FROM dbo.Orders o WITH (UPDLOCK, HOLDLOCK)
     INNER JOIN dbo.[User] u ON o.User_Id = u.User_Id
     WHERE o.Order_Id = @OrderId AND o.User_Id = @UserId;
@@ -46,6 +48,7 @@ BEGIN
         WHERE Order_Id = @OrderId;
 
         EXEC dbo.usp_Order_ReleaseVoucher @OrderId = @OrderId;
+        EXEC dbo.usp_LoyaltyPoints_SyncOrder @OrderId = @OrderId;
 
         IF @PointsRedeemed IS NOT NULL AND @PointsRedeemed > 0
             INSERT INTO dbo.LoyaltyPoints (UserId, Points, PointsType, SourceType, SourceId, Description, TransactionDate)
@@ -63,6 +66,7 @@ BEGIN
         @OrderNumber AS Order_Number,
         @PointsRedeemed AS Points_Redeemed,
         @UserEmail AS User_Email,
-        @UserFullName AS User_FullName;
+        @UserFullName AS User_FullName,
+        @Language AS Language;
 END
 GO

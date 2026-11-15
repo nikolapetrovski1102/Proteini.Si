@@ -22,7 +22,7 @@ BEGIN
     WHERE OrderId = @OrderId
     ORDER BY OrderFreeGiftId;
 
-    SELECT GiftVoucherId, Code, InitialValue, RemainingValue, Status, ValidFrom, ExpiresAt
+    SELECT GiftVoucherId, Code, InitialValue, RemainingValue, Status, ValidFrom, ExpiresAt, RecipientName, RecipientEmail
     FROM dbo.GiftVouchers
     WHERE PurchasedOrderId = @OrderId
     ORDER BY GiftVoucherId;

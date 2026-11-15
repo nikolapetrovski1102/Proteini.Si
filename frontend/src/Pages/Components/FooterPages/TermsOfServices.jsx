@@ -3,7 +3,7 @@ import { useLanguage } from "../../translation/LanguageContext";
 export default function TermsOfServices() {
   const { translate } = useLanguage();
   return (
-    <div className="w-full flex justify-center">
+    <div className="w-full flex justify-center pb-16 sm:pb-20">
       <div className="w-full max-w-[1240px] flex flex-col pt-[70px] pr-[50px] max-md:px-12">
         <div className="flex gap-2 items-center pb-[14px]">
           <p className="text-[20px] text-[#828282] hover:text-black hover:cursor-pointer">
