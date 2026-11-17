@@ -321,6 +321,13 @@ public static class StoredProcedures
         public const string SetMain = "dbo.usp_VariantGallery_SetMain";
     }
 
+    public static class NutritionLabels
+    {
+        public const string GetAll = "dbo.usp_NutritionLabels_GetAll";
+        public const string GetTables = "dbo.usp_NutritionLabels_GetTables";
+        public const string Save = "dbo.usp_NutritionLabels_Save";
+    }
+
     public static class VariantNutrition
     {
         public const string Get = "dbo.usp_VariantNutrition_Get";

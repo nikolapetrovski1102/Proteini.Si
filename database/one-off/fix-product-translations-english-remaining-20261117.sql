@@ -1,0 +1,2212 @@
+-- Proteini.mk: rewrite english translations for the 170 non-protein products (fix 2026-11-17).
+-- Descriptions stored as plain HTML (not a JSON array). Literals split into short lines because
+-- sqlcmd breaks input lines longer than ~4 KB. Every value is length-checked before COMMIT.
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+GO
+
+BEGIN TRANSACTION;
+DECLARE @bad int = 0;
+
+-- Product_Id: 1041 (BATTERY CARNITINE 500, 60 капсули)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY CARNITINE 500, 60 capsules' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>504 mg L-carnitine tartrate per capsule</li><li>Manufactured in our own EU production facilities</li></ul><h3>Food supplement with L-carnitine, in capsules.  </h3><p>L-carnitine is an amino acid that is naturally present in the body. Battery Carnitine 500 is a food supplement containing 504 mg of L-carnitine tartrate per capsule.  In the body, carnitine acts as a transporter of long-chain fatty acids into the mitochondria, where they are oxidised to produce energy. L-carnitine is formed from lysine and methionine, mainly in the liver and kidneys. Vitamin C, iron, vitamin B6 and niacin are also needed for the synthesis of L-carnitine. In some circumstances the need for carnitine can exceed the body''s biosynthetic capacity; in that case it is advisable to add L-carnitine as a food supplement.  Battery Carnitine 500 is ideal for anyone looking for an easy-to-take source of carnitine' AS nvarchar(max))
+        + N' that can be used throughout the day.</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 capsule.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 capsule with a glass of water 20 minutes before training. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children! STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max))
+WHERE Product_Id = 1041;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1041 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 34
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 941
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 266)) BEGIN PRINT 'length mismatch 1041'; SET @bad += 1; END;
+
+-- Product_Id: 1042 (BATTERY CLA, 150 капсули)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY CLA, 150 capsules' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Conjugated linoleic acid </li><li>From natural safflower oil</li><li>400 mg CLA per capsule</li><li>37 servings per pack</li></ul><h3>Food supplement with conjugated linoleic acid (CLA) in capsules.</h3><p>CLA, or conjugated linoleic acid, is a natural fatty acid belonging to the omega-6 family.  Battery CLA soft gel capsules are a practical form of a modified omega-6 fatty acid known as conjugated linoleic acid. Each Battery CLA capsule contains a dose of 400 mg CLA.  CLA is naturally present in foods such as eggs and butter, and is also found in red meat. Unfortunately, the CLA content of these sources can be quite low, so food supplements are sometimes needed to meet average daily needs. The CLA in Battery capsules comes from natural safflower oil.  What else improves the effect of Battery CLA?  To further enhance the effects of CLA, we recommend using fat burners (e.g. Batter' AS nvarchar(max))
+        + N'y Burner) and high-protein shakes (e.g. Battery Whey Protein). Battery Burner is recommended before training or a meal, while Battery Whey Protein is recommended after training or as a meal replacement during the day.  Net quantity: 150 capsules</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 4 capsules.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily, preferably after a meal. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children! Store in a dry place, away from heat and direct sunlight.' AS nvarchar(max))
+WHERE Product_Id = 1042;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1042 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1149
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 31
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 241)) BEGIN PRINT 'length mismatch 1042'; SET @bad += 1; END;
+
+-- Product_Id: 1043 (BATTERY COLLAGEN VITAL)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY COLLAGEN VITAL' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>A drink for vitality</p></li><li><p>Support for sport- or age-related joint strain</p></li><li><p>Preventive and supportive action</p></li><li><p>For recreational and professional athletes</p></li><li><p>For middle-aged and older people</p></li></ul><p><strong>Food supplement with sweeteners. A blend of hydrolysed collagen, glucosamine, chondroitin, MSM, turmeric and vitamin C for preparing a tasty drink.</strong></p><p>Introducing our premium collagen drink, created to support the body''s vitality. With a unique combination of collagen, glycine, glucosamine, chondroitin, MSM, turmeric and vitamin C, this drink is an excellent choice for supporting joint flexibility and health, maintaining mobility and overall well-being.</p><h4><strong>Key ingredients:</strong></h4><p><strong>Hydrolysed collagen (type I and III)</strong></p><p>Supports the structural strength of cartilage, ten' AS nvarchar(max))
+        + N'dons and ligaments. Contributes to the elasticity and firmness of connective tissue.</p><p><strong>Glycine</strong></p><p>Glycine plays an important role in collagen formation and tissue renewal. Combined with collagen, it helps strengthen connective tissue and supports muscle recovery after physical activity.</p><p><strong>Glucosamine sulphate</strong></p><p>Helps maintain cartilage health, supports joint lubrication and may help slow age-related changes in the joints.</p><p><strong>Chondroitin sulphate</strong></p><p>Works synergistically with glucosamine to support cartilage elasticity, reduce stiffness and improve joint cushioning.</p><p><strong>MSM (methylsulfonylmethane)</strong></p><p>A natural sulphur compound known for its role in supporting joint comfort and recovery.</p><p><strong>Turmeric extract</strong></p><p>Turmeric is known for its anti-inflammatory properties. It works '
+        + N'synergistically with the other ingredients and helps support recovery and joint mobility.</p><p><strong>Vitamin C</strong></p><p>Essential for normal collagen formation. Contributes to the protection of cells from oxidative stress and to normal cartilage function.</p><h4><strong>Main benefits:</strong></h4><ul><li><p><strong>Comprehensive support for joints, ligaments and connective tissue:</strong> Helps maintain the health of the joints and tissues that support the musculoskeletal system.</p></li><li><p><strong>Support for joint inflammation and stiffness:</strong> Created to help maintain mobility and comfort in movement.</p></li><li><p><strong>Support for ligament and tendon strength and connective tissue renewal:</strong> For better joint mobility and a lower risk of injury.</p></li><li><p><strong>Highly bioavailable formula:</strong> Carefully formulated for optimal absorption and '
+        + N'use of the active ingredients.</p></li><li><p><strong>Easy to include in your daily routine:</strong> A refreshing drink that is quick and easy to prepare.</p></li></ul><h4><strong>Who is it for?</strong></h4><ul><li><p><strong>Athletes:</strong> Supports the recovery of muscle and connective tissue, as well as bone health.</p></li><li><p><strong>Older adults:</strong> Supports bone health, joint flexibility and overall vitality.</p></li><li><p><strong>People with an active lifestyle:</strong> Supports general health, mobility and endurance.</p></li></ul><h4><strong>Why wait?</strong></h4><p>Add Collagen Drink to your daily routine and enjoy the benefits of this unique combination. Whether you want to support your general health or focus on specific needs such as joint discomfort and stiffness, Collagen Drink is a practical way to support a more active and vital lifestyle.</p><p><em>A ba'
+        + N'lanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 400 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is ¾ scoop (10 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume in the morning on an empty stomach.
+WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children! A balanced and varied diet and a healthy lifestyle are important. Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 serving (10 g = ¾ scoop) with 300 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 1043;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1043 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 22
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 3713
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 302
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 52)) BEGIN PRINT 'length mismatch 1043'; SET @bad += 1; END;
+
+-- Product_Id: 1044 (BATTERY COMPLETE AMINOS)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY COMPLETE AMINOS' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p></p><ul><li>12 amino acids, including essential amino acids and BCAAs</li><li>Enriched with electrolytes (magnesium, sodium, chloride)</li><li>Fast-dissolving powder, ideal before or during training</li><li>Refreshing and easy to drink</li><li>Manufactured in our own EU production facilities to high quality standards</li></ul><p><strong>Food supplement with sweetener.</strong></p><p>Support your training with <strong>Battery Complete Aminos</strong>, a refreshing amino acid food supplement created to support performance and recovery. Each serving provides a carefully balanced <strong>blend of 12 amino acids</strong>, including essential amino acids and BCAAs (L-leucine, L-isoleucine, L-valine), making it <strong>an ideal choice before, during or after training.</strong></p><p><strong>WHY YOU WILL LOVE IT</strong></p><ul><li><strong>12 amino acids in every serving</strong> – including ' AS nvarchar(max))
+        + N'essential amino acids and BCAAs</li><li><strong>With electrolytes</strong> – magnesium, sodium and chloride to support hydration during training</li><li><strong>Delicious</strong> tropical and berry flavours – light, refreshing and pleasant to drink</li><li><strong>Fast-dissolving powder</strong> – ideal for your training bottle</li><li><strong>Manufactured in our own EU production facilities</strong> to high quality standards</li></ul><p><strong>HOW IT FITS INTO YOUR ROUTINE</strong></p><p>Mix with water and drink <strong>before or during training</strong> as a complement to an active lifestyle.</p><p>Battery Complete Aminos is a practical way to <strong>increase your daily amino acid intake</strong> – without sugary drinks and without complicated supplement combinations.</p><p><strong>WHO IS IT FOR</strong></p><ul><li>Athletes who train for strength and endurance</li><li>Fitness enthus'
+        + N'iasts and active people</li><li>Anyone looking for a tasty, easy-to-use amino acid supplement</li></ul><p>Take your training nutrition to the next level with <strong>Battery Complete Aminos</strong> and keep your performance at its peak.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 500 g</p><p></p>',
+    InstructionsForUseEn = CAST(N'The serving size is 2 scoops (15 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume before and during training. Let the drink stand for a while so the powder can dissolve best. The maximum daily amount is 1 serving (15 g). WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children! Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 1 serving (15 g) in 800 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 1044;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1044 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 23
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2172
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 36
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 339
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 45)) BEGIN PRINT 'length mismatch 1044'; SET @bad += 1; END;
+
+-- Product_Id: 1046 (BATTERY COMPLETE GAINER)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY COMPLETE GAINER' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>High-protein, high-calorie formula</p></li><li><p>Enriched with creatine to support strength</p></li><li><p>Two-phase protein matrix</p></li><li><p>Clean formula and great taste</p></li><li><p>Versatile use</p></li><li><p>Manufactured in our own EU production facilities</p></li></ul><p><strong>Food supplement with sweetener. High protein content.</strong></p><p><strong>SUPPORT YOUR GROWTH WITH PRECISE NUTRITION</strong></p><p>Battery Complete Gainer is a scientifically formulated high-protein, high-calorie sports supplement created to help you increase muscle mass and strength and recover faster after intense workouts.</p><p>Whether you struggle to gain weight, are a bodybuilder or simply want to take in more calories the right way during a bulking phase, Battery Complete Gainer gives your body what it needs – when it needs it most.</p><p><strong>KEY INGREDIENTS:</strong></p><' AS nvarchar(max))
+        + N'ul><li><p>Carbohydrates 67% (high-quality maltodextrin)</p></li><li><p>Protein 22% (WHEY protein concentrate + MILK protein concentrate)</p></li><li><p>Creatine monohydrate 3 g (a proven ingredient to support strength)</p></li></ul><p><strong>BENEFITS:</strong></p><ul><li><p><strong>Optimised muscle growth:</strong> Rich in carbohydrates (maltodextrin) that provide energy for training and help support muscle mass.</p></li><li><p><strong>High-quality protein matrix:</strong> Combines fast-digesting whey protein with slower-releasing milk protein to support a fast and sustained supply of protein.</p></li><li><p><strong>Performance support:</strong> Contains 3 g of creatine monohydrate per serving to support strength, explosiveness and training intensity.</p></li><li><p><strong>Easy mixing and great taste:</strong> Available in Chocolate Cake, Vanilla Ice Cream and Cookie &amp; Cream flavou'
+        + N'rs.</p></li><li><p>No added sugar, no unnecessary fillers and no unnecessary additives.</p></li><li><p><strong>Safe and high-quality:</strong> Manufactured in our own EU production facilities from tested ingredients, without unnecessary additives and to high quality and safety standards.</p></li></ul><p><strong>WHEN TO USE IT:</strong></p><ul><li><p><strong>After training:</strong> To replenish glycogen stores and support muscle recovery.</p></li><li><p><strong>Between meals:</strong> For extra calories and protein during the day.</p></li><li><p><strong>Before bed:</strong> For extra slower-releasing protein during the night.</p></li><li><p><strong>Any time you need support to gain mass:</strong> Extra calories when you need them most.</p></li></ul><p><strong>WHO IS IT FOR:</strong></p><ul><li><p><strong>People who struggle to gain weight</strong></p></li><li><p><strong>Bodybuilders</str'
+        + N'ong> and <strong>athletes</strong> in a bulking phase</p></li><li><p><strong>Fitness enthusiasts</strong> looking for a high-calorie formula to support muscle mass</p></li><li><p><strong>Anyone</strong> who needs a balanced formula to increase body mass</p></li></ul><p><strong>MANUFACTURED IN OUR OWN EU PRODUCTION FACILITIES:</strong></p><ul><li><p>High-quality, tested ingredients with no unnecessary additives.</p></li><li><p>Manufactured in the EU to high quality and safety standards.</p></li></ul><p><strong>Train hard. Recover smarter. Grow more.</strong></p><p><strong>UNLOCK YOUR MASS-GAINING POTENTIAL with Battery Complete Gainer!</strong></p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 1000 g / 3000 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 3 scoops (100 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume after exercise. The maximum daily dose is 1 serving (100 g). The product is intended for adults who perform high-intensity exercise. WARNINGS: Do not exceed the recommended daily dose. Food supplements are not a substitute for a balanced and varied diet and a healthy lifestyle. Keep out of reach of young children. STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 100 g of powder (3 scoops) in 500 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 1046;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1046 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 23
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 3489
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 37
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 388
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 55)) BEGIN PRINT 'length mismatch 1046'; SET @bad += 1; END;
+
+-- Product_Id: 1050 (BATTERY COMPLETE GAINER)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY COMPLETE GAINER' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>High protein and calorie content</li><li>Formula enriched with creatine </li><li>Two-phase protein matrix</li><li>Clean and tasty </li><li>Versatile use</li><li>Manufactured in our own EU production facility</li></ul><h3>Food supplement with sweetener. High protein content.  BOOST YOUR GAINS WITH PRECISE NUTRITION</h3><p>Battery Complete Gainer is a scientifically formulated high-protein, high-calorie sports supplement designed to help you build lean muscle mass, increase strength and recover faster after intense workouts.  Whether you are a hard gainer, a bodybuilder or simply want to bulk up the right way, Battery Complete Gainer provides what your body needs – when it needs it most.  KEY INGREDIENTS:  Carbohydrates 67% (high-quality maltodextrin) Protein 22% (whey protein concentrate + milk protein concentrate) Creatine monohydrate 3 g (a clinically proven strength booster) BE' AS nvarchar(max))
+        + N'NEFITS:  Optimised muscle growth: Rich in complex carbohydrates (maltodextrin) to fuel your workouts and prevent muscle breakdown. High-quality protein matrix: Combines fast-digesting whey with slow-release milk protein to support both immediate and sustained muscle recovery. Proven performance boost: Enriched with 3 g of creatine monohydrate per serving to increase strength, power output and training intensity. Fast absorption, great taste: Mixes easily and comes in delicious flavours such as chocolate cake, vanilla ice cream and cookies and cream. No added sugar, no fillers, no nonsense. Safe and high-quality: Manufactured in our own EU production facility from tested ingredients, without unnecessary additives, to the highest quality and safety standards.  WHEN TO USE IT:  After training: Replenish glycogen stores and kick-start muscle repair. Between meals: Keep your anabolic state ac'
+        + N'tive throughout the day. Before bed: Support overnight recovery with slow-digesting protein. Mass support at any time: A calorie boost when you need it most. WHO IS IT FOR:  People who find it hard to gain weight. Bodybuilders and athletes during a muscle-building phase. Fitness enthusiasts who want high-calorie fuel for their muscles. Anyone who needs a balanced mass-building formula. MADE IN OUR OWN EU PRODUCTION FACILITY:  High-quality, proven ingredients with no unnecessary additives. Manufactured in the EU to the highest quality and safety standards. Train hard. Recover smarter. Grow bigger.  UNLEASH YOUR HUGE POTENTIAL with Battery Complete Gainer!  *A balanced and varied diet and a healthy lifestyle are important.  Net quantity: 1000 g / 3000 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 3 scoops (100 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume after exercise. The maximum daily dose is 1 serving (100 g). The product is intended for adults who perform high-intensity exercise. WARNINGS: Do not exceed the recommended daily dose. Food supplements are not a substitute for a balanced and varied diet and a healthy lifestyle. Keep out of reach of young children. STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 100 g of powder (3 scoops) in 500 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 1050;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1050 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 23
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2565
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 37
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 388
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 55)) BEGIN PRINT 'length mismatch 1050'; SET @bad += 1; END;
+
+-- Product_Id: 1053 (BATTERY COMPLETE HYDRATION)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY COMPLETE HYDRATION' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Complete electrolyte blend for effective hydration</p></li><li><p>174 mg sodium per serving to replace losses through sweat</p></li><li><p>With magnesium citrate for high absorption</p></li><li><p>Sugar-free with a refreshing taste</p></li><li><p>Vegan formula suitable for an active lifestyle</p></li></ul><p></p><p><strong>Food supplement with sweetener.</strong></p><p>Stay well hydrated and keep your performance high with <strong>Battery Complete Hydration</strong>, a sugar-free electrolyte food supplement created to support fluid balance during intense training and everyday physical activity. With a precise combination of essential minerals and vitamin C, it helps replace the minerals lost through sweat quickly and effectively.</p><p><strong>MAIN BENEFITS</strong></p><ul><li><p><strong>Advanced electrolyte formula</strong> with sodium, potassium, calcium and magnesium</p></l' AS nvarchar(max))
+        + N'i><li><p><strong>174 mg sodium per serving</strong> – ideal for hydration during training</p></li><li><p><strong>Contains magnesium citrate</strong> – a highly bioavailable form of magnesium</p></li><li><p><strong>Refreshing pink grapefruit/lemon and cherry/berry flavours</strong> – light, refreshing and ideal for quenching thirst</p></li><li><p><strong>Sugar-free and vegan-friendly</strong></p></li><li><p><strong>Manufactured in the EU</strong> to strict quality standards</p></li></ul><p><strong>WHAT IT CONTAINS</strong></p><p>Each serving provides a balanced combination of electrolytes and <strong>vitamin C</strong> to support hydration and the normal functioning of the muscles and nervous system during physical activity.</p><p><strong>HOW TO USE</strong></p><p>Simply mix with water and drink before or during training. Ideal for gym workouts, endurance sessions, team sports or hot days'
+        + N' when proper hydration is especially important.</p><p><strong>WHO IS IT FOR</strong></p><ul><li><p>Athletes who train for endurance and strength</p></li><li><p>Active people and fitness enthusiasts</p></li><li><p>Anyone looking for a clean, sugar-free hydration solution</p></li></ul><p><strong>Refresh, replenish your electrolytes and recharge with Battery Complete Hydration.</strong></p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 250 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 full scoop (10 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Drink 1 serving before or during exercise. The maximum daily amount is 1 serving (10 g). The product is intended for adults who perform high-intensity exercise. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children! In sensitive individuals, magnesium in doses above 250 mg may have a laxative effect.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 1 serving in 500 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 1053;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1053 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 26
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2314
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 40
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 383
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 38)) BEGIN PRINT 'length mismatch 1053'; SET @bad += 1; END;
+
+-- Product_Id: 1058 (BATTERY COMPLETE VIT&MIN)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY COMPLETE VIT&MIN' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><ul><li><p>Provides a wide range of vitamins and minerals</p></li><li><p>For physically active people and those with a dynamic lifestyle</p></li><li><p>Manufactured in our own EU production facilities</p></li><li><p>A 90-day supply</p></li></ul><p><strong>Food supplement.</strong></p><p>A complete multivitamin and multimineral complex in one capsule. Specially formulated for physically active people and those with a dynamic lifestyle.</p><p>This product is a comprehensive food supplement that <strong>supports energy, immune function and overall vitality.</strong> High doses of <strong>B vitamins</strong> contribute to normal energy-yielding metabolism, normal functioning of the nervous system and the reduction of tiredness. <strong>Vitamins C and D, zinc and selenium</strong> support the normal function of the immune system, while <strong>vitamins C and E and coenzyme Q10</strong' AS nvarchar(max))
+        + N'> act as antioxidants and help protect cells from oxidative stress. <strong>Iron, copper and folic acid</strong> contribute to normal red blood cell formation, while <strong>vitamin A and biotin</strong> contribute to the maintenance of healthy skin, hair and normal vision. Plant extracts (ginseng, bitter orange) and the compounds choline and inositol further support mental function and overall well-being.</p><p>Physically active people may have increased needs for vitamins and minerals, and a deficiency can lead to a weakened immune system, reduced strength and lower motivation. If a deficiency goes unnoticed for a longer period, it can lead to more serious consequences such as weaker performance, exhaustion and a slower metabolism.</p><p>If your diet does not provide enough vitamins, minerals and antioxidants, food supplements can help cover your needs for these micronutrients, especia'
+        + N'lly when we do not eat a varied enough diet with fruit, vegetables and other nutritious sources.</p><p>Battery COMPLETE VIT&amp;MIN was developed to complement your diet with the essential vitamins and minerals your body needs to function normally.</p><p><strong>Safe and high-quality – manufactured in our own EU production facilities</strong></p><ul><li><p>Tested ingredients, without unnecessary additives.</p></li><li><p>Manufactured in the EU to high quality and safety standards.</p></li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 90 capsules</p></li></ul>',
+    InstructionsForUseEn = CAST(N'Serving size: 1 capsule.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 capsule with a glass of water at lunch. WARNING: Do not exceed the recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children! STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max))
+WHERE Product_Id = 1058;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1058 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 24
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2439
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 24
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 261)) BEGIN PRINT 'length mismatch 1058'; SET @bad += 1; END;
+
+-- Product_Id: 1089 (BATTERY CREATINE (со вкус))
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY CREATINE (flavoured)' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><ul><li>Flavoured creatine</li><li>Increases physical performance</li><li>One of the most popular food supplements among athletes</li><li>4 great fruit flavours</li><li><strong>Manufactured in our own EU production facilities</strong></li></ul><p><strong>Premium creatine, now in delicious fruit flavours!</strong></p><p>Looking for a creatine that combines effectiveness, quality and great taste? Battery Creatine is an excellent choice for anyone who wants to improve their workouts and results – in a safe, reliable and tasty way!</p><p><strong>MAIN BENEFITS:</strong></p><ul><li><strong>SCIENTIFICALLY PROVEN EFFECTIVENESS</strong> – Creatine increases physical performance in successive bursts of short-term, high-intensity exercise* (the beneficial effect is obtained with a daily intake of 3 g of creatine).</li><li><strong>NOW ALSO IN A FLAVOURED VERSION</strong> – enjoy your drink w' AS nvarchar(max))
+        + N'ithout compromise.</li><li><strong>EXCELLENT SOLUBILITY</strong> – no lumps and no hassle.</li><li><strong>RELIABLE AND SAFE TO USE</strong> – suitable for both beginners and advanced athletes.</li><li><strong>100% PURE MICRONISED CREATINE MONOHYDRATE</strong> – high quality and optimal absorption.</li><li><strong>MANUFACTURED IN THE EU</strong> – The new creatine is made in our own EU production facilities, to high quality and safety standards, from tested ingredients and without unnecessary additives.</li></ul><p><strong>Want more energy, more strength and better results?</strong></p><p><strong>Choose Battery Creatine – your reliable support for every workout!</strong></p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 500 g</p></li></ul>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 full scoop (4.2 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'The recommended daily intake is 1 serving. Use a scale for the exact amount. Drink 20 minutes before training. On days when you do not train, drink in the morning on an empty stomach. The maximum daily amount is 1 serving. The product is intended for adults who perform high-intensity exercise. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 1 serving in 250 ml of lukewarm water.' AS nvarchar(max))
+WHERE Product_Id = 1089;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1089 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 28
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1717
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 41
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 431
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 47)) BEGIN PRINT 'length mismatch 1089'; SET @bad += 1; END;
+
+-- Product_Id: 1092 (BATTERY CREATINE, 500g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY CREATINE, 500g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p></p><ul><li>100% pure creatine</li><li>Unflavoured</li><li>Increases physical performance</li><li>One of the most popular food supplements among athletes</li><li>Manufactured in our own EU production facilities</li></ul><p><strong>Creatine powder. Food supplement. Unflavoured.</strong></p><p>Battery Creatine consists of 100% pure creatine, one of the most popular food supplements among athletes. One of the biggest challenges we face in training is the depletion of our energy reserves, which can limit our performance. Creatine increases physical performance in successive bursts of short-term, high-intensity exercise (the beneficial effect is obtained with a daily intake of 3 g of creatine).</p><p><strong>Safe and high-quality – manufactured in our own EU production facilities</strong></p><ul><li>Tested ingredients, without unnecessary additives.</li><li>Manufactured in the EU to high q' AS nvarchar(max))
+        + N'uality and safety standards.</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 500 g</p><p></p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 full scoop (3.4 g). Use a scale for the exact amount.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Drink 20 minutes before training. On days when you do not train, drink in the morning on an empty stomach. The maximum daily amount is 1 serving. The product is intended for adults who perform high-intensity exercise. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children! STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 1 serving in 250 ml of lukewarm water.' AS nvarchar(max))
+WHERE Product_Id = 1092;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1092 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 22
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1069
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 75
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 419
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 47)) BEGIN PRINT 'length mismatch 1092'; SET @bad += 1; END;
+
+-- Product_Id: 1093 (BATTERY D3 + K2)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY D3 + K2' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><ul><li>A synergistic combination of highly bioavailable vitamin D3 and stable vitamin K2</li><li>Supports the immune system, bone and dental health, muscle function and overall vitality</li><li>With natural olive oil for better absorption</li><li>An ideal supplement during periods of lower sun exposure</li><li>Suitable for long-term daily use</li><li>Manufactured in our own EU production facilities</li></ul><p><strong>Food supplement.</strong></p><p><strong>Vitamin D3 + K2 – a powerful combination for bones, the immune system and overall well-being</strong></p><p>Support your body with two key vitamins in one capsule!</p><p>Our formula combines highly bioavailable vitamin D3 (2000 IU) and a natural form of vitamin K2 (MK-7, 120 µg) – an ideal synergy for everyday vitality.</p><p><strong>Why vitamin D3?</strong></p><p>Vitamin D3 plays an important role in:</p><ul><li>the normal f' AS nvarchar(max))
+        + N'unction of the immune system,</li><li>the maintenance of healthy bones and teeth,</li><li>normal muscle function,</li><li>the absorption and use of calcium and phosphorus.</li></ul><p>D3 is a form of vitamin D that the body easily recognises and uses, which makes it an excellent choice for daily supplementation – especially in autumn and winter, when sun exposure is lower.</p><p><strong>Why did we add vitamin K2?</strong></p><p>Vitamin K2, especially in the MK-7 form, contributes to:</p><ul><li>the maintenance of normal bones,</li><li>the proper transport of calcium in the body.</li></ul><p>K2 and D3 work synergistically – D3 helps absorb calcium, while K2 helps distribute it properly to the tissues where the body needs it. Both vitamins are combined in a soft capsule with olive oil, which further improves the absorption of these fat-soluble vitamins.</p><p><strong>Advantages of our prod'
+        + N'uct:</strong></p><ul><li>High dose of D3 – 2000 IU for optimal daily support</li><li>Stable form of K2 (menaquinone-7) – 120 µg for maximum effectiveness</li><li>High bioavailability</li><li>Suitable for daily use</li><li>No artificial colours or unnecessary additives</li></ul><p><strong>Who is the product for?</strong></p><p>Vitamin D3 + K2 is an excellent choice for anyone who wants to:</p><ul><li>support their immune system,</li><li>maintain strong bones and healthy teeth,</li><li>ensure optimal use of calcium,</li><li>supplement their diet during periods of lower sun exposure,</li><li>choose a combination that works synergistically and comprehensively.</li></ul><p><strong>Safe and high-quality – manufactured in our own EU production facilities</strong></p><ul><li>Tested ingredients, without unnecessary additives.</li><li>Manufactured in the EU to high quality and safety standards.</l'
+        + N'i></ul><p><em>A varied and balanced diet and a healthy lifestyle are recommended.</em></p><p><strong>Net quantity:</strong> 120 capsules</p></li></ul>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 capsule.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 capsule with a glass of water after a meal. Warnings: Do not exceed the recommended daily dose. Food supplements are not a substitute for a balanced and varied diet and a healthy lifestyle. Keep out of reach of young children.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Storage: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max))
+WHERE Product_Id = 1093;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1093 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 15
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2850
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 233
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 64)) BEGIN PRINT 'length mismatch 1093'; SET @bad += 1; END;
+
+-- Product_Id: 1094 (BATTERY EXTREME BURN)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY EXTREME BURN' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>&nbsp;Try our newest fat burner!<p>This <strong>exceptional formula is based on L-carnitine, green tea, cayenne pepper, caffeine and niacin</strong> and was created to support your <strong>overall well-being</strong>, <strong>energy</strong> and <strong>weight loss.</strong></p><p>Niacin (vitamin B3) contributes to normal energy-yielding metabolism and to the reduction of tiredness and fatigue, while cayenne pepper contributes to weight loss.</p><p>One pack contains 60 capsules, enough for <strong>15 days of intensive use.</strong></p><p><strong>YOU CAN ORDER A MONTHLY SUPPLY AT A REDUCED PRICE HERE!</strong></p><p><strong>Food supplement with plant extracts and niacin in capsule form.</strong> <em>Contains caffeine. Not recommended for children or pregnant women (caffeine content: 400 mg/4 capsules).</em></p><p><strong>MAIN BENEFITS:</strong></p><ul><li>Helps the body use fat as' AS nvarchar(max))
+        + N' a source of energy, supporting weight-loss goals.</li><li><strong>Speeds up metabolism:</strong> stimulates thermogenesis and a faster metabolism.</li><li><strong>Increases energy:</strong> provides sustained energy throughout the day, contributing to greater activity and alertness.</li><li><strong>Improves focus:</strong> helps improve mental concentration during high-intensity workouts.</li><li>Supports the body''s natural fat-burning processes.</li></ul><p><strong>WELL-KNOWN, TESTED INGREDIENTS:</strong></p><ul><li><strong>L-carnitine</strong></li></ul><p>L-carnitine is an amino acid derivative that plays an important role in fat metabolism, helping transport fatty acids to the mitochondria, where they are used to produce energy. It helps burn fat, especially during physical activity, which can help you reach your weight-loss goals faster.</p><ul><li><strong>Green tea extract (contain'
+        + N's EGCG = (-)-epigallocatechin-3-gallate)</strong></li></ul><p>Green tea extract contains powerful antioxidants called catechins, especially epigallocatechin gallate (EGCG), which can speed up thermogenesis and fat oxidation. It supports fat burning and weight loss while contributing to overall well-being thanks to its antioxidant properties.</p><ul><li><strong>Caffeine</strong></li></ul><p>Caffeine is a strong stimulant that increases energy and thermogenesis. It increases alertness, improves training performance and thus helps increase calorie expenditure throughout the day.</p><ul><li><strong>Niacin (vitamin B3)</strong></li></ul><p>Niacin contributes to normal energy-yielding metabolism and to the reduction of tiredness and fatigue.</p><ul><li><strong>MaxiTherm® SD</strong></li></ul><p>MaxiTherm® SD is a cayenne pepper (hot chilli) extract standardised to 2.0% capsaicinoids, which are'
+        + N' responsible for the fruit''s heat. It is known for its thermogenic properties and is traditionally used for its weight-loss-related effects, as well as for its antioxidant and anti-inflammatory properties.</p><p>BATTERY EXTREME BURN speeds up the body''s fat-burning process by increasing thermogenesis (heat production in the body) and accelerating fat metabolism for energy production. With L-carnitine, the body is ready to use fat as a source of energy, while green tea extract and caffeine provide an extra energy boost for training. Niacin supports the normal functioning of the nervous system and psychological function, while contributing to the reduction of tiredness and fatigue during weight loss.</p><p><strong>IDEAL FOR:</strong></p><ul><li>People who want to speed up fat burning.</li><li>People who want more energy and better training performance.</li><li>Anyone looking for a natural '
+        + N'food supplement for fat burning and weight-control support.</li></ul><p><strong>WHY CHOOSE BATTERY EXTREME BURN?</strong></p><ul><li><strong>Natural ingredients:</strong> no artificial fillers or unnecessary additives. Suitable for vegans and vegetarians.</li><li><strong>Scientifically researched ingredients:</strong> we use high-quality natural ingredients backed by scientific research to create a safe and effective fat-burning formula.</li><li><strong>Manufactured in a GMP-certified production facility.</strong></li><li><strong>Easy to use:</strong> the practical capsule form makes it easy to include in your daily routine.</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 60 capsules</p></li></ul>',
+    NutritionValuesIngredientsDescriptionEn = CAST(N'.' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'The serving size is 2 capsules.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving after breakfast and 1 serving after lunch, with a glass of water. WARNING: Contains caffeine. Not recommended for children or pregnant women (caffeine content: 400 mg/4 capsules). Contains 117–124.8 mg EGCG per daily dose (4 capsules). Do not consume 800 mg or more of (-)-epigallocatechin-3-gallate (EGCG) per day. Do not consume if you are consuming other products containing green tea on the same day. Not to be consumed by pregnant or breastfeeding women or children under 18. Do not consume on an empty stomach.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max))
+WHERE Product_Id = 1094;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1094 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 20
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 4382
+    OR ISNULL(DATALENGTH(NutritionValuesIngredientsDescriptionEn),0)/2 <> 1
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 31
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 531
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 127)) BEGIN PRINT 'length mismatch 1094'; SET @bad += 1; END;
+
+-- Product_Id: 1095 (BATTERY GLUCOSAMINE)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY GLUCOSAMINE' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><ul><li>Food supplement with glucosamine sulphate</li><li>497.3 mg glucosamine per serving</li><li>Manufactured in our own EU production facilities</li></ul><p><strong>Glucosamine sulphate capsules. Food supplement.</strong></p><p>Glucosamine is an amino sugar synthesised from glucose and glutamine. It is used in the biosynthesis of proteoglycans and glycosaminoglycans, which are building blocks of cartilage. A lack of proteoglycans can lead to the degeneration of joint cartilage.</p><ul><li>497.3 mg glucosamine per serving</li></ul><p>In older people, glucosamine is recommended for use in osteoarthritis and rheumatoid arthritis, while in younger people it is mainly intended to support cartilage during sports or other activities that put greater stress on the joints.</p><p><strong>Safe and high-quality – manufactured in our own EU production facilities</strong></p><ul><li>Tested ' AS nvarchar(max))
+        + N'ingredients, without unnecessary additives.</li><li>Manufactured in the EU to high quality and safety standards.</li></ul><p><strong>Net quantity:</strong> 90 capsules</p></li></ul>',
+    InstructionsForUseEn = CAST(N'Recommended daily dose: 1 capsule.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 capsule with a glass of water during a meal. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max))
+WHERE Product_Id = 1095;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1095 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 19
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1081
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 34
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 188
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 64)) BEGIN PRINT 'length mismatch 1095'; SET @bad += 1; END;
+
+-- Product_Id: 1096 (BATTERY GLUTAMINE)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY GLUTAMINE' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>L-glutamine powder</li><li>5000 mg L-glutamine per serving</li><li>Flavoured</li><li>83 servings</li></ul><p><strong>L-glutamine powder. Food supplement with sweetener. Flavoured.</strong></p><p>Glutamine is the most abundant amino acid in the body. Intense exercise can lower glutamine levels in the body, and glutamine supplementation can help replenish them for optimal physical performance.</p><p>L-glutamine is extremely popular among athletes, bodybuilders, strength trainers and anyone who does high-intensity activities. Bodybuilders traditionally use L-glutamine when preparing for competitions and during calorie-restricted diets. Athletes and strength trainers also use L-glutamine to complement a healthy diet.</p><p>L-glutamine is an amino acid found in the proteins of all living organisms. It is classified as a semi-essential or conditionally essential amino acid. L-glutamine' AS nvarchar(max))
+        + N' is the most abundant amino acid in the body, and its plasma level is higher than that of any other amino acid.</p><p>L-glutamine is mainly synthesised and stored in skeletal muscle. The amino acid L-glutamate is metabolised into L-glutamine through a reaction catalysed by the enzyme glutamine synthetase, which in addition to L-glutamate also requires ammonia, ATP and magnesium.</p><ul><li>5000 mg L-glutamine per serving</li></ul><p><strong>L-glutamine is ideal for:</strong></p><ul><li>Athletes taking part in physically demanding activities</li><li>People who do high-intensity sports and want to complement a protein-rich diet aimed at building lean muscle mass</li><li>Bodybuilders and athletes following a low-calorie diet</li><li>All athletes striving for maximum physical performance</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net '
+        + N'quantity:</strong> 500 g (83 servings)</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 3/4 scoop (6 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'You can take several servings a day. Use mainly before/during and after training, and also before bed. Do not exceed the recommended daily dose. The food supplement should not be used as a substitute for a balanced and varied diet. Keep out of reach of children!' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 serving in 300 ml of water or any other favourite liquid and shake vigorously! Let it stand for a while for best dissolving.' AS nvarchar(max))
+WHERE Product_Id = 1096;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1096 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 17
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1842
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 36
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 262
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 130)) BEGIN PRINT 'length mismatch 1096'; SET @bad += 1; END;
+
+-- Product_Id: 1097 (BATTERY LIMITLESS)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY LIMITLESS' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><ul><li>Pre-workout with amino acids, creatine, caffeine, plant extracts and vitamin B12</li><li>The perfect combination of ingredients to support intense, demanding workouts</li><li>In two great flavours: Citrus Mix and Green Tea - Strawberry</li><li>New practical sachet packaging</li></ul><p><strong>Food supplement with sweeteners. A practical instant drink powder with amino acids, creatine, caffeine, plant extracts and vitamin B12.</strong> <em>Contains caffeine (150 mg/9 g; 300 mg/18 g). Not recommended for children or pregnant women.</em></p><p><strong>LIMITLESS POWER AND MENTAL FOCUS</strong></p><p>BATTERY LIMITLESS contains an ideal combination of ingredients that covers athletes'' needs during high-intensity workouts. Discover the power of a product that will help you achieve the results you want!</p><p><strong>KEY FEATURES:</strong></p><ul><li>Contains L-citrulline, creat' AS nvarchar(max))
+        + N'ine, beta-alanine, caffeine, <em>Citrus aurantium</em> extract and vitamin B12</li><li>Vitamin B12 contributes to the normal functioning of the nervous system, the reduction of tiredness and fatigue, normal psychological function, the normal function of the immune system and normal red blood cell formation.</li><li>The product is intended for athletes and other physically active adults</li><li>Available in two great flavours: Citrus Mix and Green Tea - Strawberry</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 18 g / 14 x 18 g</p></li></ul>',
+    InstructionsForUseEn = CAST(N'For people weighing up to 75 kg or athletes sensitive to stimulants, the serving size is 9 g. For people weighing over 75 kg or experienced athletes, the serving size is 18 g.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume 30 minutes before training. WARNING: Contains caffeine (150 mg/9 g; 300 mg/18 g). Not recommended for children or pregnant women. Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Add a 9 g serving to 300 ml of water and an 18 g serving to 600 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 1097;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1097 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 17
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1522
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 175
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 265
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 76)) BEGIN PRINT 'length mismatch 1097'; SET @bad += 1; END;
+
+-- Product_Id: 1104 (BATTERY REBEL BCAA ADVANCED)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY REBEL BCAA ADVANCED' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p></p><ul><li>BCAA amino acids in a 2:1:1 ratio</li><li>With added L-glutamine, L-taurine and citrulline malate</li><li>Support for better sports performance and muscle growth</li><li>Less muscle soreness and fatigue</li><li>Faster muscle recovery</li><li>27 servings</li></ul><p><strong>Food supplement with sweeteners. A complex of high-quality branched-chain amino acids (BCAA), enriched with L-glutamine, taurine and citrulline malate. Specially formulated for athletes and physically active people.</strong></p><p>BCAAs are the essential amino acids leucine, isoleucine and valine, popular in the sports world because they can help reduce muscle soreness and exercise fatigue, shorten recovery time, help prevent muscle breakdown and support muscle growth.</p><p>BCAAs can also serve as a source of energy for the muscles during training, which makes them <strong>an excellent all-round food su' AS nvarchar(max))
+        + N'pplement.</strong> If your fitness goals are <strong>building muscle mass</strong> and <strong>improving performance</strong>, this product is <strong>an excellent addition to your training routine.</strong></p><p>REBEL BCAA combines the proven 2:1:1 ratio of branched-chain amino acids (BCAA) with additional key performance ingredients such as <strong>L-glutamine</strong>, <strong>L-taurine</strong> and <strong>citrulline malate.</strong></p><p>Each serving of REBEL BCAA contains:</p><ul><li>5 g BCAA (L-leucine, L-isoleucine and L-valine in a 2:1:1 ratio)</li><li>3 g L-glutamine</li><li>2 g L-taurine</li><li>500 mg citrulline malate</li></ul><p>It can be consumed before, during or after physical activity to support the muscles and physical performance.</p><p><strong>Net quantity:</strong> 380 g</p><p></p>',
+    InstructionsForUseEn = CAST(N'The serving size is 2 scoops (14 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Drink before and during exercise or during the day between meals. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 serving with 400–500 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 1104;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 1104 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 27
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1716
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 36
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 202
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 39)) BEGIN PRINT 'length mismatch 1104'; SET @bad += 1; END;
+
+-- Product_Id: 2104 (BATTERY LIMITLESS, 360g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY LIMITLESS, 360g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p></p><ul><li>Pre-workout with amino acids, creatine, caffeine, plant extracts and vitamin B12</li><li>The perfect combination of ingredients to support intense, demanding workouts</li><li>In two great flavours: Citrus Mix and Green Tea - Strawberry</li><li>The pack contains up to 40 servings</li></ul><p><strong>Food supplement with sweeteners. Instant drink powder with amino acids, creatine, caffeine, plant extracts and vitamin B12.</strong> <em>Contains caffeine (150 mg/9 g; 300 mg/18 g). Not recommended for children or pregnant women.</em></p><p><strong>LIMITLESS POWER AND MENTAL FOCUS!</strong></p><p>Introducing a new energy bomb in the pre-workout category!</p><p>BATTERY LIMITLESS contains the perfect combination of ingredients to cover athletes'' needs during high-intensity workouts. Discover the power of a product that will help you achieve the results you want!</p><p><strong>KEY ' AS nvarchar(max))
+        + N'FEATURES:</strong></p><ul><li>Contains L-citrulline, creatine, beta-alanine, caffeine, <em>Citrus aurantium</em> extract and vitamin B12</li><li>Vitamin B12 contributes to the normal functioning of the nervous system, the reduction of tiredness and fatigue, normal psychological function, the normal function of the immune system and normal red blood cell formation.</li><li>The product is intended for athletes and other physically active adults</li><li>Available in two great flavours: Citrus Mix and Green Tea - Strawberry</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 360 g</p><p></p>',
+    InstructionsForUseEn = CAST(N'For people weighing up to 75 kg or athletes sensitive to stimulants, the serving size is 9 g (1 full scoop). For people weighing over 75 kg or experienced athletes, the serving size is 18 g (2 full scoops).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume 30 minutes before training. WARNING: Contains caffeine (150 mg/9 g; 300 mg/18 g). Not recommended for children or pregnant women. Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Add a 9 g serving to 300 ml of water and an 18 g serving to 600 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2104;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2104 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 23
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1566
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 206
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 265
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 76)) BEGIN PRINT 'length mismatch 2104'; SET @bad += 1; END;
+
+-- Product_Id: 2105 (BATTERY MALTODEXTRIN, 2000g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY MALTODEXTRIN, 2000g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p></p><ul><li>High glycaemic index (GI) carbohydrates</li><li>An excellent source of energy</li><li>Quickly replenishes glycogen stores</li><li>Suitable for vegans</li><li>Manufactured in our own EU production facilities</li></ul><p><strong>Maltodextrin powder. Food supplement.</strong></p><p>Battery Maltodextrin is intended for athletes and active people who want to increase their carbohydrate intake. The product is made in the EU and contains 100% pure long-chain complex carbohydrates, with no additives or unnecessary fillers.</p><p>Maltodextrin is an excellent source of quickly available energy. Although it is a complex carbohydrate, it has a high glycaemic index (GI 110), which means it raises blood sugar quickly and provides a fast energy boost.</p><p>Maltodextrin is ideal when a fast, easily available source of energy is needed, helping the body quickly replenish depleted glycogen' AS nvarchar(max))
+        + N' stores, for example after physical activity or training. After training it can be combined with Battery Complete Whey, Battery Creatine and Battery BCAA.</p><p>Maltodextrin belongs to the polysaccharide group and is most often obtained from processed starch, especially corn or rice starch. Its name comes from the fact that it is made up of glucose polymers of different lengths. Unlike dextrose, maltodextrin does not taste sweet.</p><p>Battery Maltodextrin can be used as an effective source of carbohydrates in weight-gain shakes.</p><p>The main advantage of maltodextrin is that it can help with weight gain, which is why it is often used in various mass gainer formulas. Although it has a high glycaemic index, the GI value refers to the isolated ingredient. When combined with protein and fat, the overall glycaemic response of a meal can change significantly. In mass gainer formulas, maltod'
+        + N'extrin serves as a practical source of carbohydrates and calories in combination with protein and other nutrients.</p><p>One of the most practical and cost-effective ways to gain weight is to make your own weight gainer. If that is your goal, Battery Maltodextrin is an excellent choice. It provides extra calories, is absorbed quickly and dissolves easily.</p><p>Thanks to all these features, Battery Maltodextrin is an excellent choice with great value for money.</p><p><strong>Safe and high-quality – manufactured in our own EU production facilities</strong></p><ul><li>Tested ingredients, without unnecessary additives.</li><li>Manufactured in the EU to high quality and safety standards.</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 2000 g</p><p></p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 scoop (40 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Drink before, during (1 scoop per hour) or after training, according to your nutritional needs. Recommended daily amount: 1–3 servings (40 g – 120 g). This product is intended for trained adults who perform high-intensity, long-duration physical exercise. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children! STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve one serving in 400 ml of water or a protein shake.' AS nvarchar(max))
+WHERE Product_Id = 2105;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2105 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 27
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2634
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 457
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 59)) BEGIN PRINT 'length mismatch 2105'; SET @bad += 1; END;
+
+-- Product_Id: 2106 (BATTERY OMEGA 3)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY OMEGA 3' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><ul><li>Highly concentrated fish oil</li><li>Support for heart, brain and eye health</li><li>Manufactured in our own EU production facilities</li></ul><p><strong>BATTERY OMEGA 3</strong></p><p><strong>Omega-3 fatty acid capsules. Food supplement.</strong></p><p>Battery Omega 3 stands out for its high content of omega-3 fatty acids, rich in the essential fatty acids EPA (eicosapentaenoic acid), DHA (docosahexaenoic acid) and DPA (docosapentaenoic acid).</p><p>The unsaturated fatty acids EPA, DHA and DPA are omega-3 fatty acids that play an important role in supporting the cardiovascular system, cognitive function and vision, so it is important that they are regularly present in the diet.</p><p>Polyunsaturated fatty acids are essential and are found in fish. The body cannot produce them on its own in sufficient amounts, so they need to be taken in through the diet. Many people take' AS nvarchar(max))
+        + N' in too little omega-3 fatty acids every day, for example because they do not eat enough fish. In such cases, food supplements containing this type of fatty acid can be a practical choice.</p><ul><li>EPA and DHA contribute to the normal function of the heart</li><li>DHA contributes to the maintenance of normal brain function and normal vision</li></ul><p><strong>Safe and high-quality – manufactured in our own EU production facilities</strong></p><ul><li>Tested ingredients, without unnecessary additives.</li><li>Manufactured in the EU to high quality and safety standards.</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 90 capsules</p></li></ul>',
+    InstructionsForUseEn = CAST(N'Recommended daily dose: 1 capsule.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 capsule with a glass of water during a meal. WARNING: Do not exceed the recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children! STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max))
+WHERE Product_Id = 2106;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2106 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 15
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1627
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 34
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 266)) BEGIN PRINT 'length mismatch 2106'; SET @bad += 1; END;
+
+-- Product_Id: 2113 (BATTERY REBEL CREATINE)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY REBEL CREATINE' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Creatine monohydrate to increase power, strength and sports performance**</li><li>4.5 g creatine per serving**</li><li>Unflavoured</li><li>60 servings</li></ul><p><strong>Food supplement. 100% creatine monohydrate.</strong></p><p>REBEL CREATINE is a safe and effective food supplement for <strong>improving performance in high-intensity exercise</strong>, especially when combined with resistance training, which makes it <strong>one of the most popular supplements</strong> for supporting training.</p><p>Creatine supplementation increases phosphocreatine stores in the muscles during high-intensity activities, allowing more ATP to be produced, which contributes to <strong>increased lean muscle mass and improved power and strength</strong>.** Phosphocreatine, also known as creatine phosphate, is a natural organic compound that helps with muscle contractions. It is found in muscle tissu' AS nvarchar(max))
+        + N'e and enables short bursts of maximum energy lasting about 5 to 6 seconds.</p><p>Many bodybuilders and athletes use creatine to improve <strong>sports performance</strong>. Creatine supplementation can also be useful for older people, whose phosphocreatine stores decline with age.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>The beneficial effect is obtained with a daily intake of 3 g of creatine.</strong></p><p><strong>Net quantity:</strong> 300 g</p>',
+    InstructionsForUseEn = CAST(N'Serving size: 1 full scoop (5 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving before training. On days when you do not train, take 1 serving in the morning on an empty stomach. WARNING: Weight gain is possible. Do not exceed the recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children! A balanced and varied diet and a healthy lifestyle are important.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 serving with 250 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2113;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2113 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 22
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1406
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 33
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 354
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 35)) BEGIN PRINT 'length mismatch 2113'; SET @bad += 1; END;
+
+-- Product_Id: 2114 (BATTERY REBEL MASS GAINER)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY REBEL MASS GAINER' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p></p><ul><li>A practical, tasty shake for quality calorie intake</li><li>A combination of protein and carbohydrates in a 1:3 ratio</li><li>High calorie value for faster weight gain</li><li>Enriched with L-glutamine and fenugreek</li><li>Excellent price / performance / quality ratio</li><li>30 servings</li></ul><p><strong>Food supplement with sugar and sweeteners.</strong></p><p>To build muscle mass, the body needs quality calories that include a combination of carbohydrates, protein and fat. REBEL MASS GAINER is a calorie-rich <strong>blend of nutrients</strong> intended for athletes and other active people with the aim of <strong>increasing muscle mass, improving physical performance and recovering faster.</strong> With a mass gainer you can quickly and effectively increase your daily calorie intake.</p><p>The formula combines <strong>three high-quality protein sources</strong> (whey ' AS nvarchar(max))
+        + N'protein concentrate, whey protein isolate and casein) and <strong>a blend of five types of carbohydrates</strong>, enriched with <strong>L-glutamine</strong> and <strong>fenugreek</strong> extract. The ratio of carbohydrates to protein in REBEL MASS GAINER is 3:1.</p><p><strong>THE ROLE OF NUTRIENTS</strong></p><p><strong>Carbohydrates</strong> are the <strong>main source of energy</strong> for active adults and athletes and include simple sugars and more complex carbohydrates. Simple sugars are easily digested and quickly absorbed through the intestinal wall into the bloodstream. Complex carbohydrates take longer to break down and use, and have a more stable effect on blood glucose levels. In REBEL MASS GAINER, <strong>simple carbohydrates</strong> come from <strong>maltodextrin, dextrose and fructose</strong>, while <strong>complex carbohydrates</strong> come from <strong>palatinose, w'
+        + N'axy maize starch and oat flour</strong>. Carbohydrate needs in the daily diet usually range from 45% to 65% of total food intake, depending on physical needs, body size and training characteristics.</p><p><strong>Protein</strong> is important for <strong>muscle growth and recovery</strong> in active people and athletes. Adequate protein intake helps maintain a positive nitrogen balance in the body, which is important for muscle tissue.</p><p>REBEL MASS GAINER provides a high protein content, which contributes to muscle repair and growth, together with carbohydrates that serve as the main source of energy and help the recovery process.</p><p>Available in chocolate flavour.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 3000 g</p><p></p>',
+    InstructionsForUseEn = CAST(N'The serving size is 2 scoops (100 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1–2 servings daily. Take before and/or after training. This product is not a meal replacement; use it only as a food supplement. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 serving in 400 ml of water, milk or another liquid.' AS nvarchar(max))
+WHERE Product_Id = 2114;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2114 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2616
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 37
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 270
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 57)) BEGIN PRINT 'length mismatch 2114'; SET @bad += 1; END;
+
+-- Product_Id: 2115 (BATTERY REBEL PWO)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY REBEL PWO' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p></p><ul><li>Pre-workout powder with amino acids, caffeine and plant extracts</li><li>With citrulline, beta-alanine, tyrosine and choline</li><li>Extreme power</li><li>Exotic mango flavour</li></ul><p><strong>Food supplement with sweeteners. Instant drink powder with amino acids, caffeine and plant extracts.</strong> <em>Contains caffeine (150 mg/7.5 g; 300 mg/15 g). Not recommended for children or pregnant women.</em></p><p>Each 15 g serving contains:</p><ul><li>5 g citrulline malate</li><li>3 g beta-alanine</li><li>1 g tyrosine</li><li>500 mg choline bitartrate</li></ul><p><strong>Net quantity:</strong> 300 g</p><p></p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'Up to 75 kg body weight and for people sensitive to stimulants: The serving size is 7.5 g (1/2 scoop). Over 75 kg body weight and for experienced athletes: The serving size is 15 g (1 scoop).
+Consume 15–30 minutes before training. Do not use within 4 hours of bedtime.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children! Store in a dry place, away from heat and direct sunlight.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 7.5 g (1/2 scoop) with 200 ml and 15 g (1 scoop) with 400 ml.' AS nvarchar(max))
+WHERE Product_Id = 2115;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2115 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 17
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 631
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 268
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 194
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 65)) BEGIN PRINT 'length mismatch 2115'; SET @bad += 1; END;
+
+-- Product_Id: 2117 (BATTERY ZINC)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY ZINC' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p></p><ul><li>Regulates the functioning of the immune system</li><li>Takes part in macronutrient metabolism</li><li>Protects cells from oxidative stress</li><li>Contributes to the maintenance of healthy skin, hair, nails and bones</li><li>Manufactured in our own EU production facilities</li></ul><p><strong>Food supplement with zinc in tablet form.</strong></p><p>Zinc is an essential mineral found in almost every cell of the human body and takes part in more than 300 enzyme reactions.</p><p>Zinc contributes to:</p><ul><li>normal DNA synthesis</li><li>normal metabolism of carbohydrates, lipids, amino acids, fatty acids and vitamin A</li><li>normal cognitive function</li><li>normal fertility and reproduction</li><li>normal protein synthesis</li><li>the maintenance of normal testosterone levels in the blood</li><li>the maintenance of normal bones, hair, nails and skin</li><li>the normal fun' AS nvarchar(max))
+        + N'ction of the immune system</li><li>the maintenance of normal vision</li><li>the protection of cells from oxidative stress</li><li>the normal process of cell division</li></ul><p><strong>KEY FEATURES:</strong></p><ul><li>Essential trace mineral</li><li>Contributes to the maintenance of normal testosterone levels in the blood</li><li>Contributes to the maintenance of normal skin</li><li>Supports the normal function of the immune system</li><li>Contributes to the protection of cells from oxidative stress</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 90 capsules</p><p></p>',
+    NutritionValuesIngredientsEn = CAST(N'INGREDIENTS: maltodextrin, capsule (bovine gelatine, colour: yellow iron oxide), zinc bisglycinate.' AS nvarchar(max)),
+    NutritionValuesIngredientsDescriptionEn = CAST(N'Produced in a facility that also produces products containing milk, eggs, gluten and soy.' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'The serving size is 1 capsule.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 capsule with a glass of water during the day. WARNING: Do not exceed the recommended daily dose. Food supplements are not a substitute for a balanced and varied diet and a healthy lifestyle.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Keep out of reach of young children. STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max))
+WHERE Product_Id = 2117;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2117 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 12
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1553
+    OR ISNULL(DATALENGTH(NutritionValuesIngredientsEn),0)/2 <> 99
+    OR ISNULL(DATALENGTH(NutritionValuesIngredientsDescriptionEn),0)/2 <> 89
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 197
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 101)) BEGIN PRINT 'length mismatch 2117'; SET @bad += 1; END;
+
+-- Product_Id: 2118 (BATTERY ZMA)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY ZMA' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><ul><li>An excellent source of zinc, magnesium and vitamin B6</li><li>A popular supplement before bed</li><li>Contributes to normal protein metabolism</li><li>Excellent value for money</li><li>Manufactured in our own EU production facilities</li></ul><p><strong>Food supplement with zinc, magnesium and vitamin B6 in capsule form.</strong></p><p>Battery ZMA is a high-quality formula with zinc, magnesium and vitamin B6, created to support muscle growth and recovery. Zinc and magnesium are essential minerals that take part in many important functions in the body, including protein synthesis, muscle function, maintaining normal testosterone levels, immune function and fat metabolism.</p><p><strong>MAIN BENEFITS OF BATTERY ZMA:</strong></p><ul><li>An excellent source of zinc, magnesium and vitamin B6</li><li>Contributes to normal protein metabolism</li><li>Excellent value for money</li' AS nvarchar(max))
+        + N'><li>A popular supplement to take before bed</li></ul><p><strong>WHO SHOULD USE BATTERY ZMA?</strong></p><p>Battery ZMA is suitable as a supplement before bed and contributes to the maintenance of normal testosterone levels in the blood. It is also an excellent choice for people who want to increase their body and lean muscle mass.</p><p>In addition, zinc, magnesium and vitamin B6 take part in numerous important functions in the body and contribute to overall health and well-being.</p><p><strong>Safe and high-quality – manufactured in our own EU production facilities</strong></p><ul><li>Tested ingredients, without unnecessary additives.</li><li>Manufactured in the EU to high quality and safety standards.</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 90 capsules</p></li></ul>',
+    InstructionsForUseEn = CAST(N'Recommended daily dose: 1 capsule.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'WARNING: Do not exceed the recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children! STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max))
+WHERE Product_Id = 2118;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2118 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 11
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1763
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 34
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 214)) BEGIN PRINT 'length mismatch 2118'; SET @bad += 1; END;
+
+-- Product_Id: 2126 (BODY ATTACK BBQ SAUCE, 320ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BODY ATTACK BBQ SAUCE, 320ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p></p><ul><li>Low-carb, low-fat BBQ sauce</li><li>0% fat and sugar</li><li>Suitable for vegans</li></ul><p>The tasty Body Attack BBQ Sauce is ideal for complementing your BBQ meals – and you can enjoy it guilt-free, because it contains no sugar or fat. One 10 ml serving has only 1 kcal.</p><p><strong>KEY PRODUCT FEATURES:</strong></p><ul><li>Low in fat</li><li>Low in carbohydrates</li><li>Low in calories</li><li>Great taste</li><li>With sweetener (sucralose)</li><li>Gluten-free ingredients</li><li>Suitable for people with lactose intolerance</li><li>Vegan product</li></ul><p><strong>What is in Body Attack''s tasty American BBQ Sauce?</strong></p><p>The main ingredients are water, bamboo fibre and a small amount of sweetener (sucralose), so the sauce stays low in calories and suitable for people watching their diet. Thanks to this, there is no need for other high-calorie ingredients such ' AS nvarchar(max))
+        + N'as modified starch and sugar.</p><p>The other ingredients include colours, preservatives and, most importantly, flavour-enhancing ingredients such as wine vinegar and salt. With its BBQ and herb sauces, Body Attack pays close attention to achieving a full, authentic taste – something standard low-calorie sauces often lack.</p><p>All the ingredients used are suitable not only for vegans but also for people with lactose and/or gluten intolerance.</p><p></p>',
+    InstructionsForUseEn = CAST(N'Shake well before use. Once opened, keep refrigerated and use within one month.' AS nvarchar(max))
+WHERE Product_Id = 2126;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2126 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 28
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1359
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 79)) BEGIN PRINT 'length mismatch 2126'; SET @bad += 1; END;
+
+-- Product_Id: 2127 (BODY ATTACK DRESSING, 320ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BODY ATTACK DRESSING, 320ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Low-carb, low-fat dressing</li><li>0% fat and sugar</li><li>Suitable for vegans</li></ul><p>The tasty Body Attack Dressing is ideal for enriching all kinds of meals – and you can enjoy it guilt-free, because it contains no sugar or fat. One 10 ml serving has only 1 kcal.</p><p><strong>KEY PRODUCT FEATURES:</strong></p><ul><li>Low in fat</li><li>Low in carbohydrates</li><li>Low in calories</li><li>Great taste</li><li>With sweetener (sucralose)</li><li>Gluten-free ingredients</li><li>Suitable for people with lactose intolerance</li><li>Vegan product</li></ul><p><strong>What is in the tasty Body Attack Dressing?</strong></p><p>The main ingredients are water, bamboo fibre and a small amount of sweetener (sucralose), so the dressing stays low in calories and suitable for people watching their diet. Thanks to this, there is no need for other high-calorie ingredients such as modified st' AS nvarchar(max))
+        + N'arch and sugar.</p><p>The other ingredients include colours, preservatives and, most importantly, ingredients that contribute to the flavour, such as wine vinegar and salt. With its dressings, Body Attack pays close attention to achieving a full, balanced taste – something standard low-calorie dressings often lack.</p><p>All the ingredients used are suitable for people with lactose and/or gluten intolerance.</p>',
+    InstructionsForUseEn = CAST(N'Shake well before use. Once opened, keep refrigerated and use within one month. Unopened, store in a cool, dry place.' AS nvarchar(max))
+WHERE Product_Id = 2127;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2127 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 27
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1315
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 117)) BEGIN PRINT 'length mismatch 2127'; SET @bad += 1; END;
+
+-- Product_Id: 2128 (BODY ATTACK DESSERT SAUCE, 320ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BODY ATTACK DESSERT SAUCE, 320ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>A tasty sauce to enrich your desserts</li><li>Great taste</li><li>0% fat and sugar</li><li>Vegan product</li></ul><p>Body Attack Dessert Sauce in chocolate or strawberry flavour is ideal for adding flavour to smoothies, dairy products, ice cream, pancakes, cereals or warm apple pie. It contains less than 0.5 g sugar and 0.1 g fat per 100 ml.</p><p><strong>KEY PRODUCT FEATURES:</strong></p><ul><li>For enriching the taste of desserts</li><li>An excellent choice while dieting</li><li>Ideal for a low-calorie diet with little sugar and fat</li><li>Chocolate or strawberry flavour</li><li>Ideal for a low-fat, low-carb diet</li><li>Suitable for vegans</li><li>32 servings</li></ul><p><strong>What is in Body Attack''s tasty Dessert Sauce?</strong></p><p>This dessert topping provides at most 1 kcal per serving, which makes it extremely low in calories.</p><p>Athletes and people watching thei' AS nvarchar(max))
+        + N'r figure who like to use toppings on dairy products, cereals or protein meals can enjoy this sauce guilt-free, because it has a minimal effect on total calorie intake. Even people on a very strict diet can include this dessert sauce in their plan.</p><p>The advantage of Body Attack Dessert Sauce is not only its low carbohydrate, sugar and fat content, but also its taste, colour and consistency. The main ingredients are water, bamboo fibre and a small amount of sweetener (sucralose), which significantly reduces the sugar and fat content of this topping.</p>',
+    InstructionsForUseEn = CAST(N'Once opened, keep refrigerated and use within one month.' AS nvarchar(max))
+WHERE Product_Id = 2128;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2128 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 32
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1462
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 56)) BEGIN PRINT 'length mismatch 2128'; SET @bad += 1; END;
+
+-- Product_Id: 2130 (CreGAAtine)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'CreGAAtine' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><ul><li>Creatine monohydrate + GAA = CReGAAtine</li><li>A synergistic combination of two active ingredients</li><li>Support for physical and mental performance</li><li>Does not cause noticeable water retention</li><li>Support for a better “pump” and performance during training</li><li>More energy and focus throughout the day</li></ul><p><strong>Food supplement with creatine monohydrate, guanidinoacetic acid (GAA) and vitamins B6, B9 and B12.</strong></p><p><strong>WHY CREGAATINE?</strong></p><p>CReGAAtine is a unique patented formula based on a combination of creatine monohydrate and its metabolic precursor GAA – guanidinoacetic acid.</p><p>The combination was developed to provide a synergistic effect and support creatine levels in the body, as well as physical and mental performance.</p><p>CReGAAtine was developed by Applied Bioenergetic Lab and Carnomeda and is a formulation cr' AS nvarchar(max))
+        + N'eated on the basis of scientific research.</p><p><strong>A SCIENCE-BASED FORMULA</strong></p><p>CReGAAtine is a food supplement formulated on the basis of scientific evidence. The science behind CReGAAtine is supported by numerous studies on GAA and creatine metabolism.</p><p><strong>AN AWARD-WINNING FORMULATION</strong></p><p>CReGAAtine is a safe, patented formulation and contains no doping substances. The study on the effects of combining creatine with its precursor GAA received an award from the European Society for Clinical Nutrition and Metabolism (ESPEN).</p><p><strong>SUPPORT FOR CREATINE LEVELS</strong></p><p>CReGAAtine was created to support creatine levels in the muscles and brain. The combination of creatine monohydrate and GAA provides support through different metabolic pathways for creating and using creatine in the body.</p><p><strong>KEY FEATURES:</strong></p><ul><li>Crea'
+        + N'tine monohydrate combined with GAA</li><li>Support for strength, power and physical performance</li><li>Support for mental energy and focus</li><li>A practical way to top up your daily creatine intake</li><li>With added vitamins B6, B9 and B12</li></ul></li></ul>',
+    InstructionsForUseEn = CAST(N'Adults: 1 sachet twice a day. Dissolve the contents of the sachet in lukewarm water, juice or another liquid and drink immediately.
+
+Note: food supplements cannot be used as a substitute for a varied and balanced diet and a healthy lifestyle. Keep out of reach of children.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Warning: not recommended for children, pregnant or breastfeeding women, people with kidney failure or disorders such as nephrotic syndrome, or anyone hypersensitive to any of the ingredients. People at risk of cardiovascular or kidney disease, those with a diagnosed condition, or those taking medication or other supplements should consult a doctor or pharmacist before use. Do not exceed the recommended daily dose.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Storage: store at a temperature up to 25°C, protected from light and moisture.' AS nvarchar(max))
+WHERE Product_Id = 2130;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2130 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 10
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2063
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 273
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 417
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 78)) BEGIN PRINT 'length mismatch 2130'; SET @bad += 1; END;
+
+-- Product_Id: 2131 (IRONMAXX 100% EAAS ZERO, 500g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'IRONMAXX 100% EAAS ZERO, 500g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>EAA amino acid powder with all 8 essential amino acids</li><li>With added semi-essential histidine</li><li>Support for muscles and recovery</li><li>Support for the immune system</li><li>Fast absorption</li><li>Sugar-free</li></ul><p><strong>Food supplement for athletes with amino acids and sweeteners.</strong></p><p><strong>All essential amino acids plus histidine in one product!</strong></p><p><strong>100% EAAs ZERO</strong> powder gives you all <strong>eight essential amino acids + the semi-essential amino acid histidine</strong> in one product. <strong>EAA amino acid powder</strong> is an excellent choice for muscle-building phases. Essential amino acids contribute to supporting, maintaining and recovering muscles, and are suitable for bodybuilding, weight training, athletics and endurance sports.</p><p>The <strong>proteinogenic free amino acids</strong> in this formula are qu' AS nvarchar(max))
+        + N'ickly available to the body and take part in important metabolic processes related to muscle protein synthesis. 100% EAAs ZERO is a pure EAA powder with IronMaxx®''s recognisable high quality.</p><p><strong>ESSENTIAL AMINO ACIDS – SUPPORT FOR YOUR PERFORMANCE</strong></p><p>EAAs are not only important for processes related to building and maintaining muscle mass. Essential amino acids also take part in numerous other metabolic processes, including the creation of enzymes and hormones and the normal functioning of the body.</p><p><strong>BCAA – THE POWERFUL EAAs</strong></p><p>The essential amino acids in this formula include the three branched-chain amino acids (BCAAs): L-leucine, L-valine and L-isoleucine. They are especially popular among athletes because of their role in muscle tissue and protein synthesis.</p><p><strong>100% EAAs ZERO</strong> contains no added sugar. Instead of sugar'
+        + N', the formula is sweetened with sucralose and natural steviol glycosides of plant origin. The prepared drink is sugar-free.</p><p><strong>100% EAAs ZERO – HOW TO USE</strong></p><p>Essential amino acids can be taken before training, during training or immediately after physical activity. Mix 15 g of powder with 350 ml of water to make a refreshing amino acid drink.</p><p><strong>MAIN ADVANTAGES OF 100% EAAs ZERO:</strong></p><ul><li>EAA amino acid powder with all 8 essential amino acids</li><li>Free essential amino acids</li><li>With added semi-essential histidine</li><li>Fast absorption</li><li>Support for muscles and recovery</li><li>Easy to prepare as a shake</li><li>Support for the immune system</li><li>Sugar-free – sweetened with sucralose and natural steviol glycosides</li></ul><p><strong>ALLERGEN INFORMATION</strong></p><p>May contain traces of LUPIN, EGGS, GLUTEN, MILK and SOY.</'
+        + N'p><p><strong>Net quantity:</strong> 500 g</p>',
+    InstructionsForUseEn = CAST(N'Serving size: 1 heaped tablespoon (15 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Best used before, during or even shortly after training, as a shake.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Add 1 serving to 350 ml of cold water in a shaker and shake vigorously for 20 seconds.' AS nvarchar(max))
+WHERE Product_Id = 2131;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2131 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 29
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2745
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 41
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 68
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 86)) BEGIN PRINT 'length mismatch 2131'; SET @bad += 1; END;
+
+-- Product_Id: 2134 (IRONMAXX CARNITINE PRO LIQUID)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'IRONMAXX CARNITINE PRO LIQUID' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><ul><li>With 6000 mg L-carnitine per 100 ml</li><li>Ideal while dieting</li><li>Ideal for use before and during training</li><li>Fat-free</li><li>Optimal combined with regular physical activity</li><li>With vitamin C to reduce tiredness and fatigue</li></ul><p><strong>Food supplement with L-carnitine and vitamin B6, with sweeteners.</strong></p><p><strong>IronMaxx® Carnitin Pro Liquid – a popular choice among top athletes!</strong></p><p>Improving your physical shape and overall well-being, getting better definition and feeling better in your own body takes discipline, commitment and consistency. Carnitin Pro Liquid is a food supplement that has been popular for years among people who watch their figure and among professional athletes.</p><p>Carnitine is most often offered in capsule form, but IronMaxx® has expanded its successful Carnitin Pro line with the practical Carnitin Pro' AS nvarchar(max))
+        + N' Liquid. With Carnitin Pro Liquid you can easily adjust your carnitine intake without having to take large capsules or tablets.</p><p>The liquid form makes it practical and quick to use, which makes the product especially suitable for consumption shortly before or during physical activity. With 1500 mg of carnitine per serving, the product is highly concentrated. Especially during diets and cutting phases, an adequate intake of L-carnitine can be useful as part of a well-structured diet and training plan.</p><p><strong>L-CARNITINE AND ITS ROLE IN THE BODY</strong></p><p>Carnitine plays an important role in fat metabolism, because long-chain fatty acids are transported to the mitochondria with the help of L-carnitine, where they can be used to produce energy.</p><p>To reduce body fat effectively, an appropriate calorie intake must be combined with regular physical activity. Carnitin Pro L'
+        + N'iquid is a practical choice for use before or during training, especially in periods when the goal is to improve physical shape and definition.</p><p>L-carnitine is a vitamin-like compound and a semi-essential nutrient, and its production in the body depends on the availability of certain amino acids, vitamins and minerals. A lack of some of these nutrients can affect its synthesis. That is why an additional intake of free-form L-carnitine can be a practical choice, especially for active people and athletes.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 500 ml (20 servings) / 1000 ml (40 servings)</p></li></ul>',
+    InstructionsForUseEn = CAST(N'The serving size is 25 ml.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily, ideally 20 minutes before training. On days when you do not train, take L-carnitine before a meal. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max))
+WHERE Product_Id = 2134;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2134 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 29
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2490
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 26
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 257)) BEGIN PRINT 'length mismatch 2134'; SET @bad += 1; END;
+
+-- Product_Id: 2135 (IRONMAXX COLLAGEN POWDER ZERO, 250g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'IRONMAXX COLLAGEN POWDER ZERO, 250g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Collagen drink with 83% collagen hydrolysate and vitamin C</li><li>Vitamin C contributes to normal collagen formation for the normal function of blood vessels, bones, cartilage, gums, teeth and skin</li><li>Highest quality</li><li>High solubility</li></ul><p><strong>Drink powder with collagen (83%) and vitamin C. Food supplement with a high protein content and sweetener. Sugar-free.</strong></p><p>Collagen is the main structural protein in the extracellular space of the various connective tissues in the body. As the main component of connective tissue, it is the most abundant protein in mammals and makes up as much as 35% of the body''s total protein. It is found mostly in fibrous tissues such as tendons, ligaments and skin. It is also present in the cornea, blood vessels, intestines, intervertebral discs and the dentin of the teeth.</p><p>When hydrolysed, collagen is broken down ' AS nvarchar(max))
+        + N'into smaller peptides that can be taken as a food supplement. Hydrolysed collagen has a much lower molecular weight than native collagen or gelatine.</p><p><strong>BENEFITS OF PROTEIN:</strong></p><ul><li>Protein contributes to the maintenance of normal bones and to the growth and maintenance of muscle mass.</li></ul><p><strong>BENEFITS OF VITAMIN C, WHICH IS ADDED TO THE PRODUCT:</strong></p><ul><li>Vitamin C contributes to normal collagen formation for the normal function of blood vessels, bones, cartilage, gums, teeth and skin</li><li>Vitamin C contributes to maintaining the normal function of the immune system during and after intense physical exercise</li><li>Vitamin C contributes to normal energy-yielding metabolism, normal functioning of the nervous system and normal psychological function</li><li>Vitamin C contributes to the protection of cells from oxidative stress</li><li>Vitam'
+        + N'in C contributes to the reduction of tiredness and fatigue</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 250 g (20 servings)</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 12 g.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take one serving daily. Warning: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of young children. Store protected from heat, moisture and sunlight.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Put 12 g of powder and 300 ml of water in a shaker and shake vigorously for 20 seconds.' AS nvarchar(max))
+WHERE Product_Id = 2135;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2135 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2006
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 216
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 87)) BEGIN PRINT 'length mismatch 2135'; SET @bad += 1; END;
+
+-- Product_Id: 2136 (IRONMAXX INSTANT RICE PUDDING)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'IRONMAXX INSTANT RICE PUDDING' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>100% ground rice</li><li>42 g carbohydrates per 50 g</li><li>A quick energy meal</li><li>Low in fat and sugar</li><li>A source of fibre</li><li>Easy to prepare</li></ul><p><strong>Coarse-grain instant rice flour for making pudding.</strong></p><p>Whether you are looking for a quick breakfast before work or want to top up your energy stores before or after an intense workout, this rice pudding is an excellent choice. Besides tasting great, it also provides quality nutrients for the body.</p><p><strong>KEY FEATURES:</strong></p><ul><li>100% ground rice</li><li>42 g carbohydrates per 50 g serving provide a quick source of energy</li><li>An excellent choice for breakfast, and as a pre- or post-workout meal</li><li>Low in fat and sugar</li><li>A source of fibre</li><li>Suitable for different diets, including vegan and vegetarian</li><li>No additives or preservatives</li><li>Quick and ' AS nvarchar(max))
+        + N'easy to prepare</li></ul><p><strong>Net quantity:</strong> 750 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 50 g.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Ideal for breakfast or as a pre- and post-workout meal. Serving suggestion: once it has cooled, you can add your favourite protein powder. Even more enjoyable with toppings of your choice. Store protected from heat, moisture and sunlight.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Simply mix 50 g of instant ground rice with 150 ml of hot water and let it stand briefly. If you are in a hurry, you can also prepare the pudding in a microwave.' AS nvarchar(max))
+WHERE Product_Id = 2136;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2136 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 29
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 968
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 238
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 161)) BEGIN PRINT 'length mismatch 2136'; SET @bad += 1; END;
+
+-- Product_Id: 2140 (IRONMAXX TT ULTRA STRONG 100% TRIBULUS)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'IRONMAXX TT ULTRA STRONG 100% TRIBULUS' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><ul><li>1600 mg <em>Tribulus terrestris</em> extract per tablet</li><li>15 mg zinc per tablet (150% RI)</li><li>Support for physical performance</li><li>90 / 180 servings</li></ul><p><strong>Tablets with <em>Tribulus terrestris</em> and zinc. Food supplement.</strong></p><p><strong>100% <em>TRIBULUS TERRESTRIS</em></strong></p><p>TT® Ultra Strong tablets contain 100% high-purity, certified <em>Tribulus terrestris</em> extract. With a concentration of 1600 mg <em>Tribulus terrestris</em> per tablet, TT® Ultra Strong is one of the most highly concentrated Tribulus products. Besides its high saponin content (80%), TT® Ultra Strong also contains 19% protodioscin.</p><p>The formula is intended for muscle-building phases, bodybuilding and strength training, and is further enriched with the essential trace mineral zinc.</p><p><strong>SUPPORT FOR NORMAL TESTOSTERONE LEVELS</strong></p><p' AS nvarchar(max))
+        + N'>Regular physical activity plays an important role in maintaining physical fitness and hormonal balance. TT® Ultra Strong also provides 15 mg of zinc per tablet.</p><p><strong>ZINC CONTRIBUTES TO:</strong></p><ul><li>the maintenance of normal testosterone levels in the blood</li><li>normal protein synthesis</li><li>normal macronutrient metabolism</li><li>the protection of cells from oxidative stress</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 90 tablets / 180 tablets</p></li></ul>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 tablet.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily with a glass of water. Warning: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Store in a dry, cool place protected from light and out of reach of children.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Store protected from heat, moisture and sunlight.' AS nvarchar(max))
+WHERE Product_Id = 2140;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2140 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 38
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1465
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 29
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 227
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 49)) BEGIN PRINT 'length mismatch 2140'; SET @bad += 1; END;
+
+-- Product_Id: 2143 (NUTREND CARNITINE DRINK, 750ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'NUTREND CARNITINE DRINK, 750ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>A refreshing ready-to-drink beverage</li><li>Sugar-free</li><li>1000 mg L-carnitine per serving</li><li>With caffeine and taurine</li></ul><p><strong>Flavoured non-alcoholic drink with sweeteners, with added L-carnitine, taurine and caffeine.</strong></p><p><strong>Carbonated flavoured non-alcoholic drink with sweeteners, with added L-carnitine, taurine and caffeine.</strong><br>(flavours: Raspberry, Cola, Mojito, Mango &amp; Coconut, Lavender, Strawberry &amp; Mint)</p><p>A refreshing, sugar-free ready-to-drink beverage containing 1000 mg of L-carnitine, with added stimulating ingredients such as caffeine and taurine. The drink is an excellent choice for supporting physical performance and helps maintain proper hydration during training. Thanks to its light, refreshing taste, it fits easily into your training routine and helps you drink fluids regularly.</p><ul><li>1000 mg L-car' AS nvarchar(max))
+        + N'nitine</li><li>1000 mg taurine</li><li>40 mg caffeine</li><li>Sugar-free</li></ul><p><strong>RECOMMENDED USE:</strong> 1 bottle per day. Drink 20–30 minutes before physical activity. It can also be used during training.</p><p><strong>USE:</strong> Once opened, consume the product within 24 hours.</p><p><strong>Suitable for athletes, with sweeteners.</strong> Intended for particular nutritional needs. Not intended for children, pregnant or breastfeeding women. Keep out of reach of children! Store in a dry place at a temperature up to 25°C, protected from direct sunlight. Do not freeze. Contains caffeine. Not suitable for registered athletes. The manufacturer is not liable for damage caused by improper use or storage.</p><p><strong>Net quantity:</strong> 750 ml</p>',
+    InstructionsForUseEn = CAST(N'Take 20–30 minutes before exercise. It can also be used during physical exercise.  Use: Once opened, consume the product within 24 hours.  Suitable for athletes, with sweeteners. Intended for particular nutritional uses. Not intended for children, pregnant or breastfeeding women. Keep out of reach of children! Store in a dry place at a temperature not exceeding 25°C and away from direct sunlight. Do not freeze. Contains caffeine.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Drink 1 bottle of NUTREND CARNITINE DRINK daily' AS nvarchar(max))
+WHERE Product_Id = 2143;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2143 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1673
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 433
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 47)) BEGIN PRINT 'length mismatch 2143'; SET @bad += 1; END;
+
+-- Product_Id: 2147 (NUTREND CARNITINE DRINK (CAFFEINE FREE), 750ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'NUTREND CARNITINE DRINK (CAFFEINE FREE), 750ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Hydrates the body during physical activity</li><li>Practical to use</li></ul><p><strong>Flavoured non-alcoholic drink with sweeteners. Specially formulated for athletes.</strong></p><p><strong>LIGHTNESS IN EVERY SIP!</strong> Replenishes fluids and provides hydration during physical activity. Contains no sugar or carbohydrates.</p><p>The drink contains a special type of L-carnitine, “Carnipure”, made by the Swiss company Lonza.</p><p>The 750 ml bottle contains:</p><ul><li>1000 mg L-carnitine</li><li>1000 mg taurine</li><li>17.3 mg vitamin B3 (108%*RI)</li><li>0 g sugar</li></ul><p><em>RI – Reference intake.</em></p><p><strong>Net quantity:</strong> 750 ml</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'Drink 1 bottle daily.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'To support physical performance, start drinking it 20–30 minutes before exercise and continue drinking it during exercise. Once opened, consume the product within 24 hours. Sediment may appear; this does not affect the quality or safety of the product. WARNING: Intended for particular nutritional uses. Store in a dry place at a temperature below 25°C, protected from direct sunlight. Do not freeze. Keep out of reach of children! Not suitable for children, adolescents, pregnant or breastfeeding women, or people sensitive to caffeine. The manufacturer is not liable for damage caused by improper use or storage.' AS nvarchar(max))
+WHERE Product_Id = 2147;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2147 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 46
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 675
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 21
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 614)) BEGIN PRINT 'length mismatch 2147'; SET @bad += 1; END;
+
+-- Product_Id: 2148 (NUTREND CARNITINE MAGNESIUM DRINK)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'NUTREND CARNITINE MAGNESIUM DRINK' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p></p><ul><li>The popular L-carnitine drink, now enriched with magnesium and vitamin B6</li><li>Lightly carbonated</li><li>No salt, sugar or colourings</li></ul><p><strong>Carbonated flavoured non-alcoholic drink with added L-carnitine, magnesium and vitamin B6.</strong></p><p>The legendary carnitine drink, popular with millions of users around the world, now comes in a new version enriched with magnesium and vitamin B6. The refreshing, lightly carbonated, sugar-free drink contains L-carnitine and a significant amount of magnesium – a mineral whose intake is often insufficient for a large part of the population.</p><p>Magnesium contributes to normal muscle function, the reduction of tiredness and fatigue and the normal functioning of the nervous system, and also contributes to the maintenance of normal bones and teeth. Carnitine Magnesium Activity Drink also provides 100% of the referen' AS nvarchar(max))
+        + N'ce daily intake of vitamin B6, which contributes to the normal function of the immune system and the normal formation of red blood cells.</p><p>Carnitine Magnesium Activity Drink traditionally contains a high amount of quality L-carnitine – 1000 mg. L-carnitine is a substance found naturally in the body, which the body can produce in a certain amount. Its synthesis depends on the presence of the amino acids L-lysine and L-methionine, as well as vitamins B3, B6 and C and iron. L-carnitine takes part in transporting long-chain fatty acids to the mitochondria, where they are used to produce energy. It is suitable as part of the diet for both strength training and endurance sports.</p><ul><li>Ergonomic bottle with a “sport lock” cap</li><li>No colourings</li><li>0% salt</li><li>Contains L-carnitine</li><li>Contains magnesium (57%**RI) and vitamin B6 (100%**RI)</li><li>Sugar-free</li><li>Ligh'
+        + N'tly carbonated</li></ul><p>**RI – Reference intake.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 750 ml / 8 × 750 ml</p><p></p>',
+    InstructionsForUseEn = CAST(N'Recommended dose: 1 bottle per day.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Drink 20–30 minutes before physical activity. It can also be used during physical activity. Once opened, consume the product within 24 hours. Warning: Not suitable for children, pregnant or breastfeeding women. Keep away from heat, frost, moisture and direct sunlight.' AS nvarchar(max))
+WHERE Product_Id = 2148;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2148 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 33
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2000
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 268)) BEGIN PRINT 'length mismatch 2148'; SET @bad += 1; END;
+
+-- Product_Id: 2149 (OLIMP ARGI POWER, 120 капсули)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP ARGI POWER, 120 capsules' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>1500 mg L-arginine HCl of top pharmaceutical quality</li><li>A valuable addition to creatine stacks, creatine and its advanced forms</li><li>One capsule contains: 1500 mg L-arginine HCl</li></ul><p><strong>Food supplement in capsules with the amino acid L-arginine.</strong></p><p>ARGI POWER™ 1500 MEGA CAPS® contains 1500 mg of high-quality, pharmaceutical-purity L-arginine HCl in 1 capsule.</p><p>ARGI POWER™ Mega Caps® is an excellent choice as a standalone food supplement, and also as a valuable addition to OLIMP creatine stacks.</p><p><strong>Net quantity:</strong> 120 capsules</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'Serving size: 1 capsule.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily, before training or before sexual activity, with plenty of water. WARNING: Not suitable for children and young people. Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. Keep out of reach of children!' AS nvarchar(max))
+WHERE Product_Id = 2149;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2149 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 598
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 24
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 296)) BEGIN PRINT 'length mismatch 2149'; SET @bad += 1; END;
+
+-- Product_Id: 2150 (OLIMP ASHWAGANDHA 600 SPORT, 60 капсули)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP ASHWAGANDHA 600 SPORT, 60 capsules' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p></p><ul><li>Has a positive effect on the normal functioning of the nervous, reproductive and immune systems</li><li>Antioxidant activity</li><li>Contains the patented ashwagandha extract KSM-66®</li><li>One pack lasts for a month of use</li></ul><p><strong>ASHWAGANDHA 600 Sport Edition with patented KSM-66® ashwagandha root extract.</strong></p><p>Ashwagandha (<em>Withania somnifera</em>), also known as Indian ginseng or winter cherry, is one of the best-known herbs traditionally used in Indian medicine – Ayurveda.</p><p>In Ayurveda, ashwagandha is used as part of the so-called <strong>Rasayana</strong> tradition, which aims to maintain vitality and physical and mental well-being. Rasayana covers a combination of herbs, lifestyle and diet.</p><p><strong>ASHWAGANDHA 600 Sport Edition</strong> contains patented <strong>KSM-66® ashwagandha root extract</strong>, with a standardised compo' AS nvarchar(max))
+        + N'sition and a high concentration of active ingredients.</p><p>Ashwagandha is known as an <strong>adaptogen</strong> and is traditionally used to support the body during periods of physical and mental stress. The product is intended for physically active people and anyone who wants extra support for vitality and overall well-being.</p><p><strong>MAIN BENEFITS:</strong></p><ul><li>Supports the normal functioning of the nervous system and mental well-being</li><li>Helps maintain the normal function of the reproductive system</li><li>Supports the normal functioning of the immune system</li><li>Has antioxidant properties</li><li>Helps maintain physical and mental vitality</li><li>Helps the body adapt to stress</li><li>Contains the patented KSM-66® ashwagandha extract</li><li>One pack lasts for a month of use</li></ul><p></p>'
+WHERE Product_Id = 2150;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2150 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 40
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1730)) BEGIN PRINT 'length mismatch 2150'; SET @bad += 1; END;
+
+-- Product_Id: 2151 (OLIMP BCAA XPLODE POWDER)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP BCAA XPLODE POWDER' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>6 g BCAA per serving</li><li>Formula enriched with L-glutamine and vitamin B6</li><li>For physically active people and athletes</li><li>Excellent solubility</li></ul><p><strong>Food supplement with BCAA amino acids, L-glutamine and vitamin B6. With sweeteners.</strong></p><p><strong>BCAA AND L-GLUTAMINE IN ONE SERVING</strong></p><p>With Olimp BCAA Xplode Powder you get a combination of high-quality <strong>branched-chain amino acids (BCAAs)</strong> – L-leucine, L-valine and L-isoleucine – complemented by <strong>L-glutamine and vitamin B6</strong>.</p><p>The product was developed for athletes and physically active people who want an easy way to top up their daily BCAA intake. Each serving provides <strong>6 g of BCAA and 1 g of L-glutamine</strong>.</p><p>The formula is <strong>sugar-free</strong> and contains protein, which contributes to the growth and maintenance of muscle m' AS nvarchar(max))
+        + N'ass. Vitamin B6 contributes to normal protein and glycogen metabolism, normal energy-yielding metabolism, normal functioning of the nervous system and the reduction of tiredness and fatigue.</p><p><strong>WITH OLIMP BCAA XPLODE POWDER YOU GET:</strong></p><ul><li>Support for topping up your daily diet with BCAA amino acids</li><li>Up to 6 g of pure BCAA and 1 g of L-glutamine per serving</li><li>A sugar-free formula</li><li>Protein that contributes to the growth and maintenance of muscle mass</li><li>Vitamin B6, which contributes to normal protein and glycogen metabolism, normal functioning of the nervous system and the reduction of tiredness and fatigue</li><li>Great flavours</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 280 g / 500 g / 1000 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 scoop (10 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1–2 servings daily – before a meal or training and after training or before bed. WARNING: Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. Keep out of reach of children. Note: Sediment may appear; this does not affect the quality or effect of the product.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Add 1 serving to 200 ml of water. Drink immediately after preparation.' AS nvarchar(max))
+WHERE Product_Id = 2151;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2151 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 24
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1736
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 337
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 70)) BEGIN PRINT 'length mismatch 2151'; SET @bad += 1; END;
+
+-- Product_Id: 2152 (OLIMP BETA ALANINE CARNO RUSH, 80 таблети)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP BETA ALANINE CARNO RUSH, 80 tablets' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Recommended for your most intense workouts</li><li>Contains beta-alanine and L-histidine</li><li>Helps delay the onset of fatigue and extend training time</li></ul><p><strong>FEEL THE REAL POWER OF TRAINING!</strong></p><p>Beta-Alanine Carno Rush Mega Tabs® is a food supplement intended for people who practise strength and endurance sports, high-intensity training and sports that require a high level of physical fitness over a longer period of time.</p><p><strong>Beta-Alanine Carno Rush Mega Tabs®</strong> helps extend the time until fatigue sets in, allowing longer and more intense workouts.</p><p><strong>BETA-ALANINE CARNO RUSH MEGA TABS® – A SPECIALLY CREATED COMBINATION OF BETA-ALANINE, L-HISTIDINE AND VITAMIN B6!</strong></p><p>Beta-alanine and L-histidine are two substances needed for the synthesis of carnosine. Carnosine has antioxidant properties and plays an important ro' AS nvarchar(max))
+        + N'le in muscle tissue, especially during intense physical activity.</p><p>Taking beta-alanine and L-histidine together provides the precursors needed to form carnosine and helps avoid an insufficient intake of them through diet.</p><p><strong>Beta-Alanine Carno Rush Mega Tabs®</strong> is formulated to support intense workouts and can help maintain performance during prolonged physical effort.</p><p><strong>BETA-ALANINE CARNO RUSH MEGA TABS® – HOW LONG CAN YOU WITHSTAND EXTREME EFFORT?</strong></p>',
+    InstructionsForUseEn = CAST(N'The serving size is 3–4 tablets.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily with a meal or before training, with plenty of water. Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. A varied and balanced diet and a healthy lifestyle are recommended. Warning: not recommended for children, young people, pregnant or breastfeeding women, or in case of hypersensitivity to any of the ingredients. Some people may experience a tingling or numbness sensation after consumption. This is a temporary effect attributed to the strong action of beta-alanine. It does not affect health. Keep out of reach of children.' AS nvarchar(max))
+WHERE Product_Id = 2152;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2152 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 41
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1401
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 32
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 625)) BEGIN PRINT 'length mismatch 2152'; SET @bad += 1; END;
+
+-- Product_Id: 2153 (OLIMP BETA-ALANINE XPLODE POWDER, 250g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP BETA-ALANINE XPLODE POWDER, 250g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>1600 mg high-quality beta-alanine per serving (3.2 g)</li><li>Recommended for your most intense workouts</li><li>Contributes to the reduction of tiredness and fatigue (vitamin B6)</li><li>Refreshing orange flavour</li></ul><p><strong>Food supplement powder with beta-alanine, vitamin B6, L-histidine and sodium. With sweeteners.</strong></p><p>If fatigue and lack of endurance stop you from getting the most out of your workout, <strong>Beta-Alanine Xplode Powder</strong> is a formula created to supplement your diet with high-quality beta-alanine, complemented by vitamin B6 and L-histidine.</p><p>The product is part of Olimp Sport Nutrition''s <strong>Xplode</strong> series, known for excellent solubility, high bioavailability of active ingredients, great taste and carefully controlled raw material quality. <strong>Beta-Alanine Xplode Powder</strong> is made using modern technology an' AS nvarchar(max))
+        + N'd to high quality and safety standards.</p><p><strong>BETA-ALANINE XPLODE POWDER PROVIDES:</strong></p><ul><li>Excellent solubility and a refreshing orange flavour</li><li>1600 mg of high-quality beta-alanine per 3.2 g serving</li><li>Vitamin B6, which contributes to the reduction of tiredness and fatigue</li><li>Vitamin B6, which contributes to normal energy-yielding metabolism and normal protein and glycogen metabolism</li><li>Vitamin B6, which contributes to the normal functioning of the nervous system</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 250 g</p>',
+    InstructionsForUseEn = CAST(N'Serving size: 1 scoop (3.2 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving 3 times a day with a meal or before training. Drink immediately after preparation. WARNING: Not recommended for children, young people, pregnant or breastfeeding women, or people hypersensitive to any of the ingredients. Some people may experience a tingling or numbness sensation after consumption. This is a temporary effect related to the action of beta-alanine and poses no health risk. Do not exceed the recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 1 serving (3.2 g) in 100 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2153;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2153 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 38
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1544
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 546
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 46)) BEGIN PRINT 'length mismatch 2153'; SET @bad += 1; END;
+
+-- Product_Id: 2154 (OLIMP CHELA-MAG B6 FORTE SHOT (NEW))
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP CHELA-MAG B6 FORTE SHOT (NEW)' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Magnesium in the form of high-quality Albion® amino acid chelate</li><li>A high dose of 375 mg magnesium per ampoule</li><li>Supports normal functioning of the muscles and nervous system</li><li>Excellent absorption</li><li>For people with an increased need for magnesium</li><li>Suitable for vegans</li></ul><p><strong>Food supplement with highly absorbable liquid magnesium, enriched with vitamin B6. With sweeteners.</strong></p><p><strong>A NEW GENERATION OF MAGNESIUM</strong></p><p>Chela-Mag B6® Forte SHOT contains a highly absorbable liquid form of magnesium as Albion® amino acid chelate. One ampoule contains <strong>375 mg of magnesium</strong>, enriched with vitamin B6, and provides <strong>100% of the reference daily intake of magnesium</strong>.</p><p>The innovative <strong>Liquid Technology</strong> formula makes the active ingredients quickly available in liquid form, wit' AS nvarchar(max))
+        + N'h no need to dissolve them as with tablets or capsules. It all comes in a practical 25 ml ampoule that makes it simple and convenient to use at any time.</p><p><strong>MAGNESIUM CONTRIBUTES TO:</strong></p><ul><li>Normal muscle function</li><li>Normal functioning of the nervous system</li><li>The reduction of tiredness and fatigue</li><li>Normal psychological function</li><li>The maintenance of normal bones and teeth</li><li>Electrolyte balance</li><li>Normal energy-yielding metabolism</li><li>Normal protein synthesis</li><li>The normal process of cell division</li></ul><p>Vitamin B6 additionally contributes to normal functioning of the nervous system, normal psychological function and the reduction of tiredness and fatigue.</p><p>The magnesium in the product is in the form of high-quality <strong>Albion® amino acid chelate</strong>, characterised by high bioavailability and good absorpt'
+        + N'ion from the gastrointestinal tract.</p><p>Albion® magnesium amino acid chelate is fully hypoallergenic according to patent US 7,838,042, which contributes to its safety in use.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 25 ml / 9 × 25 ml</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 ampoule (25 ml).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Drink 1 serving (25 ml) daily after a meal. Shake before use. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children! Any sediment or crystallisation that may appear is natural and does not affect the quality of the product. The product is suitable for vegans. Store unopened in a dry place below 25°C. Keep away from sunlight.' AS nvarchar(max))
+WHERE Product_Id = 2154;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2154 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2117
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 38
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 408)) BEGIN PRINT 'length mismatch 2154'; SET @bad += 1; END;
+
+-- Product_Id: 2155 (OLIMP CITRULLINE MALATE, 200g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP CITRULLINE MALATE, 200g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Citrulline malate and vitamin B6</li><li>8.1 g citrulline malate per serving</li><li>Contributes to the reduction of tiredness and fatigue (vitamin B6)</li><li>Refreshing taste</li></ul><p><strong>Food supplement powder with citrulline malate and vitamin B6. With sweeteners.</strong></p><p>L-citrulline is a non-essential amino acid that the body can convert into L-arginine, and so take part in the production of nitric oxide (NO).</p><p><strong>VITAMIN B6 CONTRIBUTES TO:</strong></p><ul><li>Normal energy-yielding metabolism</li><li>Normal functioning of the nervous system</li><li>Normal protein and glycogen metabolism</li><li>Normal psychological function</li><li>Normal red blood cell formation</li><li>Normal function of the immune system</li><li>The reduction of tiredness and fatigue</li><li>The regulation of hormonal activity</li></ul><p><em>A balanced and varied diet and a heal' AS nvarchar(max))
+        + N'thy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 200 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 3 scoops (9 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily, about 30 minutes before training. Drink immediately after preparation. WARNING: Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. Keep out of reach of children! Do not use in children, pregnant or breastfeeding women, or in case of hypersensitivity to any of the ingredients.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Add 1 serving to 300 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2155;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2155 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 29
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 980
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 373
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 33)) BEGIN PRINT 'length mismatch 2155'; SET @bad += 1; END;
+
+-- Product_Id: 2156 (OLIMP CREATINE MONOHYDRATE POWDER)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP CREATINE MONOHYDRATE POWDER' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Creatine concentrate powder</li><li>Increases physical performance in successive bursts of short-term, high-intensity exercise</li></ul><p><strong>Food supplement with creatine, in powder form.</strong></p><p>Creatine monohydrate is one of the best-known and most commonly used forms of creatine among athletes.</p><p>Creatine increases physical performance in successive bursts of short-term, high-intensity exercise. The beneficial effect is obtained with a daily intake of <strong>3 g of creatine</strong>.</p><p>The product is intended for physically active adults who do high-intensity training.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 250 g / 550 g</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'The serving size is 1.5 scoops (3.4 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily – on training or competition days. Weight gain may occur. Not suitable for children and young people. Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. A varied and balanced diet and a healthy lifestyle are recommended. Keep out of reach of children.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Add 1 serving to 200–250 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2156;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2156 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 33
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 744
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 39
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 347
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 37)) BEGIN PRINT 'length mismatch 2156'; SET @bad += 1; END;
+
+-- Product_Id: 2157 (OLIMP CREATINE XPLODE POWDER, 500g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP CREATINE XPLODE POWDER, 500g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p><strong>KEY FEATURES:</strong></p><ul><li>High-quality formula with <strong>6 forms of creatine</strong></li><li><strong>4.5 g creatine per serving</strong></li><li>Excellent solubility</li><li>Intended for high-intensity training</li><li>Creatine increases physical performance in successive bursts of short-term, high-intensity exercise</li><li>An excellent choice for athletes and physically active people</li></ul><h3><strong>Food supplement powder with sweeteners.</strong></h3><p><strong>CREATINE XPLODE – AN ADVANCED FORMULA WITH 6 FORMS OF CREATINE</strong></p><p>Creatine Xplode is an advanced formula developed by the experts at <strong>Olimp Laboratories</strong> using modern production technology. Careful control of raw material purity, testing for heavy metals and adherence to high production standards ensure a high-quality product that is safe to use.</p><p>The product is intend' AS nvarchar(max))
+        + N'ed for <strong>physically active adults who do high-intensity training</strong>.</p><p><strong>6 DIFFERENT FORMS OF CREATINE</strong></p><p>Creatine Xplode contains a combination of <strong>6 different forms of creatine</strong>, carefully blended into one formula. Each serving provides <strong>4.5 g of creatine</strong>.</p><p>Creatine increases physical performance in successive bursts of short-term, high-intensity exercise. The beneficial effect is obtained with a daily intake of <strong>3 g of creatine</strong>.</p>',
+    InstructionsForUseEn = CAST(N'The serving size is half a scoop (5.8 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily – before breakfast or after training.  WARNING: Weight gain may occur. Not suitable for children and young people. Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. A varied and balanced diet and a healthy lifestyle are recommended. Clumping of the product and sediment after dissolving in water may occur; this does not affect product quality. Store unopened in a dry, cool place. Keep out of reach of children.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Add 1 serving to 125 ml of water. Drink immediately after preparation.' AS nvarchar(max))
+WHERE Product_Id = 2157;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2157 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 34
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1425
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 41
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 509
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 70)) BEGIN PRINT 'length mismatch 2157'; SET @bad += 1; END;
+
+-- Product_Id: 2158 (OLIMP GLUTAMINE XPLODE POWDER, 500g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP GLUTAMINE XPLODE POWDER, 500g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>For physically active people and athletes</li><li><strong>5.5 g L-glutamine per serving</strong></li><li>Enriched with vitamin C and B vitamins</li><li>100% pure crystalline L-glutamine</li><li>Vitamins B6 and B12 contribute to the reduction of tiredness and fatigue</li></ul><h3><strong>Food supplement powder with L-glutamine.</strong></h3><p><strong>PURE L-GLUTAMINE ENRICHED WITH VITAMINS</strong></p><p>L-glutamine is a proteinogenic amino acid, meaning an amino acid that takes part in building proteins. It is mainly synthesised and stored in skeletal muscle. The need for glutamine can increase during periods of greater physiological stress and with high levels of physical activity.</p><p>The product supplements the daily diet with <strong>L-glutamine in 100% pure, crystalline form</strong>, and is further enriched with vitamins <strong>B6, B12 and C</strong>.</p><p>Vitamins <st' AS nvarchar(max))
+        + N'rong>B6 and B12 contribute to the reduction of tiredness and fatigue</strong>, while vitamin C contributes to the normal function of the immune system during and after intense physical exercise. The beneficial effect is obtained with an additional daily intake of 200 mg of vitamin C on top of the recommended daily intake.</p><p>The product is intended for <strong>physically active people and athletes</strong>.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 500 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is ½ scoop or 1 spoon (10 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take once a day – before breakfast, after training or before bed. WARNING: Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. Keep out of reach of children. Note: Sediment may appear; this does not affect the quality or effect of the product.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 serving with 200 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2158;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2158 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1441
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 46
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 317
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 35)) BEGIN PRINT 'length mismatch 2158'; SET @bad += 1; END;
+
+-- Product_Id: 2159 (OLIMP KOLAGEN ACTIV PLUS, 80 таблети)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP KOLAGEN ACTIV PLUS, 80 tablets' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Food supplement with hydrolysed collagen</li><li>To support bones, joints and connective tissue</li><li>To support skin, nails and hair</li><li>Chewable tablets with a pleasant citrus flavour</li></ul><h3><strong>Food supplement with collagen, vitamins and minerals – citrus-flavoured chewable tablets with sweeteners.</strong></h3><p>The formula provides <strong>hydrolysed collagen</strong> and is further enriched with important vitamins and minerals.</p><p>It contains <strong>calcium and magnesium</strong>, which contribute to the maintenance of normal bones.</p><p>In addition, <strong>vitamin C contributes to normal collagen formation</strong> for the normal function of bones, cartilage and skin.</p><p>The practical form of <strong>citrus-flavoured chewable tablets</strong> makes everyday use simple and convenient.</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'The serving size is 4 chewable tablets.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving twice a day between meals. Warning: Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. A varied and balanced diet and a healthy lifestyle are recommended. Keep out of reach of children. Excessive consumption may have a laxative effect. Store unopened in a cool, dry place.' AS nvarchar(max))
+WHERE Product_Id = 2159;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2159 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 36
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 839
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 39
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 362)) BEGIN PRINT 'length mismatch 2159'; SET @bad += 1; END;
+
+-- Product_Id: 2160 (OLIMP L-GLUTAMINE POWDER, 250g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP L-GLUTAMINE POWDER, 250g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>100% L-glutamine powder</li><li>Support for recovery after physical activity</li><li>Supports the normal functioning of the immune system</li><li>Intended for all physically active people</li></ul><p><strong>OLIMP L-GLUTAMINE POWDER</strong> is a product containing 100% pure, pharmaceutical-quality, micronised L-glutamine – an amino acid found naturally in high concentrations in muscles and blood plasma.</p><p>Glutamine is one of the most abundant amino acids in muscle tissue and takes part in numerous metabolic processes related to protein metabolism and nitrogen transport in the body.</p><p>Micronised <strong>L-glutamine</strong> has excellent solubility and is suitable for supplementing the diet of physically active people and athletes with increased needs.</p><p><strong>OLIMP L-GLUTAMINE POWDER</strong> is intended for athletes who do strength and endurance training, especial' AS nvarchar(max))
+        + N'ly during periods of intense training and increased physical load.</p><p><strong>RECOMMENDED USE:</strong> Take 4 g of powder 2–3 times a day – before breakfast, after training and before bed. Dissolve 4 g (1½ scoops) in 100 ml of water.</p><p><strong>WARNING:</strong> Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. A varied and balanced diet and a healthy lifestyle are recommended. Not suitable for children and young people. Keep out of reach of children!</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1.5 scoops (4 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving 2–3 times a day – before breakfast, after training and before bed. WARNING: Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. A varied and balanced diet and a healthy lifestyle are recommended. Not suitable for children and young people. Keep out of reach of children. Store in a dry, cool place.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Add 1 serving to 100 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2160;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2160 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1442
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 37
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 387
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 33)) BEGIN PRINT 'length mismatch 2160'; SET @bad += 1; END;
+
+-- Product_Id: 2162 (OLIMP R-WEILER)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP R-WEILER' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Up to 80 servings per pack</li><li>Synergistic action of carefully combined active ingredients</li><li>3 powerful complexes with AAKG, citrulline, beta-alanine, creatine, L-tyrosine and caffeine</li></ul><h3><strong>Food supplement powder with sweeteners.</strong></h3><p><strong>OLIMP REDWEILER – A LEGEND AMONG PRE-WORKOUT FORMULAS</strong></p><p>Redweiler is a complex pre-workout formula intended for physically active people and athletes looking for support during intense, demanding workouts.</p><p>The formula combines <strong>L-arginine, L-citrulline, beta-alanine, creatine, L-tyrosine and caffeine</strong>, complemented by vitamins, minerals and plant extracts of cayenne and black pepper.</p><p><strong>14 ACTIVE INGREDIENTS IN 3 SPECIALLY CREATED COMPLEXES</strong></p><p><strong>Armageddon Pump Formula</strong> – a combination of AAKG and L-citrulline, complemented by sodium a' AS nvarchar(max))
+        + N'nd vitamin B6.</p><p><strong>Berserker''s Performance Blend</strong> – a combination of beta-alanine and two forms of creatine, complemented by vitamins and minerals.</p><p><strong>Red Fury Matrix</strong> – a combination of L-tyrosine and caffeine with added cayenne and black pepper extracts.</p><p>Vitamins <strong>B6, niacin and thiamine</strong> contribute to normal energy-yielding metabolism and normal functioning of the nervous system. Vitamin B6 and niacin also contribute to the reduction of tiredness and fatigue and to normal psychological function.</p><p><strong>Contains caffeine.</strong> Not recommended for children or pregnant women. Caffeine content: <strong>200 mg per 12 g / 300 mg per 18 g</strong>.</p>',
+    InstructionsForUseEn = CAST(N'Depending on body weight, the following dosage is recommended: - under 75 kg: 6 g serving (1/2 scoop) - 75–90 kg: 12 g serving (1 scoop) - over 90 kg: 18 g serving (1 and 1/2 scoops)' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily, 30 minutes before training. Warning: Weight gain may occur. Not suitable for children and young people. Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. A varied and balanced diet and a healthy lifestyle are recommended. Keep out of reach of children. Contains caffeine. Not recommended for children or pregnant women (caffeine content: 100 mg/6 g, 200 mg/12 g, 300 mg/18 g). The product is not intended for women who are breastfeeding, pregnant or planning to become pregnant, for people with circulatory diseases (e.g. hypertension) or in case of hypersensitivity to any ingredient of the formula. Do not consume at the same time or on the same day as other products containing caffeine (e.g. other food supplements, coffee). Do not exceed a daily intake of 400 mg of caffeine from all sources. Do n' AS nvarchar(max))
+        + N'ot use before bed or in the hours immediately before sleep. Do not use in combination with alcohol. Some people may experience a tingling or numbness sensation after consumption. This is a temporary effect attributed to the strong action of beta-alanine. It does not affect health. Use one serving of the product (6 g) to prevent symptoms. If serious symptoms occur, especially weakness, agitation or palpitations, which may occur when taking servings containing 300 mg of caffeine (18 g of product), use must be stopped. Permitted clumping of the product does not affect product quality.',
+    InstructionsOnHowToUseItEn = CAST(N'Add a 6 g serving to 100 ml of water, a 12 g serving to 200 ml of water, an 18 g serving to 300 ml of water. Drink immediately after preparation.' AS nvarchar(max))
+WHERE Product_Id = 2162;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2162 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 14
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1625
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 182
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 1488
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 145)) BEGIN PRINT 'length mismatch 2162'; SET @bad += 1; END;
+
+-- Product_Id: 2163 (OLIMP R-WEILER FOCUS DRINK ZERO)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP R-WEILER FOCUS DRINK ZERO' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Carbonated energy drink with Matcha green tea extract, taurine, caffeine, vitamin B6 and magnesium</li><li>For people doing mentally demanding work that requires concentration and focus</li><li>No sugar, fat or salt, low in calories</li><li>Suitable for vegans</li></ul><p><strong>Carbonated energy drink with green tea extract – Matcha, taurine, natural caffeine, vitamin B6 and magnesium. With sweeteners. Pasteurised.</strong></p><p><strong>High caffeine content (30.3 mg/100 ml). Not recommended for children, pregnant or breastfeeding women.</strong></p><ul><li>Ideal for people who study or do mentally demanding work, office workers, programmers, gamers who need high concentration, and athletes</li><li>High-quality, carefully selected ingredients in appropriate amounts</li><li>No sugar, fat or salt</li><li>Suitable for vegetarians and vegans</li><li>A tasty, refreshing energy drin' AS nvarchar(max))
+        + N'k</li></ul><p><strong>VITAMIN B6 AND MAGNESIUM CONTRIBUTE TO:</strong></p><ul><li>Normal functioning of the nervous system (B6, Mg)</li><li>Normal energy-yielding metabolism (B6, Mg)</li><li>The reduction of tiredness and fatigue (B6)</li><li>Normal psychological function (B6, Mg)</li></ul><p><strong>STAY FOCUSED AND SHOW YOUR POTENTIAL!</strong></p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 330 ml / 24 × 330 ml</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 can (330 ml).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'The recommended daily dose is 1 can. Serve chilled. The product is intended for adults. It is especially recommended for people doing mentally demanding work, students, drivers, gamers, amateur and professional athletes, vegans and vegetarians.  WARNING: Contains caffeine. Not recommended for children and pregnant women [caffeine content: 100 mg / daily dose (330 ml)]. The product should also not be used while breastfeeding or in case of intolerance to any ingredient. Simultaneous use of caffeine-containing products (e.g. other food supplements, energy drinks, coffee) is not recommended. Do not exceed a daily dose of 400 mg of caffeine from all sources and 200 mg per intake. Do not consume the product immediately before bed. Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max))
+WHERE Product_Id = 2163;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2163 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 31
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1391
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 862)) BEGIN PRINT 'length mismatch 2163'; SET @bad += 1; END;
+
+-- Product_Id: 2164 (OLIMP R-WEILER FOCUS, 300g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP R-WEILER FOCUS, 300g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Pre-workout formula with creatine, caffeine, amino acids and plant extracts</li><li>To increase physical performance</li><li>25 servings</li></ul><p><strong>Food supplement powder with sweeteners. Contains caffeine. Not recommended for children or pregnant women (150 mg/12 g).</strong></p><p>If you often feel an energy dip or struggle with concentration or focus at key moments, <strong>R-Weiler Focus</strong> is an innovative formula created by the experts at Olimp Laboratories to support physical performance and mental focus.</p><p>As part of the unique <strong>Health Brain</strong> line, R-Weiler Focus combines amino acids such as <strong>L-citrulline, L-arginine and taurine</strong>, creatine monohydrate and plant extracts of <strong>Rhodiola rosea, Bacopa monnieri and Schisandra chinensis</strong>, complemented by <strong>N-acetyl-L-tyrosine, caffeine and beta-alanine</strong' AS nvarchar(max))
+        + N'>.</p><p>The combination of carefully selected ingredients in high doses makes the product suitable for athletes, physically active people, people doing intellectually demanding work, as well as gamers and others for whom concentration and quick decision-making matter.</p><p>R-Weiler Focus was developed with a focus on quality and safety. The ingredients are tested for microbiological purity and heavy metals in line with Olimp Laboratories standards. The powder form ensures excellent solubility and quick preparation.</p><p>R-Weiler Focus provides:</p><ul><li><strong>3 g creatine</strong></li><li>L-arginine</li><li>L-citrulline</li><li>N-acetyl-L-tyrosine</li><li>Rhodiola rosea extract</li><li>Bacopa monnieri extract</li><li>Schisandra chinensis extract</li><li>Caffeine</li><li>Taurine</li><li>Beta-alanine</li></ul><p><em>Creatine increases physical performance in successive bursts of sho'
+        + N'rt-term, high-intensity exercise. The beneficial effect is obtained with a daily intake of 3 g of creatine.</em></p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 300 g (25 servings)</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 scoop (12 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily, about 30–60 minutes before training. Drink immediately after preparation. Consult your doctor before use. Warning: Contains caffeine. Not recommended for children or pregnant women (caffeine content: 150 mg/1 serving). In addition, the product should not be used while breastfeeding, in case of circulatory diseases or in case of hypersensitivity to any of the ingredients. The product is not recommended for people with blood pressure problems. Do not use with medication, especially medication affecting the cardiovascular system. Do not consume other caffeine-containing products at the same time (e.g. other food supplements, energy drinks, coffee). Do not exceed a daily intake of 400 mg of caffeine from all sources and 200 mg of caffeine in a single dose. Permitted clumping of the product does not affect product quality. Do not use in combination with alcohol. Do not u' AS nvarchar(max))
+        + N'se before bed or in the hours immediately before sleep. Some people may experience a tingling or numbness sensation after consumption. This is a temporary effect attributed to the strong action of beta-alanine. It does not affect health.',
+    InstructionsOnHowToUseItEn = CAST(N'Add 1 serving to 250 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2164;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2164 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 26
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2054
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 1137
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 33)) BEGIN PRINT 'length mismatch 2164'; SET @bad += 1; END;
+
+-- Product_Id: 2165 (OLIMP R-WEILER SHOT (NEW))
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP R-WEILER SHOT (NEW)' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Pre-workout in a practical, easy-to-use shot</li><li>Now in eco-friendly, recyclable glass packaging</li><li>For concentration, increased alertness and thermogenesis</li><li>Supports the body during intense workouts</li><li><strong>High caffeine content (193 mg/20 ml)</strong></li><li>No preservatives</li></ul><p><strong>Food supplement with beta-alanine, taurine, caffeine, L-tyrosine and cayenne pepper extract. With sweeteners.</strong></p><p><strong>Contains caffeine (967 mg/100 ml; 193 mg per daily dose = 20 ml (2 × 10 ml)). Not recommended for children or pregnant women.</strong></p><p>Sometimes tiredness, fatigue and reduced concentration can make it hard to get through a full, quality workout. For such situations, <strong>R-WEILER Shot</strong> offers a concentrated pre-workout formula in a practical liquid form – now in a new, eco-friendly, recyclable glass ampoule.</p><p>' AS nvarchar(max))
+        + N'<strong>R-WEILER Shot</strong> is a pre-workout supplement in a small, practical ampoule. Each ampoule contains a concentrated combination of popular active ingredients in amounts carefully selected by the experts at Olimp Laboratories.</p><p>The new glass packaging offers several advantages. Glass is <strong>recyclable, impermeable and durable</strong>, and the dark glass helps protect the active ingredients from UV light and helps preserve their quality.</p><p>The formula contains <strong>beta-alanine, taurine, caffeine, L-tyrosine and cayenne pepper extract</strong> and was developed for physically active adults, both recreational exercisers and athletes looking for extra support during intense workouts.</p><p>With <strong>R-WEILER® Shot</strong> you get:</p><ul><li>A practical pre-workout supplement in shot form</li><li>Support for endurance during training</li><li>Support for concen'
+        + N'tration</li><li>Increased alertness</li><li>Support for thermogenesis</li></ul><p><strong>ADVANTAGES OF OLIMP R-WEILER® SHOT:</strong></p><ul><li><strong>Glass packaging</strong> – an eco-friendly, recyclable option with an attractive design that helps preserve the quality of the active ingredients</li><li><strong>Practical to use</strong> – ready to drink; shake the ampoule, open it, measure the serving and drink</li><li><strong>Liquid form</strong> for quick, practical use</li><li>A tasty, refreshing flavour</li><li>Compact packaging that fits easily in a gym bag or pocket</li><li>High-quality raw materials tested for microbiological purity and heavy metals</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 60 ml / 9 × 60 ml</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 10 ml.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Recommended daily serving: 10 ml of the product twice a day, approximately 30 minutes before training. Use the measuring cup supplied with the product to measure one serving (10 ml). Shake before use. 1 bottle contains 6 servings for 3 days of use. Once opened, store in the refrigerator in a tightly closed container and consume within 48 hours. Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. A balanced diet and a healthy lifestyle are recommended. Keep out of reach of children! WARNING: Contains caffeine; not recommended for children or pregnant women (caffeine content: 967 mg/100 ml; 193 mg/daily dose = 20 ml (2x10 ml); 97 mg/single serving = 10 ml). WARNING: Not recommended for breastfeeding women, people with cardiovascular diseases (especially heart disease), hypertension or in case of hypersensitivity to any of the ingredients. Do not' AS nvarchar(max))
+        + N' consume with other products containing caffeine or other ingredients with similar effects (e.g. other food supplements, energy drinks, coffee). Do not exceed an intake of 400 mg of caffeine per day and 200 mg of caffeine at once from all sources. Do not use immediately before bed or in the few hours before sleep. Swallowing the product may cause slight tingling or numbness. This is a temporary symptom related to the strong effects of the ingredient beta-alanine. It does not affect health. Stop use in case of any other worrying symptoms (especially cardiovascular symptoms or muscle cramps), as well as discomfort or weakness. Sediment and crystallisation that may appear are natural phenomena and do not affect product quality. Store in a dry place at room temperature in tightly closed packaging. Protect from sunlight.'
+WHERE Product_Id = 2165;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2165 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2613
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 26
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 1727)) BEGIN PRINT 'length mismatch 2165'; SET @bad += 1; END;
+
+-- Product_Id: 2166 (OLIMP TAURINE MEGA CAPS 1500, 120 caps)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP TAURINE MEGA CAPS 1500, 120 caps' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>3000 mg taurine per daily dose (2 capsules)</li><li>For physically active adults</li><li>60 or 120 daily doses</li></ul><p><strong>Food supplement with taurine, in capsules.</strong></p><p>OLIMP TAURINE Mega Caps provides <strong>3000 mg of taurine per daily dose of 2 capsules</strong>.</p><p>The product is intended for <strong>physically active adults</strong>.</p><p><strong>Net quantity:</strong> 120 capsules</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'The serving size is 1–2 capsules, depending on the intensity of effort.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily with plenty of water. WARNING: Pregnant or breastfeeding women should not use this product. Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. The product is recommended for adults as a food supplement. A varied and balanced diet and a healthy lifestyle are recommended. Keep out of reach of children.' AS nvarchar(max))
+WHERE Product_Id = 2166;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2166 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 38
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 426
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 71
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 397)) BEGIN PRINT 'length mismatch 2166'; SET @bad += 1; END;
+
+-- Product_Id: 2167 (OLIMP TRIBUSTERON 90, 120 caps)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP TRIBUSTERON 90, 120 caps' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Supports natural testosterone production</li><li>Contains 90% saponins</li><li>Supports strength and shorter recovery time</li><li>Support for sexual function</li></ul><p><strong>Tribusteron 90</strong> contains a powdered aqueous extract of Tribulus terrestris (<em>Tribulus terrestris L.</em>), standardised to a high saponin content.</p><p>Tribulus terrestris is traditionally used to support <strong>vitality, muscle tone and energy levels</strong>. It is also used to support sexual desire and sexual function.</p><p><strong>Tribusteron 90</strong> is intended for physically active people and athletes who want extra support for physical performance, vitality and sexual function.</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'The serving size is 1–2 capsules.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily, ideally on an empty stomach or after consulting your nutritionist or doctor. Warning: The product is recommended for adults as a food supplement. Keep out of reach of children. Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. A varied and balanced diet and a healthy lifestyle are recommended.' AS nvarchar(max))
+WHERE Product_Id = 2167;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2167 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 698
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 33
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 392)) BEGIN PRINT 'length mismatch 2167'; SET @bad += 1; END;
+
+-- Product_Id: 2170 (OPTIMUM CREATINE POWDER, 317g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OPTIMUM CREATINE POWDER, 317g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>High-quality micronised creatine monohydrate</li><li>Excellent solubility</li><li>Supports increased strength and physical performance</li><li>No flavourings or additives</li><li>93 servings</li></ul><p><strong>Food supplement with creatine monohydrate powder.</strong></p><p>Creatine monohydrate to support strength, energy and physical performance in training.</p><p><strong>BENEFITS:</strong></p><ul><li>100% creatine monohydrate</li><li>Micronised form</li><li>Excellent solubility in various drinks</li><li>Creatine increases physical performance in successive bursts of short-term, high-intensity exercise</li><li>No flavourings, fillers or other additives</li></ul><p>The beneficial effect of creatine is obtained with a daily intake of <strong>3 g of creatine</strong>.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</stro' AS nvarchar(max))
+        + N'ng> 317 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 level scoop (3.4 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily. Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 serving with 240 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2170;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2170 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 29
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 913
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 42
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 149
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 35)) BEGIN PRINT 'length mismatch 2170'; SET @bad += 1; END;
+
+-- Product_Id: 2174 (PROTEINI.SI 100% PURE BIOTICS PRO, 30 caps)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI 100% PURE BIOTICS PRO, 30 caps' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p></p><ul><li>Food supplement with microbiological cultures</li><li>In microcapsule form</li><li>A unique combination of 22 different bacterial strains</li><li>Each capsule contains as many as <strong>18 billion microbiological cultures</strong></li></ul><p><strong>100% Pure Biotics Pro</strong> is a food supplement in capsule form containing 100% pure microbiological cultures.</p><p><strong>100% Pure Biotics Pro</strong> is based on a combination of <strong>22 different strains of microbiological cultures</strong>, mainly from the Lactobacillus and Bifidobacterium genera:</p><p><em>Lactobacillus acidophilus, Lactobacillus bulgaricus, Lactobacillus casei, Lactobacillus plantarum, Lactobacillus brevis, Lactobacillus paracasei, Lactobacillus rhamnosus, Bifidobacterium breve, Bifidobacterium lactis, Bifidobacterium longum, Lactococcus lactis, Streptococcus thermophilus, Lactobacillus reute' AS nvarchar(max))
+        + N'ri, Lactobacillus salivarius, Lactobacillus helveticus, Lactobacillus gasseri, Lactobacillus crispatus, Lactobacillus fermentum, Bifidobacterium infantis, Bifidobacterium bifidum, Bifidobacterium animalis, Pediococcus acidilactici.</em></p><p>One capsule contains as many as <strong>18 billion (18 × 10⁹ CFU) microbiological cultures</strong>. CFU (Colony Forming Units) indicates the number of live microorganisms capable of forming colonies.</p><p>The formula also contains <strong>fructooligosaccharides and plant inulin</strong>, ingredients that are not fully broken down in the digestive system and serve as food for the beneficial bacteria in the large intestine.</p><p><strong>ADDITIONAL FEATURES OF 100% PURE BIOTICS PRO:</strong></p><ul><li>The microencapsulation process helps better protect the microorganisms and helps them survive through the gastrointestinal tract</li><li>A stable, re'
+        + N'silient product even when stored at room temperature</li><li>Suitable for vegetarians and vegans</li><li>Free from GMO, SOY, MILK and GLUTEN</li></ul><p><strong>THE IMPORTANCE OF A HEALTHY, FUNCTIONING GUT MICROFLORA</strong></p><p>The gut microflora is a complex community of a large number of microorganisms, including lactic acid bacteria such as <em>Lactobacillus acidophilus</em> and <em>Bifidobacterium bifidum</em>.</p><p>A balanced gut microflora plays an important role in the digestive system and in breaking down food. Beneficial bacteria take part in various metabolic processes and help maintain the normal function of the digestive tract.</p><p>The balance of the gut microflora can be disturbed by various factors, such as <strong>stress, an unbalanced diet, changes in physical activity and the use of certain medicines</strong>, including antibiotics.</p><p>Gut microorganisms also p'
+        + N'lay an important role in producing certain substances in the body, including some B vitamins and vitamin K.</p><p>Regularly looking after a varied and balanced diet, together with maintaining a healthy gut microflora, can be an important part of overall care for digestive health and well-being.</p><p><strong>Net quantity:</strong> 15 g (30 capsules)</p><p></p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 capsule.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily with water, juice or another liquid. WARNING: Do not exceed the recommended daily dose. A food supplement is not a substitute for a balanced and varied diet. Keep out of reach of children! Store the product in a dry, cool place and do not expose it to direct light or heat.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Once opened, store in the refrigerator and use within three months.' AS nvarchar(max))
+WHERE Product_Id = 2174;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2174 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 42
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 3062
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 294
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 67)) BEGIN PRINT 'length mismatch 2174'; SET @bad += 1; END;
+
+-- Product_Id: 2175 (PROTEINI.SI 100% PURE CREATINE)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI 100% PURE CREATINE' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>100% creatine monohydrate</li><li>To improve physical performance</li><li>Especially recommended for high-intensity physical activity</li></ul><p><strong>Creatine powder. Food supplement.</strong></p><p>Creatine monohydrate is one of the best-known and most commonly used forms of creatine among athletes.</p><p>Creatine increases physical performance in successive bursts of short-term, high-intensity exercise. The beneficial effect is obtained with a daily intake of <strong>3 g of creatine</strong>.</p><p>The product is intended for physically active adults who do high-intensity training.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 200 g (58 servings)</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'The serving size is 3.4 g (1 full scoop).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Drink 1 serving 20 minutes before training. On days when you do not exercise, drink it in the morning on an empty stomach. The maximum daily dose is 1 serving (3.4 g). The product is intended for adults who do high-intensity exercise. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children! STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 1 serving in 250 ml of lukewarm water.' AS nvarchar(max))
+WHERE Product_Id = 2175;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2175 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 744
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 41
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 436
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 47)) BEGIN PRINT 'length mismatch 2175'; SET @bad += 1; END;
+
+-- Product_Id: 2176 (PROTEINI.SI 100% PURE GLUTAMINE, 200g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI 100% PURE GLUTAMINE, 200g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>100% L-glutamine powder</li><li>5000 mg L-glutamine per serving</li><li>40 servings</li></ul><p><strong>Food supplement with L-glutamine, in powder form.</strong></p><p>L-glutamine is a proteinogenic amino acid, meaning an amino acid that takes part in building proteins. It is mainly synthesised and stored in skeletal muscle.</p><p>The need for glutamine can increase during periods of greater physiological stress, as well as with intense physical activity.</p><p>Each serving provides:</p><ul><li><strong>5000 mg L-glutamine</strong></li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 200 g (40 servings)</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'Serving size: 5 g (1 scoop).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving 2–3 times a day – before breakfast, after training and before bed. WARNING: Do not exceed the recommended daily dose. A food supplement should not be used as a substitute for a balanced and varied diet. Keep out of reach of children!' AS nvarchar(max))
+WHERE Product_Id = 2176;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2176 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 37
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 693
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 28
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 248)) BEGIN PRINT 'length mismatch 2176'; SET @bad += 1; END;
+
+-- Product_Id: 2177 (PROTEINI.SI CREMRISO)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI CREMRISO' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p><strong>CremRiso – a new creamy rice treat!</strong></p><ul><li><strong>Naturally sweet</strong> – contains only naturally occurring sugars, no added sugar</li><li><strong>A source of energy</strong> – over 85% carbohydrates and at least 8% protein</li><li><strong>Quick to prepare</strong> – a creamy meal ready in just a few minutes, no cooking</li><li><strong>A light choice</strong> – low in fat, suitable for vegans and naturally lactose-free</li><li><strong>Made in the EU</strong> – developed and produced in Proteini.si''s own production facilities</li></ul><p><strong>Enjoy a warm, creamy meal in just a few minutes!</strong></p><p><strong>CremRiso – creamy meal powder</strong></p><p><strong>Naturally sweet, no added sugar. With sweetener.</strong></p><p>Enjoy a warm, creamy, tasty meal – with no added sugar!</p><p>This creamy meal powder is quick and easy to prepare and is an excelle' AS nvarchar(max))
+        + N'nt choice for a <strong>quick breakfast, a light meal or a practical snack</strong>. It has a smooth, creamy texture, contains only naturally occurring sugars and is additionally sweetened with sucralose.</p><p><strong>KEY FEATURES:</strong></p><ul><li><strong>A source of energy</strong> – at least 85% carbohydrates and at least 8% protein</li><li><strong>No added sugar</strong> – contains only naturally occurring sugars, less than 1 g per 100 g</li><li><strong>Low in fat</strong> – less than 1 g</li><li><strong>Flexible preparation</strong> – can be mixed with water, milk or a plant-based drink</li><li><strong>Ready in minutes</strong> – no cooking needed</li><li><strong>Suitable for vegans</strong></li><li><strong>Naturally lactose-free</strong></li><li><strong>Made in the EU</strong> – developed and produced in Proteini.si''s own production facilities</li></ul><p>CremRiso was <strong>c'
+        + N'reated with your feedback in mind</strong> by the experts at Proteini.si and produced in our own production facilities. The result is <strong>a top-quality product with excellent value for money</strong>.</p><p><strong>IDEAL FOR:</strong></p><ul><li>A quick breakfast</li><li>A light meal</li><li>A practical snack on the go</li><li>A diet with controlled sugar intake</li></ul><p>Satisfy your craving for something creamy and tasty the easy way with <strong>CremRiso</strong>!</p><p><strong>Net quantity:</strong> 500 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 2–3 tablespoons (30–50 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume during the day. Store in a dark, dry place at a temperature below 25°C.
+Mix 30–50 g (2–3 tablespoons) of powder into 200 ml of cold or hot water, milk or plant-based milk.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Stir (1–2 minutes) until it thickens.' AS nvarchar(max))
+WHERE Product_Id = 2177;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2177 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 20
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2324
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 46
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 179
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 37)) BEGIN PRINT 'length mismatch 2177'; SET @bad += 1; END;
+
+-- Product_Id: 2178 (PROTEINI.SI ENERGY + ISOTONIC, 432g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI ENERGY + ISOTONIC, 432g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>A refreshing isotonic drink</li><li>With electrolytes and vitamin C</li><li>Made with high-quality ingredients (Palatinose™, Aquamin™ Mg)</li><li>No sweeteners or artificial flavourings</li><li>Available in 3 juicy fruit flavours</li><li>12 servings</li></ul><p><strong>Food supplement powder for preparing an isotonic drink with easily digestible carbohydrates and electrolytes, enriched with vitamin C.</strong></p><p>Isotonic drinks are an excellent choice for quickly replenishing fluids lost during physical activity. They provide electrolytes lost through sweating, as well as carbohydrates that serve as a source of energy. That makes them especially useful for athletes and physically active people.</p><p><strong>COMPOSITION:</strong></p><ul><li>With electrolytes: magnesium, calcium, sodium and potassium, as well as vitamin C</li><li>With carbohydrates of different absorption rate' AS nvarchar(max))
+        + N's and glycaemic index – glucose, maltodextrin and isomaltulose (Palatinose™) – which provide energy even during prolonged physical activity</li><li>Isomaltulose in the form of <strong>Palatinose™</strong> provides the same energy value as sucrose (4 kcal/g), but thanks to the specific bond between glucose and fructose, the energy is released gradually and over a longer time</li><li>With highly bioavailable magnesium from red algae (<strong>Aquamin™ Mg</strong>)</li><li>No sweeteners or artificial flavourings</li></ul><p><strong>USE:</strong></p><ul><li>During prolonged physical activity and heavy sweating</li><li>For physically active people who want to look after their hydration and fluid balance</li><li>To replenish water, energy and electrolytes</li><li>Especially recommended for endurance sports</li><li>Recommended use: <strong>BEFORE and DURING physical activity</strong></li></ul><p'
+        + N'><strong>BENEFITS:</strong></p><ul><li>Helps reduce the risk of muscle cramps</li><li>Magnesium contributes to electrolyte balance</li><li>Potassium, calcium and magnesium contribute to normal muscle function</li><li>Vitamin C contributes to the normal function of the immune system and to the reduction of tiredness and fatigue</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 432 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 36 g (2 level scoops).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Use before and during sports activity. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 serving with 500–600 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2178;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2178 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2262
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 42
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 175
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 39)) BEGIN PRINT 'length mismatch 2178'; SET @bad += 1; END;
+
+-- Product_Id: 2179 (PROTEINI.SI ENERGY+ JELLY BAR)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI ENERGY+ JELLY BAR' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>A quick source of energy: 23 g carbohydrates per serving</li><li>Replenishes electrolytes: supports hydration and normal muscle function</li><li>Practical jelly bar form: no spills, no mess and easy to eat</li><li>Versatile use: ideal for an active lifestyle</li></ul><p><strong>Energy jelly bar with electrolytes.</strong></p><p><strong>Proteini.si Energy+Jelly Bar</strong> combines the convenience of a portable snack with the functional benefits of carbohydrates and electrolytes. With its combination of carbohydrates and electrolytes, the bar was created to conveniently replenish energy and fluids during an active day or physical activity.</p><p><strong>QUICK ENERGY AND HYDRATION</strong></p><ul><li><strong>Fast absorption:</strong> The jelly form makes the carbohydrates and electrolytes quickly available, making it suitable for use during intense physical activity or after prolo' AS nvarchar(max))
+        + N'nged effort.</li><li><strong>Electrolyte balance:</strong> Helps replenish electrolytes and fluids lost during physical activity and sweating.</li></ul><p><strong>IDEAL ON THE GO</strong></p><ul><li><strong>Practical form:</strong> Unlike classic sports drinks, the jelly bar is easy to carry, does not spill and needs no preparation.</li><li><strong>Compact and mess-free:</strong> Unlike liquid gels, it needs no bottle or cup and is practical to carry during training, running, cycling or travel.</li></ul><p><strong>TASTY AND EASY TO EAT</strong></p><ul><li><strong>Pleasant texture:</strong> The jelly bar has a soft, chewy texture that offers a different, more interesting way to take in carbohydrates and electrolytes compared with classic drinks and powders.</li></ul><p><strong>IDEAL FOR AN ACTIVE LIFESTYLE</strong></p><ul><li><strong>Before, during or after physical activity:</strong> The'
+        + N' practical form allows use before training, during longer activities such as running or cycling, or after physical activity.</li><li><strong>Support for endurance and performance:</strong> Provides important electrolytes such as sodium, potassium, magnesium and calcium, which play an important role in normal muscle function and maintaining electrolyte balance.</li></ul><p><strong>VERSATILE USE</strong></p><ul><li>Suitable for athletes and physically active people</li><li>Practical for runners, cyclists, triathletes, fitness enthusiasts, hikers and others with an active lifestyle</li><li>Can be used as a source of energy before training, during longer physical activity, after training or as a practical snack when travelling</li><li>Also suitable for situations that call for a quick top-up of energy and electrolytes</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are imp'
+        + N'ortant.</em></p><p><strong>Net quantity:</strong> 30 g / 20 × 30 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 jelly bar (30 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume before and during physical activity according to your energy needs. The product is intended for immediate consumption once opened.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Store in a dry place, away from heat and direct sunlight.' AS nvarchar(max))
+WHERE Product_Id = 2179;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2179 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 29
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2770
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 39
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 138
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 57)) BEGIN PRINT 'length mismatch 2179'; SET @bad += 1; END;
+
+-- Product_Id: 2180 (PROTEINI.SI ENERGY BAR)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI ENERGY BAR' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Oat bar high in fibre, with fruit and nuts</li><li>A great snack for anyone with an active lifestyle</li><li>A source of long-lasting energy</li><li>Easy to digest</li><li>GLUTEN-FREE</li><li>60 g bar</li></ul><p><strong>Oat bar high in fibre. Gluten-free.</strong></p><p><strong>PROTEINI.SI ENERGY BAR</strong> is a soft, moist oat bar with carefully selected fruit and nuts. It comes in two tasty flavours and is coated in milk chocolate or a yoghurt coating.</p><p>It is a practical source of energy for anyone who wants to keep their energy levels up during physical activity. It is ideal for cyclists, runners, triathletes, hikers, footballers and all other athletes who need a practical source of energy during activity.</p><p><strong>KEY FEATURES:</strong></p><ul><li>A source of slow-release complex carbohydrates</li><li>Provides long-lasting energy from oats and fats</li><li>An exc' AS nvarchar(max))
+        + N'ellent choice before training or as an energy snack during the day</li><li>An excellent choice for topping up energy stores during longer endurance activities</li><li>The high fibre content contributes to better digestion</li><li>Gluten-free</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 60 g / 20 × 60 g</p>',
+    InstructionsForUseDescriptionEn = CAST(N'Not intended for children under 3 years. Once opened, the product is intended for immediate consumption. Keep away from heat, frost and moisture.' AS nvarchar(max))
+WHERE Product_Id = 2180;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2180 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 22
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1286
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 145)) BEGIN PRINT 'length mismatch 2180'; SET @bad += 1; END;
+
+-- Product_Id: 2181 (PROTEINI.SI ENERGY+ SUPERCHARGED ENERGY DRINK)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI ENERGY+ SUPERCHARGED ENERGY DRINK' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Highly concentrated drink with carbohydrates and electrolytes</li><li>88 g carbohydrates per serving</li><li>Maltodextrin : fructose ratio = 1 : 0.8</li><li>Advanced electrolyte combination</li><li>Support for physical performance and recovery</li><li>15 servings</li></ul><p><strong>Food supplement with sugars for preparing a carbohydrate and electrolyte drink.</strong></p><p><strong>Supercharged Energy Drink Powder</strong> is a drink powder intended for quickly replenishing energy stores and electrolytes lost during physical activity.</p><p>The formula is based on <strong>maltodextrin and fructose in a 1 : 0.8 ratio</strong>, a combination that allows efficient carbohydrate intake during prolonged sports activities.</p><p><strong>ADVANTAGES OF THE 1 : 0.8 MALTODEXTRIN : FRUCTOSE RATIO</strong></p><p><strong>More efficient carbohydrate absorption</strong></p><p>Maltodextrin is a' AS nvarchar(max))
+        + N'bsorbed via SGLT1 – a sodium-dependent transporter – while fructose is absorbed via GLUT5. The 1 : 0.8 combination allows both transport mechanisms to be used at the same time and a greater total carbohydrate intake during prolonged physical activity.</p><p><strong>Better gastrointestinal tolerance</strong></p><p>Too much glucose or maltodextrin without fructose can overload the SGLT1 transporter. Adding the right amount of fructose allows part of the carbohydrates to be absorbed through a different transport mechanism.</p><p><strong>Fast and sustained energy supply</strong></p><p>The combination of different carbohydrate sources provides a fast and sustained supply of energy during physical activity.</p><p><strong>Replenishing glycogen stores</strong></p><p>Fructose mainly contributes to replenishing liver glycogen, while glucose from maltodextrin is important for replenishing muscle gl'
+        + N'ycogen.</p><p><strong>Hydration and fluid absorption</strong></p><p>Maltodextrin has a relatively low osmolality, which makes it suitable for use in sports drinks. Combined with the right amount of fructose, the formula is designed to efficiently supply fluids, carbohydrates and electrolytes.</p><p><strong>ADDED ELECTROLYTES</strong></p><p><strong>Hydration support</strong></p><p>Electrolytes such as <strong>sodium, potassium, magnesium and calcium</strong> play an important role in maintaining fluid balance in the body, especially during prolonged physical activity and heavy sweating.</p><p>Sodium helps retain fluids, potassium contributes to the normal functioning of the muscles and nervous system, while magnesium and calcium take part in normal muscle function.</p><p><strong>Support for endurance and physical performance</strong></p><p>Carbohydrates provide energy during physical acti'
+        + N'vity, while electrolytes contribute to normal muscle and nervous system function.</p><p><strong>Support during prolonged physical activity</strong></p><p>By replenishing carbohydrates and electrolytes, the drink is suitable for use during longer workouts and endurance sports.</p><p><strong>Replenishing sodium and fluids</strong></p><p>During long physical activity and heavy sweating, drinking water alone may not be enough to replace lost electrolytes. The formula also provides sodium and other important minerals.</p><p><strong>Support for concentration during training</strong></p><p>Maintaining proper hydration and electrolyte balance is also important for normal nervous system function and concentration.</p><p><strong>Support for recovery</strong></p><p>After physical activity, the combination of carbohydrates and electrolytes helps replenish energy stores and fluids lost during trainin'
+        + N'g.</p><p><strong>USE</strong></p><p>The drink is especially recommended for endurance sports such as <strong>cycling, running, triathlon and other prolonged physical activities</strong>, where regularly replenishing carbohydrates, fluids and electrolytes is important.</p><ul><li><strong>During prolonged physical activity (&gt;1.5 hours):</strong> helps maintain energy stores. In endurance sports an intake of 60–90 g of carbohydrates per hour is often used, with approximately 55% maltodextrin and 45% fructose.</li><li><strong>After physical activity:</strong> can be used to replenish glycogen stores and electrolytes, especially when doing several workouts in a short period of time.</li></ul><p><em>A varied and balanced diet and a healthy lifestyle are recommended.</em></p><p><strong>Important:</strong> The product and the amount consumed should first be tested during training, not for the'
+        + N' first time in a competition, as individual tolerance to fructose may vary.</p><p><strong>Net quantity:</strong> 1500 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 100 g (3 scoops).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume before and during intense sports activity. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children! Store in a dry place, away from heat and direct sunlight.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 serving with 500–600 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2181;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2181 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 45
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 4623
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 37
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 245
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 39)) BEGIN PRINT 'length mismatch 2181'; SET @bad += 1; END;
+
+-- Product_Id: 2182 (PROTEINI.SI MAGNESIUM)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI MAGNESIUM' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Instant drink powder with vitamins and minerals</li><li>Magnesium + Potassium + Vitamin C + Vitamin B6</li><li>Practical single-use sachets, ideal on the go</li><li>For athletes, physically active people and people with an unbalanced diet</li></ul><p><strong>Instant drink powder with magnesium, potassium, vitamin C and vitamin B6. Food supplement with sugars and sweetener.</strong></p><p>Magnesium powder for making a refreshing drink is a quick, practical way to top up your daily magnesium intake.</p><p>Magnesium is an essential mineral found in the body mainly in bones, muscle cells and blood. It is especially important for athletes and physically active people, and can also be useful for people with an unbalanced diet.</p><p>The magnesium in <strong>PROTEINI.SI MAGNESIUM</strong> is in the form of <strong>magnesium citrate</strong>. This is an organic form of magnesium that is ' AS nvarchar(max))
+        + N'well tolerated and readily available to the body.</p><p>The powder is packed in practical single-use sachets, ideal on the go or when travelling.</p><p>One 15 g sachet of <strong>PROTEINI.SI MAGNESIUM</strong> provides:</p><ul><li>50% of the reference daily intake of magnesium (Mg)</li><li>100% of the reference daily intake of vitamin C</li><li>50% of the reference daily intake of vitamin B6</li><li>15% of the reference daily intake of potassium (K)</li></ul><p><strong>MAGNESIUM CONTRIBUTES TO:</strong></p><ul><li>The reduction of tiredness and fatigue</li><li>Electrolyte balance</li><li>Normal energy-yielding metabolism</li><li>Normal functioning of the nervous system</li><li>Normal muscle function</li><li>Normal psychological function</li><li>The maintenance of normal bones and teeth</li><li>Normal protein synthesis</li><li>The normal process of cell division</li></ul><p><strong>VITAMI'
+        + N'N C CONTRIBUTES TO:</strong></p><ul><li>Normal collagen formation for the normal function of bones, cartilage, skin, teeth, gums and blood vessels</li><li>Normal function of the immune system</li><li>The protection of cells from oxidative stress</li></ul><p><strong>VITAMIN B6 CONTRIBUTES TO:</strong></p><ul><li>Normal protein and glycogen metabolism</li><li>Normal red blood cell formation</li><li>The regulation of hormonal activity</li></ul><p><strong>POTASSIUM CONTRIBUTES TO:</strong></p><ul><li>Normal functioning of the nervous system</li><li>Normal muscle function</li><li>The maintenance of normal blood pressure</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 10 × 15 g / 15 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 15 g (1 sachet).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'The maximum daily dose is 15 g. Do not exceed the recommended daily dose. WARNING: Should not be used as a substitute for a balanced and varied diet and a healthy lifestyle. The product is not suitable for children under 12. Keep out of reach of children! Keep the product away from heat, frost and moisture.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix the serving with 250 ml of water. Drink immediately after preparation.' AS nvarchar(max))
+WHERE Product_Id = 2182;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2182 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 21
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2567
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 36
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 308
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 74)) BEGIN PRINT 'length mismatch 2182'; SET @bad += 1; END;
+
+-- Product_Id: 2183 (PROTEINI.SI MUFFIN)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI MUFFIN' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Protein muffin</li><li>A tasty, guilt-free snack you can enjoy anytime, anywhere</li><li>13 g protein per 100 g</li><li>Available in two irresistible flavours</li></ul><p><strong>Protein muffin with sugar and sweeteners. Low in sugars. Source of protein.</strong></p><p>Try a delicious sweet treat with a <strong>balanced source of protein and fibre</strong>, ideal as a quick, practical snack you can always keep to hand.</p><p>It fits perfectly into an active, balanced lifestyle, as it contains <strong>less sugar and more protein than a traditional muffin</strong>, making it a practical choice for every day.</p><p><strong>Net quantity:</strong> 50 g / 7 × 50 g</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'Warning: Excessive consumption may have laxative effects.' AS nvarchar(max))
+WHERE Product_Id = 2183;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2183 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 18
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 678
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 57)) BEGIN PRINT 'length mismatch 2183'; SET @bad += 1; END;
+
+-- Product_Id: 2184 (PROTEINI.SI NATURAL BCAA, 200g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI NATURAL BCAA, 200g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Natural BCAA amino acids in a 2:1:1 ratio</li><li>No artificial flavourings, colourings or flavour enhancers</li><li>Sweetened with sweetener from the stevia plant and sucralose</li></ul><p><strong>BCAA amino acid powder, with sweeteners.</strong></p><p><strong>NATURAL BCAA AMINO ACIDS WITH REFRESHING FRUIT FLAVOURS</strong></p><p><strong>PROTEINI.SI NATURAL BCAA</strong> contains a complex of branched-chain amino acids – <strong>L-leucine, L-valine and L-isoleucine – in a 2:1:1 ratio</strong>. The product is intended primarily for athletes and physically active people who take part in various sports and recreational activities.</p><p>The formula stands out for its use of natural ingredients – only natural flavourings are added, with no added colourings. That is why the drink stays clear when mixed with water.</p><p><strong>BENEFITS:</strong></p><ul><li>No artificial flavourings<' AS nvarchar(max))
+        + N'/li><li>No colourings</li><li>Gluten-free</li><li>Sweetened with sweetener from the stevia plant and sucralose</li><li>Suitable for vegetarians</li><li>Practical 200 g pack</li></ul><p>Available in <strong>three tasty, refreshing fruit flavours</strong>.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 200 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 6.5 g (1/2 scoop).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1–3 servings daily – before a meal or training and after training or before bed.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Add 1 serving to 300 ml of water and shake vigorously.' AS nvarchar(max))
+WHERE Product_Id = 2184;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2184 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1282
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 38
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 85
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 54)) BEGIN PRINT 'length mismatch 2184'; SET @bad += 1; END;
+
+-- Product_Id: 2186 (PROTEINI.SI OAT CAKE)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI OAT CAKE' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p>&nbsp;Your energy, always at hand</p><p>Feel the natural energy of wholegrain oats – rich in <strong>slow-release carbohydrates for steady, long-lasting energy</strong>, so you stay focused and ready for any challenge.</p>Energy when you need it most!<p>Natural fibre, great flavours and a practical source of energy for any part of the day – whether for an <strong>energetic start to the day</strong>, an <strong>afternoon snack</strong> or <strong>energy for training</strong>. Take it with you and enjoy it wherever and whenever you like!</p>Great taste for everyone always on the move!<p>Choose one of four irresistible flavours: <strong>Chocolate &amp; Banana</strong>, <strong>Creamy Yoghurt</strong>, <strong>Toffee Caramel</strong> and <strong>Dubai Choco</strong>.</p><p><strong>OAT CAKE</strong> is a tasty oat bar that helps you feel full and provides a longer-lasting source of energy.' AS nvarchar(max))
+        + N'</p><p>It is ideal as a snack between meals or during sports activities.</p><p>It stands out for its great taste and rich carbohydrate content, which makes it a practical choice during physical activity too.</p><p>It comes in four tasty variants – classic <strong>chocolate &amp; banana</strong>, refreshing <strong>yoghurt</strong>, sweet <strong>caramel</strong> and striking <strong>Dubai Choco</strong>.</p><ul><li>A tasty snack made from wholegrain oat flakes</li><li>A practical snack for any part of the day</li><li>A source of fibre and complex carbohydrates</li><li>A nutritious, filling snack</li><li>For longer-lasting energy</li><li>Available in four flavours</li></ul><p><strong>Net quantity:</strong> 60 g / 20 × 60 g</p><p></p>',
+    InstructionsForUseDescriptionEn = CAST(N'The product is intended for immediate consumption once opened. Not intended for children under 3 years. Store in a dry place at room temperature, away from moisture, direct sunlight and heat.' AS nvarchar(max))
+WHERE Product_Id = 2186;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2186 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 20
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1642
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 191)) BEGIN PRINT 'length mismatch 2186'; SET @bad += 1; END;
+
+-- Product_Id: 2187 (PROTEINI.SI OMEGA-3)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI OMEGA-3' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Contains high-quality, pure and sustainably sourced MEG-3® fish oil</li><li>MEG-3® is a reliable source of Omega-3 fatty acids (EPA + DHA)</li><li>EPA and DHA contribute to the normal function of the heart, and DHA contributes to the maintenance of normal brain function and vision</li><li>Softgels made from bovine gelatine</li><li>120 servings</li></ul><p><strong>Food supplement. Omega-3 fatty acids from high-quality MEG-3® fish oil.</strong></p><p><strong>MEG-3®</strong> provides high-quality, pure and sustainably sourced fish oil with a standardised content of Omega-3 fatty acids, the most important of which are DHA (docosahexaenoic acid) and EPA (eicosapentaenoic acid).</p><p><strong>MEG-3®</strong> is a trusted source of highly concentrated Omega-3 fatty acids from fish oil. The fish used to produce MEG-3® are sourced from regulated fishing areas where appropriate practices a' AS nvarchar(max))
+        + N'nd procedures are applied to protect fish stocks. Residues from fish oil processing are additionally used to produce biofuel.</p><p>MEG-3® fish oil is obtained from small ocean fish from various regions of the world. The oil is purified to further reduce the already low level of potential environmental contaminants, and is then concentrated to provide a high content of <strong>EPA and DHA</strong>. Thanks to the purification process, MEG-3® delivers the benefits of fish oil without a pronounced fishy smell or taste.</p><ul><li><strong>DHA contributes to the maintenance of normal brain function and normal vision.</strong> The beneficial effect is obtained with a daily intake of 250 mg DHA.</li><li><strong>EPA and DHA contribute to the normal function of the heart.</strong> The beneficial effect is obtained with a daily intake of 250 mg EPA and DHA.</li></ul><p>Omega-3 fatty acids are cons'
+        + N'idered essential fatty acids, which means the body cannot produce them in sufficient amounts on its own, so they must be obtained through the diet.</p><p>The richest natural sources of Omega-3 are oily fish such as tuna, salmon, mackerel, trout and sardines. If dietary intake is insufficient, <strong>PROTEINI.SI OMEGA-3</strong> is a practical way to top up your daily intake of Omega-3 fatty acids.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 205.47 g (120 softgels)</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 softgel.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily with plenty of water. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Keep out of reach of children! Store in a closed container at room temperature, away from direct sunlight.' AS nvarchar(max))
+WHERE Product_Id = 2187;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2187 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 19
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2347
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 148
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 106)) BEGIN PRINT 'length mismatch 2187'; SET @bad += 1; END;
+
+-- Product_Id: 2188 (PROTEINI.SI PEANUT BUTTER (NEW))
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI PEANUT BUTTER (NEW)' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Peanut spread made from 100% roasted peanuts</li><li>Source of protein</li><li>High in fibre</li><li>No added palm oil or sugars</li><li>No added preservatives</li><li>Now with an even crunchier texture</li></ul><p><strong>Peanut butter. Now even crunchier and tastier! In a new pack with a screw-top lid.</strong></p><p><strong>Proteini.si Peanut Butter</strong> is made from 100% roasted peanuts, which are a natural source of unsaturated fatty acids.</p><p>Peanut butter is a nutritious food that provides energy and suits anyone who wants to maintain a balanced diet and a healthy lifestyle. Replacing saturated fats with unsaturated fats in the diet contributes to the maintenance of normal blood cholesterol levels, while reducing sodium intake contributes to the maintenance of normal blood pressure.</p><p><strong>Proteini.si Peanut Butter</strong> stands out for its great taste and ' AS nvarchar(max))
+        + N'crunchy texture. It can be used as a spread, added to fruit or a protein shake before or after training, or simply eaten straight from the jar.</p><p>Proteini.si Peanut Butter contains <strong>26 g protein per 100 g</strong>. Protein contributes to the growth and maintenance of muscle mass.</p><p><strong>BENEFITS:</strong></p><ul><li>100% roasted peanuts</li><li>Source of protein – 26 g per 100 g</li><li>High in fibre</li><li>No added palm oil</li><li>No added sugar (**contains naturally occurring sugars)</li><li>Crunchy texture</li><li>No added preservatives</li><li>Suitable for vegetarians and vegans</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 1000 g</p>',
+    InstructionsForUseDescriptionEn = CAST(N'WARNING: The oily layer on top of the product is natural in peanut butter. Stir before use. Store at temperatures up to 25°C. Store in a dry place, away from direct sunlight.' AS nvarchar(max))
+WHERE Product_Id = 2188;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2188 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 31
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1644
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 174)) BEGIN PRINT 'length mismatch 2188'; SET @bad += 1; END;
+
+-- Product_Id: 2189 (PROTEINI.SI PEANUT BUTTER (NEW), 300g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI PEANUT BUTTER (NEW), 300g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Peanut spread made from 100% roasted peanuts</li><li>Source of protein</li><li>High in fibre</li><li>No added palm oil or sugars</li><li>No added preservatives</li><li>Now with an even crunchier texture</li><li>In a smaller glass jar</li></ul><p><strong>Peanut butter. Now even crunchier and tastier, available in a 300 g glass jar!</strong></p><p><strong>Proteini.si Peanut Butter</strong> is made from 100% roasted peanuts, which are a natural source of unsaturated fatty acids.</p><p>Peanut butter is a nutritious food that provides energy and suits anyone who wants to maintain a balanced diet and a healthy lifestyle. Replacing saturated fats with unsaturated fats in the diet contributes to the maintenance of normal blood cholesterol levels, while reducing sodium intake contributes to the maintenance of normal blood pressure.</p><p><strong>Proteini.si Peanut Butter</strong> stands o' AS nvarchar(max))
+        + N'ut for its great taste and crunchy texture. It can be used as a spread, added to fruit or a protein shake before or after training, or simply eaten straight from the jar.</p><p>Proteini.si Peanut Butter contains <strong>26 g protein per 100 g</strong>. Protein contributes to the growth and maintenance of muscle mass.</p><p><strong>BENEFITS:</strong></p><ul><li>100% roasted peanuts</li><li>Source of protein – 26 g per 100 g</li><li>High in fibre</li><li>No added palm oil</li><li>No added sugar (**contains naturally occurring sugars)</li><li>Completely natural</li><li>Crunchy texture</li><li>No added preservatives</li><li>Suitable for vegetarians and vegans</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 300 g</p>',
+    InstructionsForUseDescriptionEn = CAST(N'WARNING: The oily layer on top of the product is natural in peanut butter. Stir before use. Store at temperatures up to 25°C. Store in a dry place, away from direct sunlight.' AS nvarchar(max))
+WHERE Product_Id = 2189;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2189 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 37
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1697
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 174)) BEGIN PRINT 'length mismatch 2189'; SET @bad += 1; END;
+
+-- Product_Id: 2190 (PROTEINI.SI ENERGY+ ENERGY GEL)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI ENERGY+ ENERGY GEL' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Slow-release energy gel</li><li>Long-lasting energy for greater endurance</li><li>Easy to digest</li><li>Enriched with vitamins</li><li>No extra water needed</li><li>With caffeine (Cola flavour) or caffeine-free (Citrus and Raspberry flavours)</li></ul><p><strong>Food supplement with sugar and sweetener, enriched with vitamins.</strong></p><p>An energy gel is a concentrated source of energy that makes it practical to replace energy lost during training or competition.</p><p><strong>PROTEINI.SI ENERGY+ ENERGY GEL</strong> is a slow-release energy gel that provides a longer-lasting energy supply. Its liquid consistency makes it easy to consume without extra water.</p><p>The formula is based on <strong>maltodextrin</strong>, a carbohydrate source that provides a fast, practical supply of energy during physical activity.</p><p><strong>COMPOSITION:</strong></p><ul><li>A concentrated s' AS nvarchar(max))
+        + N'ource of energy in the form of a complex carbohydrate – maltodextrin (38%)</li><li>Enriched with B-group vitamins and vitamins C and E</li><li>The Cola flavour contains caffeine (75 mg/60 g)</li></ul><p><strong>USE:</strong></p><ul><li>During prolonged physical activity</li><li>To replace lost energy</li><li>Especially recommended for endurance sports</li><li>Recommended use: <strong>BEFORE and DURING physical activity</strong></li></ul><p><strong>BENEFITS:</strong></p><ul><li>Helps replace energy lost during prolonged and intense physical activity</li><li>Gradual release of energy</li><li>Vitamin C contributes to the normal function of the immune system, and B-group vitamins and vitamin C contribute to the reduction of tiredness and fatigue</li><li>Vitamins C and E contribute to the protection of cells from oxidative stress</li><li>No extra water needed</li><li>Gentle on the stomach</li'
+        + N'><li>Great taste</li></ul><p><strong>Net quantity:</strong> 60 g / 18 × 60 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 60 g (1 gel).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume before and during physical activity, depending on your energy needs. Once opened, the product is intended for immediate consumption.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max))
+WHERE Product_Id = 2190;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2190 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1880
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 33
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 140
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 127)) BEGIN PRINT 'length mismatch 2190'; SET @bad += 1; END;
+
+-- Product_Id: 2193 (PROTEINI.SI PROTEIN CHOCOTELLA, 450g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI PROTEIN CHOCOTELLA, 450g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Creamy cocoa and peanut spread</li><li>No added salt and no added sugar</li><li>Great taste</li><li>Source of protein</li></ul><p><strong>Peanut butter with cocoa, with sweeteners.</strong></p><ul><li>No added sugar. Contains naturally occurring sugars.</li><li>No added salt.</li><li>Sweetened with steviol glycosides and xylitol.</li></ul><p><strong>Chocotella</strong> is made from high-quality peanuts that are carefully selected, roasted and combined with tasty cocoa powder. Xylitol and steviol glycosides from stevia are added for extra sweetness.</p><p>As well as its great taste, <strong>Chocotella</strong> has a rich nutritional profile. It contains <strong>21 g of monounsaturated fat per 100 g</strong>, as well as <strong>17 g protein</strong> and <strong>6.5 g fibre per 100 g</strong>. Peanuts naturally contain monounsaturated fats as well as various vitamins and minerals.</' AS nvarchar(max))
+        + N'p><p><strong>BENEFITS:</strong></p><ul><li>Made from natural ingredients</li><li>Rich in monounsaturated fats</li><li>Nutritious</li><li>Source of protein – 17 g protein per 100 g</li><li>High in fibre – 6.5 g per 100 g</li><li>8.9 g sugars per 100 g</li><li>Very low in salt – 0.02 g per 100 g</li><li>No added preservatives or flavourings</li><li>No added palm oil</li></ul><p><strong>Chocotella</strong> can be enjoyed throughout the day, but because of its higher energy value moderate use is recommended.</p><p>It is great for anyone who loves the combination of peanuts and cocoa. Use it as a spread on toast, pancakes, waffles, muffins or croissants, or add it to porridge.</p><p><strong>Net quantity:</strong> 450 g</p>',
+    InstructionsForUseEn = CAST(N'Oil separation may occur; stir before use.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Store in a cool, dry place. Heat and sunlight may damage the packaging!' AS nvarchar(max))
+WHERE Product_Id = 2193;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2193 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 36
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1627
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 42
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 71)) BEGIN PRINT 'length mismatch 2193'; SET @bad += 1; END;
+
+-- Product_Id: 2195 (PROTEINI.SI PROTEIN DONUT)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI PROTEIN DONUT' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>The new, even tastier Proteini.si protein donut</li><li>No palm oil or trans fats</li><li>Low in sugars</li><li>13 g protein per 100 g</li><li>3 flavours</li></ul><p><strong>Protein donut with sugars and sweetener.</strong></p><p>The even tastier, soft and moist <strong>Proteini.si protein donut</strong> joins the Proteini.si family of guilt-free snacks.</p><p>Protein donuts are becoming more and more popular with physically active people, athletes and people following a diet with limited carbohydrate and sugar intake.</p><p>Made with egg white and wheat and oat flour, the Proteini.si donut is a practical, nutritious snack that suits both breakfast and a sweet treat during the day.</p><p>It contains no palm oil, trans fats or cholesterol, and at the same time it is a source of protein, which contributes to the growth and maintenance of muscle mass.</p><ul><li>218/239 kcal per ser' AS nvarchar(max))
+        + N'ving (1 donut)</li><li>13% protein</li><li>Low in sugars</li><li>0% trans fats and cholesterol</li><li>No palm oil</li><li>Available in 3 tasty variants: <strong>Black Cookie &amp; Speculoos Cream, Dark Chocolate &amp; Hazelnut Cream and Triple Chocolate</strong></li></ul><p><strong>Net quantity:</strong> 60 g / 15 × 60 g</p>',
+    InstructionsForUseDescriptionEn = CAST(N'Unopened, store in a cool, dry place away from heat and direct sunlight. Consume immediately once opened.' AS nvarchar(max))
+WHERE Product_Id = 2195;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2195 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1227
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 105)) BEGIN PRINT 'length mismatch 2195'; SET @bad += 1; END;
+
+-- Product_Id: 2196 (PROTEINI.SI PROTEIN MUESLI, 250g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI PROTEIN MUESLI, 250g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Muesli high in protein and fibre</li><li>Protein from plant sources (pea, wheat)</li><li>22 g protein per 100 g</li><li>8.8 g fibre per 100 g</li></ul><p><strong>Muesli high in protein and fibre.</strong></p><p>Proteini.si protein muesli contains <strong>22% plant-based protein</strong> (pea protein isolate and wheat protein concentrate) and is an <strong>excellent source of protein.</strong></p><p>Based on the reference intake (<strong>RI</strong>) for an average adult (8400 kJ/2000 kcal), <strong>100 g of the product provides as much as 45% of the reference intake for protein</strong> (as well as 18% carbohydrates, 17% fat and 12% sugars). The product is also <strong>high in fibre</strong> – 8.8 g per 100 g of product.</p><ul><li>Protein contributes to the maintenance and growth of muscle mass and to the maintenance of normal bones.</li></ul><p><em>A balanced and varied diet an' AS nvarchar(max))
+        + N'd a healthy lifestyle are important.</em></p><p>Available in the tasty <strong>chocolate-caramel</strong> and <strong>white chocolate-raspberry</strong> variants.</p><p>You can enjoy the muesli at any time of day – for breakfast, as a snack or as a quick meal. Eat it with milk, a plant-based drink or in any other combination you like.</p><p><strong>Net quantity:</strong> 250 g</p>',
+    InstructionsForUseDescriptionEn = CAST(N'Mix with milk, a plant-based drink or dairy products and eat for breakfast, etc.' AS nvarchar(max))
+WHERE Product_Id = 2196;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2196 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 32
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1283
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 80)) BEGIN PRINT 'length mismatch 2196'; SET @bad += 1; END;
+
+-- Product_Id: 2206 (PROTEINI.SI PROTEIN PANCAKES)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI PROTEIN PANCAKES' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>High-protein pancakes</li><li>Quick and easy to prepare</li><li>Nutritious and tasty</li><li>With real strawberry pieces</li><li>8 servings</li></ul><p><strong>High-protein pancake mix. Food supplement with sweetener.</strong></p><p>Introducing our strawberry and white chocolate protein pancakes!</p><p>Start the day deliciously with our high-protein pancakes, created for great taste and practical use.</p><p><strong>WHY CHOOSE OUR PROTEIN PANCAKES?</strong></p><ul><li><strong>30% protein:</strong> Every serving contains 30% protein, great for extra protein intake during the day.</li><li><strong>Real strawberry pieces:</strong> Enjoy real strawberry pieces in every bite, giving natural sweetness and a great texture.</li><li><strong>Strawberry and white chocolate flavour:</strong> The perfect combination of juicy strawberry and creamy white chocolate.</li><li><strong>Quick and pract' AS nvarchar(max))
+        + N'ical to prepare:</strong> Ready in just a few minutes – ideal for busy mornings, after training or as a tasty, nutritious snack.</li><li><strong>Made from carefully selected ingredients:</strong> No artificial flavourings and no unnecessary fillers.</li></ul><p><strong>IDEAL FOR:</strong></p><ul><li>Physically active people who want to increase their protein intake</li><li>Busy people who need a quick, nutritious meal</li><li>Anyone who wants a tasty breakfast or snack with a good nutritional profile</li></ul><p><strong>PREPARATION:</strong></p><p>Simply mix the batter, cook it in a hot pan and serve with your favourite toppings – fresh fruit, yoghurt, a little honey or nut butter.</p><p><strong>Net quantity:</strong> 300 g</p>',
+    InstructionsForUseEn = CAST(N'Serving size: 37 g (1 scoop).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Do not exceed the recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children! Store in a dry place, away from heat sources and direct sunlight.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 serving with 1/2 scoop of water or milk, stir well and cook in a hot pan until the pancakes are golden brown.' AS nvarchar(max))
+WHERE Product_Id = 2206;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2206 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 28
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1637
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 29
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 206
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 115)) BEGIN PRINT 'length mismatch 2206'; SET @bad += 1; END;
+
+-- Product_Id: 2207 (PROTEINI.SI PROTEIN PORRIDGE)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI PROTEIN PORRIDGE' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Porridge high in protein and fibre</li><li>A great snack ready in just 2 minutes</li><li>15 g protein per serving</li><li>With added vitamins D and K</li><li>GLUTEN-FREE</li></ul><p><strong>Protein porridge with freeze-dried raspberries and chia seeds (<em>Salvia hispanica</em>), with added vitamins.</strong></p><p>This tasty protein porridge contains as much as <strong>30% protein</strong> (milk protein isolate), is rich in fibre and gluten-free. It is also enriched with two important vitamins – <strong>vitamin K and vitamin D</strong>.</p><p>Quick and easy to prepare, it is ideal as a protein-rich breakfast, a tasty snack between meals or a post-workout meal. Just add water and the porridge is ready in only <strong>2 minutes</strong>. If you like, you can also make it with milk, yoghurt, or an oat, almond or soya drink.</p><p>Available in 2 tasty variants: <strong>raspberry and' AS nvarchar(max))
+        + N' chocolate</strong>.</p><p><strong>PROTEIN</strong></p><ul><li>High in protein – 30% protein (milk protein isolate)</li><li>Protein contributes to the growth and maintenance of muscle mass</li></ul><p><strong>VITAMIN D</strong></p><ul><li>Contributes to the maintenance of normal bones and teeth</li><li>Contributes to normal absorption of calcium and phosphorus</li><li>Contributes to normal muscle function</li><li>Contributes to normal blood calcium levels</li></ul><p><strong>VITAMIN K</strong></p><ul><li>Contributes to normal blood clotting</li><li>Contributes to the maintenance of normal bones</li></ul><p><strong>CALCIUM</strong></p><ul><li>Is needed for the maintenance of normal bones and teeth</li><li>Contributes to normal muscle function</li></ul><p><strong>FIBRE</strong></p><ul><li>High in fibre – 10 g per 100 g</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are '
+        + N'important.</em></p><p><strong>Net quantity:</strong> 50 g / 5 × 50 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 50 g (1 sachet).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Eat for breakfast, as a snack during the day or after physical activity. Once opened, the product is intended for immediate consumption. A maximum of 2 servings per day is recommended. WARNING: Not intended for children under 3 years. Keep out of reach of children! Store in a dry place away from direct sunlight and heat. Do not freeze.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Empty the sachet into a serving bowl, add 100 ml of warm (not boiling) water and mix well. You can also prepare it with cold water.' AS nvarchar(max))
+WHERE Product_Id = 2207;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2207 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 28
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1872
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 36
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 337
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 131)) BEGIN PRINT 'length mismatch 2207'; SET @bad += 1; END;
+
+-- Product_Id: 2214 (PROTEINI.SI VIT. C (1000mg) + VIT. D3, 60 таблети за џвакање)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI VIT. C (1000mg) + VIT. D3, 60 chewable tablets' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p></p><p></p><p></p><p></p><ul><li><p></p><p></p><p>Vitamin C + vitamin D3 + rosehip extract</p><p></p><p></p></li><li><p></p><p></p><p>The active ingredients contribute to the normal function of the immune system and to the maintenance of healthy bones and teeth</p><p></p><p></p></li><li><p></p><p></p><p>Orange-flavoured chewable tablets</p><p></p><p></p></li><li><p></p><p></p><p>No artificial colourings or flavourings</p><p></p><p></p></li><li><p></p><p></p><p>60 servings</p><p></p><p></p></li></ul><p>Food supplement with vitamin C, enriched with vitamin D3 and rosehip extract, with sweeteners. Orange flavour. No artificial colourings or flavourings.</p><p>This food supplement in the form of orange-flavoured chewable tablets contains a combination of high doses of vitamins C and D3 and rosehip extract. These ingredients work synergistically and have a positive effect on the immune sys' AS nvarchar(max))
+        + N'tem and the health of bones and teeth.</p><p>PROTEINI.SI VIT. C (1000MG) + VIT. D3 contains:</p><ul><li><p></p><p></p><p>1000 mg vitamin C</p><p></p><p></p></li><li><p></p><p></p><p>50 μg (2000 IU) vitamin D3</p><p></p><p></p></li><li><p></p><p></p><p>25 mg rosehip extract</p><p></p><p></p></li></ul><p>Vitamin C contributes to:</p><ul><li><p></p><p></p><p>Maintaining the normal function of the immune system during and after intense physical exercise. The beneficial effect is obtained with a daily intake of 200 mg in addition to the recommended daily intake of vitamin C.</p><p></p><p></p></li><li><p></p><p></p><p>Normal collagen formation for the normal function of blood vessels, bones, cartilage, gums, skin and teeth.</p><p></p><p></p></li><li><p></p><p></p><p>Normal function of the immune system.</p><p></p><p></p></li><li><p></p><p></p><p>The protection of cells from oxidative stress.</'
+        + N'p><p></p><p></p></li><li><p></p><p></p><p>Normal energy-yielding metabolism.</p><p></p><p></p></li><li><p></p><p></p><p>Normal functioning of the nervous system.</p><p></p><p></p></li><li><p></p><p></p><p>Normal psychological function.</p><p></p><p></p></li><li><p></p><p></p><p>The reduction of tiredness and fatigue.</p><p></p><p></p></li></ul><p>Vitamin D contributes to:</p><ul><li><p></p><p></p><p>Normal function of the immune system.</p><p></p><p></p></li><li><p></p><p></p><p>The maintenance of normal muscle function.</p><p></p><p></p></li><li><p></p><p></p><p>The maintenance of healthy bones and teeth.</p><p></p><p></p></li></ul><p>A balanced and varied diet and a healthy lifestyle are important.</p><p>Net quantity: 60 chewable tablets (126.6 g)</p><p></p><p></p><p></p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 chewable tablet.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'DIRECTIONS FOR USE:
+
+- Serving size: 1 chewable tablet.
+- Take 1 chewable tablet daily.
+- Chew the tablet well before swallowing.
+
+WARNING:
+
+Do not exceed the stated recommended daily dose. Do not use the product as a substitute for a balanced diet. Keep out of reach of children!
+
+Excessive use may have a laxative effect due to the sorbitol content.
+
+The product is not recommended in case of high blood pressure, increased calcium concentration in the urine or kidney stones.' AS nvarchar(max))
+WHERE Product_Id = 2214;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2214 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 58
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2584
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 38
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 478)) BEGIN PRINT 'length mismatch 2214'; SET @bad += 1; END;
+
+-- Product_Id: 2215 (PROTEINI.SI VITAMIN D3 (2000IU), 100 меки капсули)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI VITAMIN D3 (2000IU), 100 softgels' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>2000 IU vitamin D per capsule</p></li><li><p>Vitamin D3 contributes to the maintenance of healthy bones and teeth and to the normal function of the immune system</p></li><li><p>Especially recommended in autumn and winter</p></li><li><p>100 servings</p></li></ul><p><strong>Food supplement with vitamin D3 in softgels.</strong></p><p>Vitamin D is a fat-soluble vitamin that plays an important role in the development of bones and teeth, as well as in the functioning of the immune system. PROTEINI.SI VITAMIN D3 softgels provide 50 μg (2000 IU) of vitamin D3 per capsule.</p><p>Vitamin D is produced in the skin when exposed to sunlight, or it can be obtained through the diet. However, because the vitamin D content of food is relatively low and more and more people avoid sun exposure, additional vitamin D intake in the form of food supplements is recommended. This is especially importa' AS nvarchar(max))
+        + N'nt in autumn and winter, when vitamin D synthesis in the skin is not efficient enough.</p><p>Vitamin D contributes to:</p><ul><li><p>normal absorption and utilisation of calcium and phosphorus</p></li><li><p>normal blood calcium levels</p></li><li><p>the maintenance of normal bones</p></li><li><p>the maintenance of normal muscle function</p></li><li><p>the maintenance of normal teeth</p></li><li><p>normal function of the immune system</p></li><li><p>the process of cell division</p></li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 100 softgels (46 g)</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 capsule.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'DIRECTIONS FOR USE:
+
+- Serving size: 1 capsule.
+- Take 1 serving daily with a meal.
+
+WARNING:
+
+Do not exceed the stated recommended daily dose. Do not use the product as a substitute for a balanced diet. Keep out of reach of children!
+
+The product is not recommended in case of high blood pressure, increased calcium concentration in the urine or kidney stones.
+
+When using this food supplement, vitamin D intake from other sources should also be taken into account.' AS nvarchar(max))
+WHERE Product_Id = 2215;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2215 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 45
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1534
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 466)) BEGIN PRINT 'length mismatch 2215'; SET @bad += 1; END;
+
+-- Product_Id: 2216 (PROTEINI.SI VITAMINS, MINERALS & OMEGA 3, 30 tabs + 30 caps)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI VITAMINS, MINERALS & OMEGA 3, 30 tabs + 30 caps' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>An excellent combination of vitamins and minerals</p></li><li><p>Highly concentrated fish oil</p></li><li><p>For physically active people and anyone with a fast-paced lifestyle</p></li><li><p>A positive effect on the heart and circulatory system</p></li></ul><p><strong>Vitamins and minerals in tablets (30 tablets) and omega-3 fish oil in capsules (30 capsules). Food supplement.</strong></p><p><strong>PROTEINI.SI VITAMINS, MINERALS &amp; OMEGA 3</strong> offers a comprehensive combination of vitamins, minerals and omega-3 fatty acids. These carefully selected ingredients give the body the most important essential micronutrients, which help maintain the body’s resilience and contribute to better physical condition, well-being and vitality.</p><p>EPA and DHA are omega-3 fatty acids that have a positive effect on the health of the cardiovascular and circulatory systems, cognitive ' AS nvarchar(max))
+        + N'function and vision. That is why it is important to take them in regularly through the diet.</p><ul><li><p>Vitamins A, C, D, B6 and B12 and the minerals copper, zinc, folate, selenium and iron contribute to the normal function of the immune system.</p></li><li><p>Vitamins C, E and B2 and the minerals copper, zinc, manganese and selenium contribute to the protection of cells from oxidative stress.</p></li><li><p>Vitamins C, B2, B6, B12, folate and niacin, as well as the minerals magnesium and iron, contribute to the reduction of tiredness and fatigue.</p></li><li><p>Eicosapentaenoic acid (EPA) and docosahexaenoic acid (DHA) contribute to the normal function of the heart. The beneficial effect is obtained with a daily intake of 250 mg EPA and DHA.</p></li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 99.5 g</p>',
+    InstructionsForUseEn = CAST(N'Recommended daily dose: 1 capsule and 1 tablet.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily, during the day, with food and liquid. WARNING: Do not exceed the recommended daily dose! A food supplement is not a substitute for a balanced and varied diet. Keep out of reach of children.' AS nvarchar(max))
+WHERE Product_Id = 2216;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2216 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 59
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1794
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 47
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 211)) BEGIN PRINT 'length mismatch 2216'; SET @bad += 1; END;
+
+-- Product_Id: 2217 (PROTEINI.SI ZERO SYRUP, 320ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI ZERO SYRUP, 320ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Low-calorie chocolate syrup</p></li><li><p>Great taste</p></li><li><p>Fat-free and sugar-free</p></li><li><p>Lactose-free and gluten-free</p></li><li><p>Suitable for vegans</p></li></ul><p><strong>Low-energy sugar-free chocolate syrup, with sweeteners.</strong></p><p>Proteini.si Zero Syrup is a tasty chocolate syrup you can add to any meal you want to sweeten and give a little chocolate flavour – guilt-free and without worrying about calories, because this syrup contains practically no calories! Use it with shakes, smoothies, dairy products, ice cream, pancakes, cereals and more. The syrup contains less than 0.5 g of sugar and 0.1 g of fat per 100 ml.</p><ul><li><p>For adding flavour to desserts</p></li><li><p>Perfect while dieting</p></li><li><p>Ideal for a diet low in calories, sugar and fat</p></li><li><p>Delicious chocolate flavour</p></li><li><p>Suitable for vegans</p></l' AS nvarchar(max))
+        + N'i><li><p>32 servings</p></li></ul><p>A 10 ml serving contains practically no calories, as it has a negligible energy value of 0.9 kcal, so the product falls into the category of near-zero-calorie products.</p><p>Athletes and people watching their figure who like to add toppings to dairy products, cereals or protein meals can enjoy this sauce guilt-free, as it has almost no effect on total calorie intake. Even athletes following a very strict diet can enjoy this dessert sauce without any worries.</p><p>The advantage of Proteini.si Zero Syrup is not only its low calorie value, but also its great taste! Give it a try!</p><p><strong>Net quantity:</strong> 320 ml</p>',
+    InstructionsForUseDescriptionEn = CAST(N'Warning: Excessive consumption may have a laxative effect. Store the unopened product in a cool, dry place. Once opened, store in the refrigerator and use within one month. Shake well before use.' AS nvarchar(max))
+WHERE Product_Id = 2217;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2217 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 29
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1570
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 195)) BEGIN PRINT 'length mismatch 2217'; SET @bad += 1; END;
+
+-- Product_Id: 2218 (PROTEINI.SI ZINC, 100 таблети)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI ZINC, 100 tablets' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>25 mg zinc per capsule (250% RI)</p></li><li><p>A super-mineral involved in many cellular metabolic processes</p></li><li><p>For the body’s resilience and healthy bones</p></li><li><p>Contains high-quality zinc gluconate</p></li><li><p>100 servings</p></li></ul><p><strong>Food supplement with zinc in tablets.</strong></p><p>Zinc is an essential element that is important for the normal growth and development of the body, neurological and reproductive functions, wound healing and the normal functioning of the immune system. PROTEINI.SI ZINC tablets provide 25 mg of zinc per capsule, which is 250% of the reference daily intake (RI).</p><p>Rich sources of zinc include oysters, meat, seafood, legumes, nuts and various seeds. Most people with a varied, balanced diet can meet their zinc needs. However, vegetarians should pay particular attention to getting enough of it. Because the b' AS nvarchar(max))
+        + N'ody cannot store zinc, it is important to regularly eat foods that provide it or to ensure adequate intake through food supplements.</p><p>Zinc is involved in many cellular metabolic processes. It takes part in more than 100 enzyme reactions in the body and plays an important role in the functioning of the immune system, protein synthesis, wound healing, protecting cells from oxidative stress, the metabolism of macronutrients and vitamin A, cognitive function, DNA synthesis and cell division. Zinc plays an important role in the growth and development of the body, is necessary for the normal functioning of the senses of taste and smell, and helps maintain healthy bones, normal vision and healthy hair, nails and skin. It also takes part in maintaining normal blood testosterone levels and contributes to fertility and reproductive functions.</p><p><em>A balanced and varied diet and a healthy'
+        + N' lifestyle are important.</em></p><p><strong>Net quantity:</strong> 100 tablets (46 g)</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 tablet.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily with a meal. WARNING: Do not exceed the stated recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max))
+WHERE Product_Id = 2218;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2218 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 29
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1890
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 29
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 190)) BEGIN PRINT 'length mismatch 2218'; SET @bad += 1; END;
+
+-- Product_Id: 2219 (RABEKO NON-STICK ZERO COOKING SPRAY)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'RABEKO NON-STICK ZERO COOKING SPRAY' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Low-calorie, sugar-free and exceptionally tasty oil sprays</li><li>Suitable for a healthy diet</li><li>Quick, simple and clean to use</li><li>2 kcal per serving</li><li>200 ml</li></ul><p><strong>Oil for cooking and seasoning in spray form.</strong></p><p>Rabeko offers low-calorie products that bring more flavour to your kitchen or your grilling. Try these tasty sprays, created for practical, controlled use in your everyday diet and available in several tasty variants.</p><p><strong>ADVANTAGES:</strong></p><ul><li>Few calories, rich flavour</li><li>Quick and easy to use, no sticking</li><li>Practical dosing for better control of intake</li><li>Great for baking, frying, oven dishes or salads</li><li>Four tasty variants – Natural, Garlic, Butter and Italian Herbs</li></ul><p><strong>Net quantity:</strong> 200 ml</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'The serving size is 0.3 ml.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'- Directions for use:
+  1. Shake the bottle lightly before use.
+  2. Spray for about 1/3 of a second from a distance of approximately 20 cm onto the food or a cold surface.
+
+DANGER:
+Pressurised container. May burst if heated. Extremely flammable aerosol.
+
+Keep out of reach of children.
+Keep away from heat, hot surfaces, sparks, open flames and other ignition sources.
+No smoking.
+Do not spray on an open flame or other ignition source.
+Do not pierce or burn the container, even after use.
+Protect from sunlight.
+Do not expose to temperatures above 50°C.' AS nvarchar(max))
+WHERE Product_Id = 2219;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2219 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 833
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 27
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 555)) BEGIN PRINT 'length mismatch 2219'; SET @bad += 1; END;
+
+-- Product_Id: 2223 (USN ATOM BOMB INTENSE PRE-WORKOUT)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'USN ATOM BOMB INTENSE PRE-WORKOUT' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Energy boost + focus + pre-workout stimulation</p></li><li><p>With amino acids, vitamins and ginseng</p></li><li><p>200 mg caffeine per serving</p></li><li><p>Sugar-free</p></li></ul><p><strong>Food supplement with vitamins, amino acids and plant extracts, with sweeteners.</strong></p><p><strong>High caffeine content (200 mg/60 ml). Not recommended for children or pregnant or breastfeeding women.</strong></p><p>USN Atom Bomb is an intense pre-workout shot, ideal for those who want to improve their training and get the most out of every session.</p><p>It contains 200 mg caffeine, 2000 mg beta-alanine, 2000 mg L-arginine, 1000 mg citrulline and 200 mg L-tyrosine.</p><p>Sugar-free, gluten-free and lactose-free.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 60 ml / 12 × 60 ml</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'Recommended dose: 1 bottle (60 ml).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume 1 serving (60 ml) for a sugar-free caffeine energy hit that helps support a busy lifestyle. Do not exceed 1 serving per day. Warning: High caffeine content (200 mg/60 ml). Not recommended for children or pregnant or breastfeeding women. Do not exceed 400 mg of caffeine per day from all sources (200 mg/day for pregnant or breastfeeding women). Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet.' AS nvarchar(max))
+WHERE Product_Id = 2223;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2223 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 33
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 869
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 449)) BEGIN PRINT 'length mismatch 2223'; SET @bad += 1; END;
+
+-- Product_Id: 2224 (USN B4-BOMB)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'USN B4-BOMB' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Multi-award-winning pre-workout supplement</p></li><li><p>With caffeine, beta-alanine, Rhodiola rosea, citrulline, Zynamite® and Bacowize®</p></li><li><p>With B-group vitamins</p></li><li><p>Endurance, energy and focus during training</p></li><li><p>12 servings</p></li></ul><p><strong>Food supplement with amino acids, plant extracts, caffeine and vitamins, with sweeteners.</strong></p><p><strong>High caffeine content (200 mg/15 g; 400 mg/30 g). Not recommended for children or pregnant or breastfeeding women.</strong></p><p>Experience explosive energy and RawPower™¹ technology with the USN B4-BOMB pre-workout supplement. Challenge yourself and reach peak performance with this multi-award-winning pre-workout. Scientifically formulated to increase energy and focus during training.</p><ul><li><p>Energy boost with natural caffeine</p></li><li><p>Contains beta-alanine for an explosi' AS nvarchar(max))
+        + N've pre-workout effect</p></li><li><p>Endurance, energy and focus during training</p></li></ul><p>USN B4-BOMB is a powerful pre-workout supplement formulated to help you get the most out of every workout and reach your goals.</p><p><em>¹Cherry flavour only.</em></p><p><strong>Net quantity:</strong> 180 g</p>',
+    InstructionsForUseEn = CAST(N'One dose is 2 scoops (15 g). The maximum daily dose is 4 scoops (30 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 30 minutes before training. Do not exceed 2 servings (30 g) per day. Use within 1 month of opening. WARNING: High caffeine content (200 mg/15 g; 400 mg/30 g). Not recommended for children or pregnant or breastfeeding women. For adults only. Do not exceed 400 mg of caffeine per day from all sources (200 mg per day for pregnant or breastfeeding women). As with all food supplements, consult your doctor first, especially if you have a health condition and/or take medication. Ensure adequate hydration. Do not exceed the stated recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children! Suitable for vegetarians and vegans. Store in a cool, dry place.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 2 scoops (15 g) with 250–300 ml of water or 4 scoops (30 g) with 500–600 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2224;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2224 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 11
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1208
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 71
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 720
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 89)) BEGIN PRINT 'length mismatch 2224'; SET @bad += 1; END;
+
+-- Product_Id: 2225 (USN BCAA POWER PUNCH, 400g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'USN BCAA POWER PUNCH, 400g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Easy-mixing amino acid drink</p></li><li><p>A combination of L-glutamine and BCAA amino acids</p></li><li><p>With added vitamin B6</p></li><li><p>Tasty fruit flavours</p></li></ul><p><strong>Mix for preparing an amino acid drink with vitamin B6 and sweeteners.</strong></p><p>USN BCAA Power Punch offers great taste, easy mixing and a dynamic formula. The combination of glutamic acid and branched-chain amino acids (BCAA) creates a tasty drink designed to give you an extra boost, help fight fatigue and support the growth and maintenance of muscle mass.</p><p><strong>Net quantity:</strong> 400 g</p><p>Source: https://uk.usn-sport.com/</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'The serving size is 2 scoops (11 g). People weighing 85 kg or more should take 4 full heaped scoops.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Drink before, during and after training. WARNING: Consult your doctor first, especially if you have a health condition. Do not use the product if you are pregnant, breastfeeding or under 18 years of age. In case of any health problems, consult your doctor before using the product. The product is not suitable for pregnant or breastfeeding women or people under 18. Long-term intake of more than 10 mg of vitamin B6 per day may cause mild tingling or numbness. While using the product, be sure to maintain adequate hydration. Drink at least 8–10 large glasses of water per day. High amounts of amino acids may cause stomach discomfort in sensitive people. In that case, reduce the dose or stop use. Do not exceed the recommended daily dose. The product is not a substitute for a varied and balanced diet and a healthy lifestyle.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix one serving into 500–600 ml of cold water in a shaker or bottle and shake well for 30 seconds.' AS nvarchar(max))
+WHERE Product_Id = 2225;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2225 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 26
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 653
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 100
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 828
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 98)) BEGIN PRINT 'length mismatch 2225'; SET @bad += 1; END;
+
+-- Product_Id: 2228 (USN PURE CREATINE MONOHYDRATE, 500g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'USN PURE CREATINE MONOHYDRATE, 500g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Creatine monohydrate in micronised form</p></li><li><p>Helps maintain energy levels during muscle contractions</p></li><li><p>Helps increase muscle mass</p></li><li><p>Fast absorption and recovery</p></li></ul><p><strong>Food supplement with creatine monohydrate.</strong></p><p>USN Creatine Monohydrate is pure, highly absorbable micronised creatine monohydrate. With a daily intake of at least 3 g of creatine, creatine increases physical performance in successive bursts of short-term, high-intensity exercise. During muscle contractions it helps maintain balanced ATP levels.</p><p>Creatine monohydrate supplementation is safe and suitable for anyone who trains in short, intense intervals. We recommend taking 3–5 g of creatine monohydrate immediately after training, together with whey protein and carbohydrates, for optimal nutrient absorption and improved recovery.</p><p>Creatine ' AS nvarchar(max))
+        + N'is a nitrogenous organic compound found naturally in all vertebrates. The highest concentrations are present in muscle tissue. Creatine acts as a high-energy compound that provides quick energy, especially for muscle tissue, where a relatively large amount of ATP needs to be used in a short time. Taking creatine as a supplement increases the concentration of creatine in the muscles. Creatine can increase muscle strength to some degree, especially in anaerobic (short-duration) sports activities. It also increases muscle mass by increasing water retention in the muscles.</p><p><strong>Net quantity:</strong> 500 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 2 teaspoons (5 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Do not consume more than 4 servings per day (20 g). NOTE: It is important to maintain an adequate daily fluid intake. Maximum daily intake 20 g, equivalent to 4 servings. WARNING: Please consult your doctor before use if you are taking medication or have been diagnosed with a medical condition. Not recommended for pregnant/breastfeeding women or people under 18. Do not exceed the recommended daily intake. Food supplements should not replace a balanced, varied diet and a healthy lifestyle. Keep out of reach of children! Store in a cool, dry place.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 2 teaspoons (5 g) with 250 ml of cold water.' AS nvarchar(max))
+WHERE Product_Id = 2228;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2228 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1522
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 38
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 552
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 48)) BEGIN PRINT 'length mismatch 2228'; SET @bad += 1; END;
+
+-- Product_Id: 2231 (USN LIV.SMART COLLAGEN, 330g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'USN LIV.SMART COLLAGEN, 330g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Premium hydrolysed collagen protein</p></li><li><p>Support for joint and skin health</p></li><li><p>Support for hair and skin health</p></li><li><p>Support for collagen formation</p></li><li><p>30 servings</p></li></ul><p><strong>Food supplement with collagen and vitamin C, with sweeteners.</strong></p><p>Liv.SMART Collagen contains hydrolysed collagen. Collagen is a protein found in skin, connective tissue, bones, cartilage and ligaments. Its main function is to maintain the elasticity and firmness of tissues. However, the body’s collagen production decreases with age, which can lead to loss of skin firmness, wrinkles and weakening of joints and bones. Hydrolysed collagen is obtained through hydrolysis, a process in which large protein molecules are broken down into smaller molecules that are more easily absorbed by the body. Hydrolysed collagen has greater bioavailability an' AS nvarchar(max))
+        + N'd reaches the tissues where it is needed faster.</p><p>Liv.SMART Collagen also contains vitamin C, which is known to contribute to normal collagen formation, necessary for the normal function of blood vessels, bones, cartilage, gums, skin and teeth.</p><p>Top up your body’s need for collagen, a substance essential for the firmness of almost all tissues!</p><p>The product is free from gluten, sugar and lactose.</p><p><strong>Net quantity:</strong> 330 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 2 scoops (11 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume 1 serving daily, preferably after exercise or as a snack during the day.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 serving (11 g) with 400 ml of water and stir.' AS nvarchar(max))
+WHERE Product_Id = 2231;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2231 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 28
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1360
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 36
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 80
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 51)) BEGIN PRINT 'length mismatch 2231'; SET @bad += 1; END;
+
+-- Product_Id: 2232 (USN LIV.SMART SLIM SHAKE MEAL REPLACEMENT, 550g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'USN LIV.SMART SLIM SHAKE MEAL REPLACEMENT, 550g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>“Shape Up” – a meal replacement from the Liv. SMART range</p></li><li><p>Nutrient-rich, low in sugar and high in fibre</p></li><li><p>Support for weight loss</p></li><li><p>Lifestyle and body-shape goals**</p></li><li><p>Suitable for vegetarians</p></li><li><p>10 servings</p></li></ul><p><strong>Meal replacement for weight control, with sweetener.</strong>*</p><p><strong>LIV. YOUR BEST LIFE</strong></p><p><strong>Try the new Liv. SMART range.</strong></p><p>This tasty shake gives you the nutrients you need to help you reach your weight-loss goals.</p><ul><li><p>Rich in nutrients and fibre</p></li><li><p>Only 200 calories per meal</p></li><li><p>21 g protein per meal</p></li><li><p>A complete profile of vitamins and minerals</p></li><li><p>Low in sugar</p></li><li><p>Suitable for vegetarians</p></li><li><p>No artificial colourings, flavourings or preservatives</p></li><li><p>Th' AS nvarchar(max))
+        + N'ree tasty flavours to choose from</p></li></ul><p><strong>One life. Live it.</strong></p><p><strong>Directions for use and important information:</strong></p><p>** Substituting one daily meal of an energy-restricted diet with a meal replacement contributes to the maintenance of weight after weight loss. To obtain the claimed effect, one main meal per day should be replaced with a meal replacement. Substituting two daily meals of an energy-restricted diet with meal replacements contributes to weight loss. To obtain the claimed effect, two main meals per day should be replaced with meal replacements. The product only fulfils its intended purpose as part of an energy-restricted diet, and other foodstuffs should be a necessary part of such a diet. It is very important to drink enough fluids every day. Keep out of reach of children!</p><p><strong>Net quantity:</strong> 550 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 2 scoops (55 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1–2 servings daily as a meal replacement. NOTE: High in fibre. Substituting two daily meals of an energy-restricted diet with meal replacements such as liv.smart Slim Shake contributes to weight loss. Contains lactase, which breaks down the lactose present in milk. Formulated with chromium.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Add 2 scoops to 250–300 ml of cold water and mix well.' AS nvarchar(max))
+WHERE Product_Id = 2232;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2232 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 47
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1786
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 36
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 296
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 54)) BEGIN PRINT 'length mismatch 2232'; SET @bad += 1; END;
+
+-- Product_Id: 2233 (USN PURE CREATINE MONOHYDRATE (SACHET), 500g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'USN PURE CREATINE MONOHYDRATE (SACHET), 500g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Micronised creatine monohydrate</p></li><li><p>Excellent value for money</p></li><li><p>Helps increase physical performance</p></li><li><p>100 servings</p></li></ul><p><strong>Food supplement with creatine monohydrate.</strong></p><p>USN Creatine Monohydrate is pure, highly absorbable micronised creatine monohydrate. With a daily intake of at least 3 g of creatine, creatine increases physical performance in successive bursts of short-term, high-intensity exercise. During muscle contractions it helps maintain balanced ATP levels.</p><p>Creatine monohydrate supplementation is safe and suitable for anyone who trains in short, intense intervals. We recommend taking 3–5 g of creatine monohydrate immediately after training, together with whey protein and carbohydrates, for optimal nutrient absorption and improved recovery.</p><p>Creatine is a nitrogenous organic compound found natur' AS nvarchar(max))
+        + N'ally in all vertebrates. The highest concentrations are present in muscle tissue. Creatine acts as a high-energy compound that provides quick energy, especially for muscle tissue, where a relatively large amount of ATP needs to be used in a short time. Taking creatine as a supplement increases the concentration of creatine in the muscles. Creatine can increase muscle strength to some degree, especially in anaerobic (short-duration) sports activities. It also increases muscle mass by increasing water retention in the muscles.</p><p><strong>Net quantity:</strong> 500 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 2 teaspoons (5 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'CREATINE LOADING PHASE: For the first 5 days of use, take 1 teaspoon 4 times a day with 250 ml of fruit juice or your favourite protein drink. CREATINE MAINTENANCE PHASE: After 5 consecutive days of loading, take 1 teaspoon 1–2 times a day with 250 ml of fruit juice for 3 weeks. Stop use completely for 3 weeks before starting the cycle again. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max))
+WHERE Product_Id = 2233;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2233 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 44
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1477
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 38
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 481)) BEGIN PRINT 'length mismatch 2233'; SET @bad += 1; END;
+
+-- Product_Id: 2235 (VAST MAGNESIUM BISGLYCINATE 200)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'VAST MAGNESIUM BISGLYCINATE 200' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Chelated magnesium bisglycinate</p></li><li><p>Highest bioavailability</p></li><li><p>Helps reduce tiredness and fatigue</p></li><li><p>Support for normal muscle function and energy-yielding metabolism</p></li><li><p>100% vegan product</p></li><li><p>Lactose-free and gluten-free</p></li></ul><p><strong>Food supplement with magnesium.</strong></p><p><strong>FOR PEAK PERFORMANCE</strong></p><p>Magnesium is one of the most important minerals the body needs, as it acts as a cofactor in hundreds of enzymes and bodily processes. It contributes to maintaining normal muscle and nervous system function by facilitating the transport of ions, such as potassium and calcium, across cell membranes.</p><ul><li><p>100% vegan capsules</p></li><li><p>An essential mineral for athletes</p></li></ul><p><strong>HIGHEST BIOAVAILABILITY</strong></p><p>No food supplement is worth the money if it does ' AS nvarchar(max))
+        + N'not deliver the expected results. To achieve the highest possible bioavailability, we avoided weaker forms of magnesium, such as magnesium citrate or magnesium oxide, and chose magnesium bisglycinate. The higher the bioavailability, the better the body absorbs the ingredient.</p><ul><li><p>Optimal bioavailability</p></li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 120 vegan capsules</p>',
+    NutritionValuesIngredientsEn = CAST(N'INGREDIENTS: Magnesium bisglycinate, hydroxypropyl methylcellulose (capsule).' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'The serving size is 2 capsules.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily with 200 ml of water. WARNING: Do not exceed the stated recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children! Store in a cool, dry place.' AS nvarchar(max))
+WHERE Product_Id = 2235;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2235 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 31
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1365
+    OR ISNULL(DATALENGTH(NutritionValuesIngredientsEn),0)/2 <> 77
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 31
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 227)) BEGIN PRINT 'length mismatch 2235'; SET @bad += 1; END;
+
+-- Product_Id: 2236 (ZzZuper Sleep, 30 кесички)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'ZzZuper Sleep, 30 sachets' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<h2><strong>Sleep – the key to your health and well-being</strong></h2><p>Have you ever woken up tired, even after spending enough hours in bed? Or maybe you struggle with insomnia, often wake up during the night or simply feel your sleep is not good enough? <strong>Sleep is one of the basic pillars of our health and affects our mood, immunity, mental clarity and overall quality of life.</strong> However, modern lifestyles, stress, an unbalanced diet and lack of physical activity often disrupt the natural sleep cycle.</p><p>ZzZuper Sleep is a <strong>natural food supplement</strong> designed to improve sleep, helping you fall asleep more easily, sleep longer and wake up full of energy. Its unique formula combines <strong>11 powerful ingredients</strong> that work synergistically to support all stages of sleep, allowing the body to regenerate so you feel fresh every morning.</p><h2><stron' AS nvarchar(max))
+        + N'g>Why is sleep so important?</strong></h2><p>Sleep is not just time to rest – it is a <strong>process of regeneration for body and mind</strong>. While we sleep, the brain processes information, the body renews cells and hormones are brought into balance. Lack of sleep is linked to an increased risk of many health problems, including:</p><p>✅ <strong>Weaker immunity</strong> – poor sleep can increase susceptibility to colds and infections.</p><p>✅ <strong>Concentration problems</strong> – sleep is key to mental functions, including memory and decision-making.</p><p>✅ <strong>Increased stress and anxiety</strong> – lack of sleep raises levels of cortisol, the stress hormone.</p><p>✅ <strong>Mood disorders</strong> – insomnia is linked to an increased risk of depression.</p><p>✅ <strong>Metabolic problems</strong> – insufficient sleep can cause increased appetite and weight gain.</p><p>If '
+        + N'you have trouble sleeping, it is important <strong>to find a natural way</strong> to improve it – and that is where <strong>ZzZuper Sleep</strong> comes in.</p><h2><strong>How does ZzZuper Sleep work?</strong></h2><p>Thanks to its scientifically formulated combination of ingredients, ZzZuper Sleep <strong>works on several levels</strong>:</p><p>🔹 <strong>Regulates the circadian rhythm</strong> – encourages natural production of melatonin, the hormone responsible for sleep.</p><p>🔹 <strong>Relaxes the nervous system</strong> – thanks to amino acids and neurotransmitters such as GABA, serotonin and dopamine.</p><p>🔹 <strong>Encourages deep sleep</strong> – extends the NREM sleep phase and improves sleep quality.</p><p>🔹 <strong>Reduces stress and anxiety</strong> – plant extracts and amino acids help calm the mind before sleep.</p><p>🔹 <strong>Improves morning alertness</strong> – unlike s'
+        + N'ynthetic sleeping pills, ZzZuper Sleep does not cause morning drowsiness.</p><h2><strong>Natural ingredients for better sleep</strong></h2><p>ZzZuper Sleep combines <strong>the best natural ingredients</strong> to give you <strong>deep, quality sleep</strong>.</p><p>🔹 <strong>L-tryptophan</strong> – an essential amino acid that the body converts into serotonin and melatonin. It helps regulate sleep and improves mood.</p><p>🔹 <strong>Glycine</strong> – lowers body temperature, which is important for falling asleep and staying in deep sleep. It also improves cognitive function after waking.</p><p>🔹 <strong>Magnesium</strong> – calms the nervous system, relaxes the muscles and improves sleep quality. A deficiency is often linked to insomnia.</p><p>🔹 <strong>Taurine</strong> – an amino acid that protects the nervous system, reduces stress and supports normal neurotransmitter function.</p><p>'
+        + N'🔹 <strong>Myo-inositol</strong> – supports serotonin function and helps regulate the sleep cycle. It may improve the duration and quality of sleep.</p><p>🔹 <strong>L-theanine</strong> – an amino acid from green tea that encourages relaxation without causing daytime drowsiness.</p><p>🔹 <strong>SAM-e (S-adenosyl-L-methionine)</strong> – plays an important role in the synthesis of serotonin, norepinephrine and dopamine, which matter for mood and sleep.</p><p>🔹 <strong>5-HTP (5-hydroxytryptophan)</strong> – a precursor of serotonin that helps improve sleep and reduce stress.</p><p>🔹 <strong>Chamomile flower extract (apigenin)</strong> – a natural sedative that calms and improves sleep quality.</p><p>🔹 <strong>Vitamin B6</strong> – supports the synthesis of neurotransmitters such as serotonin and improves the quality of REM sleep.</p><p>🔹 <strong>Vitamin C</strong> – a powerful antioxidant th'
+        + N'at supports brain health and regulates neurotransmitter production.</p><h2><strong>How to use ZzZuper Sleep?</strong></h2><p>For best results, we recommend:</p><p>✔ <strong>1 sachet</strong> – for gentle relaxation before sleep.</p><p>✔ <strong>2 sachets</strong> – for deeper, faster sleep, especially if you struggle with insomnia.</p><p>Mix the contents of the sachet with lukewarm water and drink it <strong>30 to 60 minutes before bed</strong>.</p><h2><strong>Why choose ZzZuper Sleep?</strong></h2><p>🔹 <strong>Natural formula</strong> – no synthetic additives or side effects.</p><p>🔹 <strong>Not habit-forming</strong> – unlike sleeping pills, it causes neither dependence nor morning grogginess.</p><p>🔹 <strong>Fast-acting</strong> – starts working from the very first use.</p><p>🔹 <strong>Backed by scientific research</strong> – all ingredients have proven effects on sleep quality.</p><h'
+        + N'2><strong>Order your ZzZuper Sleep today!</strong></h2><p>Don’t let poor sleep affect your everyday life. Try <strong>ZzZuper Sleep</strong> and give yourself <strong>peaceful nights and mornings full of energy</strong>!</p><p>➡ <strong>Order now and feel the difference from the very first night!</strong></p><p><strong>Our mission is to help you sleep better.</strong></p>',
+    InstructionsForUseEn = CAST(N'Directions for using ZzZuper Sleep: For relaxation before sleep or just before a flight, one sachet of ZzZuper Sleep is recommended, while two sachets are ideal for falling asleep faster. Our formula is simple and adaptable – add as much lukewarm water as you like to adjust the taste to your preference.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Prepare just before use and drink half an hour to an hour before bed.' AS nvarchar(max))
+WHERE Product_Id = 2236;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2236 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 5794
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 304
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 69)) BEGIN PRINT 'length mismatch 2236'; SET @bad += 1; END;
+
+-- Product_Id: 2237 (VAST CREATINE CREAPURE, 300g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'VAST CREATINE CREAPURE, 300g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>100% premium-quality Creapure creatine monohydrate</p></li><li><p>Pure, with no additives and unflavoured</p></li><li><p>Physical performance and strength</p></li><li><p>Vegan product</p></li><li><p>60 servings</p></li></ul><p><strong>Food supplement based on creatine monohydrate. Unflavoured powder, intended especially for athletes.</strong></p><p><strong>PATENTED PRODUCTION PROCESS</strong></p><p>Made from the highest-quality, purest Creapure® creatine monohydrate, produced in Germany, ideal for competitive athletes.</p><p><strong>MICRONISED</strong></p><p>Micronised for excellent solubility and quick, easy mixing in water or shakes.</p><p><strong>IMPROVED PHYSICAL PERFORMANCE</strong></p><p>Creatine has been shown to increase physical performance in successive bursts of short-term, high-intensity exercise. The beneficial effect is obtained with a daily intake of 3 g of crea' AS nvarchar(max))
+        + N'tine.</p><p><strong>100% PURE AND ADDITIVE-FREE</strong></p><p>Perfect for all sports with high-intensity loads, such as competitive sports, bodybuilding, weightlifting, fitness, football and athletics.</p><p><strong>VEGAN PRODUCT</strong></p><p><strong>Net quantity:</strong> 300 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 scoop (3 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume 1 serving daily. WARNING: Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 serving with approximately 250 ml of water. It also mixes easily into shakes or other drinks.' AS nvarchar(max))
+WHERE Product_Id = 2237;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2237 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 28
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1186
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 34
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 161
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 99)) BEGIN PRINT 'length mismatch 2237'; SET @bad += 1; END;
+
+-- Product_Id: 2238 (PROTEINI.SI ENERGY+ SUPERCHARGED ENERGY GEL)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI ENERGY+ SUPERCHARGED ENERGY GEL' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Highly concentrated carbohydrate gel</p></li><li><p>48 g carbohydrates per gel</p></li><li><p>Maltodextrin : fructose ratio = 1 : 0.8</p></li><li><p>Increased carbohydrate absorption</p></li><li><p>Reduced digestive discomfort</p></li><li><p>Improved performance and recovery</p></li></ul><p><strong>Food supplement with sugars.</strong></p><p>Supercharged Energy Gel is a highly concentrated energy source designed to quickly replenish depleted energy stores during training or competition. The gel is based on maltodextrin and fructose in the optimal 1 : 0.8 ratio, which has become the standard in high-performance sports supplements.</p><p><strong>BENEFITS OF THE 1 : 0.8 MALTODEXTRIN : FRUCTOSE RATIO</strong></p><p><strong>More efficient carbohydrate absorption</strong></p><p>Maltodextrin is absorbed via SGLT1 (the sodium-dependent glucose transporter), while fructose is absorbed ' AS nvarchar(max))
+        + N'via the GLUT5 transporter. The 1 : 0.8 ratio makes it possible to use both transport mechanisms at the same time, allowing greater total carbohydrate absorption per hour (up to 90–120 g of carbohydrates per hour) without overloading a single transport mechanism.</p><p><strong>Fewer digestive problems</strong></p><p>Consuming too much glucose or maltodextrin without fructose can saturate the SGLT1 transporter, which can lead to bloating, cramps and diarrhoea. Fructose in the right proportion (without being present in excess) reduces this load and improves gastrointestinal tolerance.</p><p><strong>Faster available energy</strong></p><p>The combination of two types of carbohydrates provides a fast and sustained source of energy during physical activity. Maltodextrin raises blood sugar quickly, while fructose is metabolised more slowly in the liver, providing longer-lasting energy.</p><p><st'
+        + N'rong>Replenishing glycogen stores</strong></p><p>Fructose primarily supports replenishment of liver glycogen stores, while maltodextrin (glucose) replenishes muscle glycogen stores. This contributes to complete restoration of glycogen stores after physical exertion or competition.</p><p><strong>Optimal hydration and transport</strong></p><p>Maltodextrin has low osmolality, which improves hydration and fluid absorption, especially in drinks. Fructose, when taken in small amounts, does not significantly increase osmolality, helping the drink stay isotonic or hypotonic – ideal for sports use.</p><p><strong>USE</strong></p><p>This gel is especially recommended for endurance sports (cycling, running, triathlon, etc.**), where efficient glycogen replenishment and maintaining energy during prolonged physical exertion are crucial.</p><ul><li><p><strong>During prolonged physical activity (over 1.'
+        + N'5 hours):</strong> Helps maintain energy levels. The recommended intake is 60–90 g of carbohydrates per hour, of which approximately 55% maltodextrin and 45% fructose.</p></li><li><p><strong>After physical activity (recovery):</strong> Can be used to speed up the restoration of glycogen stores, especially when several training sessions take place within a short period.</p></li></ul><p><em>A varied and balanced diet and a healthy lifestyle are recommended.</em></p><p><strong>Important:</strong> Try the gel during training, not for the first time at a competition – individual reactions to fructose can vary.</p><p><strong>Net quantity:</strong> 75 g / 18 × 75 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 75 g (1 gel).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume before and during physical activity, depending on your energy needs. Once opened, the product is intended for immediate use. Do not exceed the stated recommended daily dose. Do not use as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max))
+WHERE Product_Id = 2238;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2238 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 43
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 3370
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 33
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 260)) BEGIN PRINT 'length mismatch 2238'; SET @bad += 1; END;
+
+-- Product_Id: 2242 (PROTEINI.SI "HARDCORE ONE" GLOVES)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI "HARDCORE ONE" GLOVES' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p><strong>New, improved all-round training gloves!</strong></p><p><strong>Improved all-round training gloves</strong> made from the finest leather, which lines the inner surface and the thumb area. Areas prone to stretching have double stitching for greater durability.</p><p>Perforated leather on three fingers allows better ventilation during intense workouts. The elastic wrist support strap ensures an ideal fit on the hand.</p><p><strong>Sizes:</strong> S, M, L, XL, XXL</p><p><strong>Colour:</strong> black, yellow</p>' AS nvarchar(max))
+WHERE Product_Id = 2242;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2242 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 33
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 525)) BEGIN PRINT 'length mismatch 2242'; SET @bad += 1; END;
+
+-- Product_Id: 2243 (PROTEINI.SI BACKPACK, black)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI BACKPACK, black' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Practical, multi-purpose backpack</p></li><li><p>Durable and comfortable</p></li><li><p>With several compartments and pockets</p></li><li><p>Suitable for sport and leisure</p></li></ul><p>A practical black backpack, suitable for both sports activities and leisure. It is made from high-quality, durable and water-resistant material. It has a main central compartment containing a larger laptop section and two smaller inner pockets with Velcro closures for storing personal items (phone, wallet, etc.).</p><p>On the outside there is a mesh side pocket on each side for better ventilation, as well as a larger outer zip pocket. The back of the backpack is made from soft foam for extra comfort. The Proteini.si runner is printed on the main compartment, and the Proteini.si logo is placed on the right shoulder strap. Both shoulder straps have reflective elements for better visibility in t' AS nvarchar(max))
+        + N'he dark.</p><p><strong>FEATURES:</strong></p><ul><li><p>Simple, durable and modern</p></li><li><p>Multi-purpose use</p></li><li><p>Comfortable to carry</p></li><li><p>Adjustable-length shoulder straps</p></li><li><p><strong>Material:</strong> 70% polyester, 30% nylon</p></li><li><p><strong>Dimensions:</strong> 46 × 32 × 16.6 cm</p></li><li><p><strong>Colour:</strong> black</p></li></ul>'
+WHERE Product_Id = 2243;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2243 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 27
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1289)) BEGIN PRINT 'length mismatch 2243'; SET @bad += 1; END;
+
+-- Product_Id: 2244 (PROTEINI.SI BELT)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI BELT' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Fitness belt</p></li><li><p>Helps prevent hernia</p></li><li><p>Protects the spine when lifting weights</p></li><li><p>Available in leather and neoprene versions</p></li></ul><p><strong>The Proteini.si belt</strong> is intended for use during intense workouts in the gym.</p><p>It is available in leather and neoprene versions.</p><p><strong>LEATHER BELT:</strong></p><ul><li><p>Made from high-quality leather</p></li><li><p>Sturdy edges with double stitching</p></li><li><p>Fastens with a metal double-prong buckle and roller mechanism</p></li><li><p><strong>Sizes (circumference):</strong></p><ul><li><p>S = 70–84 cm</p></li><li><p>M = 80–94 cm</p></li><li><p>L = 90–104 cm</p></li><li><p>XL = 100–114 cm</p></li></ul></li></ul><p><strong>NEOPRENE BELT:</strong></p><ul><li><p>Made from neoprene</p></li><li><p>Light and comfortable</p></li><li><p>Velcro fastening with a single buckle</' AS nvarchar(max))
+        + N'p></li><li><p><strong>Sizes (circumference):</strong></p><ul><li><p>S = 68–86 cm</p></li><li><p>M = 78–96 cm</p></li><li><p>L = 88–106 cm</p></li><li><p>XL = 92–110 cm</p></li></ul></li></ul>'
+WHERE Product_Id = 2244;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2244 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 16
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1091)) BEGIN PRINT 'length mismatch 2244'; SET @bad += 1; END;
+
+-- Product_Id: 2245 (PROTEINI.SI BOOTY HIP BAND, S, PINK)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI BOOTY HIP BAND, S, PINK' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Elastic fabric band for hip and glute exercises</p></li><li><p>For toning muscles, shaping the body and increasing glute activation during exercise</p></li><li><p>Available in 3 different sizes, depending on your choice of exercises and the desired intensity</p></li><li><p>Durable and comfortable, does not roll or slip</p></li><li><p>Multi-purpose use</p></li></ul><p>The Proteini.si booty hip band is an elastic fabric training band and an indispensable accessory for working out at home and in the gym.</p><p><strong>FEATURES:</strong></p><ul><li><p>3 different sizes, depending on your choice of exercises and intensity:</p><ul><li><p><strong>S (pink)</strong> – 33 × 7.6 cm – high difficulty/resistance: narrow squat</p></li><li><p><strong>M (turquoise)</strong> – 38 × 7.6 cm – medium difficulty/resistance: side leg raise, “clamshell” exercise, lateral band walk</p></li><li><p><st' AS nvarchar(max))
+        + N'rong>L (grey)</strong> – 43 × 7.6 cm – low difficulty/resistance: lunge, wide squat</p></li></ul></li><li><p><strong>Material:</strong> polyester and latex</p></li></ul><p><strong>ADVANTAGES:</strong></p><ul><li><p><strong>DURABILITY:</strong> The sturdy fabric is interwoven with special elastic fibres that allow a wide range of motion. The band is designed not to tear during use.</p></li><li><p><strong>COMFORT:</strong> The fabric is sturdy yet soft and pleasant on the skin. It does not pinch, tear, roll or slip, so you can focus on your workout instead of constantly adjusting your equipment.</p></li><li><p><strong>DOES NOT ROLL:</strong> The large width and the inner latex grip layer stop the band from rolling up during exercise.</p></li><li><p><strong>MULTI-PURPOSE USE:</strong> It can be used for Insanity, Pilates, CrossFit, Beachbody and glute workouts. It is ideal for fitness, glut'
+        + N'e exercises and squats.</p></li></ul><p><strong>BENEFITS:</strong></p><ul><li><p><strong>GREATER ACTIVATION</strong> of the gluteus maximus (GLUTEUS) – up to 400%.</p></li><li><p><strong>STRENGTHENING AND TONING:</strong> These bands help tone and strengthen the legs, glutes, thighs, calves, quadriceps, hamstrings, core muscles, the muscles around the hips, abductors, hips, arms and shoulders. They are easy to use and suitable for everyone, from beginners to experienced exercisers.</p></li><li><p><strong>IMPROVED MOBILITY, FLEXIBILITY AND STRENGTH:</strong> It is excellent for hip stretches and for exercises involving the knees, muscles and joints, to reduce the risk of unwanted injuries or for use after a sports or other injury. Before starting an exercise programme during recovery, it is best to consult a doctor or physiotherapist. It is ideal for physical therapy and rehabilitation at'
+        + N' home.</p></li><li><p><strong>FAT BURNING:</strong> By training the largest muscle groups, you indirectly stimulate the fat-burning process.</p></li></ul><p><strong>Net quantity:</strong> 1 hip and glute exercise band / pack</p>'
+WHERE Product_Id = 2245;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2245 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2928)) BEGIN PRINT 'length mismatch 2245'; SET @bad += 1; END;
+
+-- Product_Id: 2246 (PROTEINI.SI BOXING GLOVES)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI BOXING GLOVES' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Leather boxing gloves</p></li><li><p>Anatomical design</p></li><li><p>Good shock absorption</p></li><li><p>5 openings for better ventilation</p></li></ul><p>The boxing gloves with the white Proteini.si runner logo are made from high-quality leather. They are suitable for both sparring and heavy-bag training. Thanks to their anatomical design, they allow optimal positioning of the palm and fist, which helps improve technique and reduce the risk of possible injuries.</p><p>The gloves have good protective padding that ensures effective absorption of punches. They fasten with a simple, practical Velcro strap system that ensures stable wrist fixation.</p><p>On the inside they have 5 ventilation openings, which help reduce sweating and allow better air circulation.</p>' AS nvarchar(max))
+WHERE Product_Id = 2246;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2246 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 784)) BEGIN PRINT 'length mismatch 2246'; SET @bad += 1; END;
+
+-- Product_Id: 2247 (PROTEINI.SI CROSSGYM GLOVES)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI CROSSGYM GLOVES' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Gloves for CrossFit and functional training</p></li><li><p>Light, soft and breathable</p></li><li><p>For safer, more comfortable training</p></li><li><p>Made from leather and nylon</p></li><li><p>Velcro strap fastening</p></li></ul><p>Crossgym gloves are primarily intended for CrossFit workouts and functional exercises, making training safer and more pleasant. They are made from soft, breathable material and offer maximum comfort during training.</p><p><strong>FEATURES:</strong></p><ul><li><p>Made from soft leather and elastic nylon (upper side)</p></li><li><p>Provide a more secure grip and greater comfort during exercise</p></li><li><p>Velcro strap fastening around the wrist</p></li><li><p>Unisex</p></li><li><p>Attractive design</p></li><li><p><strong>Sizes:</strong> S–XXL</p></li></ul>' AS nvarchar(max))
+WHERE Product_Id = 2247;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2247 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 27
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 809)) BEGIN PRINT 'length mismatch 2247'; SET @bad += 1; END;
+
+-- Product_Id: 2248 (PROTEINI.SI FITNESS GLOVES WITH GEL)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI FITNESS GLOVES WITH GEL' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p><strong>New Proteini.si fitness gloves with gel padding!</strong></p><ul><li><p>Comfortable gel padding in the palm and at the fingers</p></li><li><p>Durable double stitching and rubberised material for a secure grip, wet or dry</p></li><li><p>Adjustable self-fastening closure for a comfortable fit</p></li><li><p>Special stretch fabric between the fingers for better flexibility</p></li></ul><p>Proteini.si fitness gloves are machine washable and do not transfer colour to your hands. Washing them before first use is especially recommended.</p><p><strong>COMPOSITION:</strong></p><ul><li><p>65% polyester</p></li><li><p>21% nylon</p></li><li><p>5% cotton</p></li><li><p>4% polyurethane (PU)</p></li><li><p>3% spandex</p></li><li><p>2% silicone</p></li></ul><p><strong>Available sizes:</strong> S, M, L, XL and XXL.</p>' AS nvarchar(max))
+WHERE Product_Id = 2248;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2248 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 824)) BEGIN PRINT 'length mismatch 2248'; SET @bad += 1; END;
+
+-- Product_Id: 2249 (PROTEINI.SI GLOVES "SPRINTER", PINK)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI GLOVES "SPRINTER", PINK' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p><strong>High-quality women’s fitness gloves</strong></p><p><strong>Proteini.si “Sprinter” gloves for women</strong> with an attractive coloured trim. The elastic material on the back of the gloves provides good ventilation and an ideal fit for women’s hands. The comfortable suede surface on the inside allows a better grip and helps protect the palms during exercise. The gloves also have special tabs for easier putting on and taking off, as well as a neoprene Velcro closure with increased durability.</p><p><strong>Sizes:</strong> S, M, L</p><p><strong>Colour:</strong> pink</p>' AS nvarchar(max))
+WHERE Product_Id = 2249;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2249 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 585)) BEGIN PRINT 'length mismatch 2249'; SET @bad += 1; END;
+
+-- Product_Id: 2250 (PROTEINI.SI GLOVES RAPTOR)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI GLOVES RAPTOR' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p><strong>Exclusive training gloves with wrist reinforcement!</strong></p><p>Exclusive training gloves with wrist reinforcement, made from the highest-quality suede. Special fibres provide greater elasticity between the fingers. The palm area is lined with soft foam. Areas prone to stretching have double stitching for greater durability. Perforated leather on three fingers allows better ventilation during intense workouts. The adjustable double strap with Velcro closure ensures an ideal fit, while special anatomically shaped seams allow the glove to adapt better to the hand.</p><p><strong>Sizes:</strong> S, M, L, XL, XXL</p><p><strong>Colour:</strong> black with red stitching</p>' AS nvarchar(max))
+WHERE Product_Id = 2250;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2250 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 689)) BEGIN PRINT 'length mismatch 2250'; SET @bad += 1; END;
+
+-- Product_Id: 2251 (PROTEINI.SI HAND GRIP STRENGTHENER RING)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI HAND GRIP STRENGTHENER RING' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>A practical and effective tool for strengthening the fingers, palms, wrists and forearms</p></li><li><p>A training or rehabilitation aid</p></li><li><p>Available in 3 difficulty levels (different colours)</p></li><li><p><strong>Diameter:</strong> 7.5 cm</p></li></ul><p>The rubber grip-strengthening ring is an exercise and rehabilitation aid designed to strengthen the muscles of the fingers, wrists, palms and forearms. The ring has an ergonomic design for a better fit in the palm and does not slip during exercise.</p><p>It is exceptionally easy to use. It is suitable for everyone – children, older people, professional athletes, recreational exercisers, as well as physiotherapists who use it as an aid for recovery and therapy after hand injuries.</p><p>It is small and practical, so it can be used almost anytime and anywhere.</p><p>It is available in different difficulty levels, ' AS nvarchar(max))
+        + N'marked by colour:</p><ul><li><p><strong>Low resistance:</strong> 10 kg – blue</p></li><li><p><strong>Medium resistance:</strong> 20 kg – orange</p></li><li><p><strong>High resistance:</strong> 30 kg – red</p></li></ul><p><strong>MAIN FEATURES:</strong></p><ul><li><p>Different resistance levels</p></li><li><p><strong>Diameter:</strong> 7.5 cm</p></li><li><p><strong>Material:</strong> rubber</p></li></ul><p><strong>PURPOSE:</strong></p><ul><li><p>Training and strengthening the muscles of the fingers, wrists, palms and forearms in sports such as basketball, boxing, wrestling, tennis, climbing, weightlifting and similar</p></li><li><p>Rehabilitation and recovery after finger injuries</p></li><li><p>As part of post-operative rehabilitation</p></li><li><p>Therapy after musculoskeletal injuries</p></li></ul>'
+WHERE Product_Id = 2251;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2251 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 39
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1712)) BEGIN PRINT 'length mismatch 2251'; SET @bad += 1; END;
+
+-- Product_Id: 2252 (PROTEINI.SI HAND WRAPS 3m)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI HAND WRAPS 3m' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Wrist wraps (2 pieces)</p></li><li><p>Good protection for the wrists and knuckles</p></li><li><p>Loop for easier wrapping</p></li><li><p><strong>Length:</strong> 3 m</p></li></ul><p>Proteini.si hand wraps are made from semi-elastic cotton fabric, which provides flexibility and an ideal fit. At one end they have a thumb loop for easier wrapping, and at the other a Velcro closure for better adjustment and a secure fit. The wraps provide good support and protection for the wrists, knuckles and fingers against impacts and possible injuries.</p><ul><li><p><strong>Length:</strong> 3 m</p></li><li><p><strong>Width:</strong> 5 cm</p></li><li><p><strong>Colour:</strong> pink</p></li><li><p><strong>Pack:</strong> 2 wraps</p></li></ul>' AS nvarchar(max))
+WHERE Product_Id = 2252;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2252 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 745)) BEGIN PRINT 'length mismatch 2252'; SET @bad += 1; END;
+
+-- Product_Id: 2253 (PROTEINI.SI HAND WRAPS 5m)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI HAND WRAPS 5m' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Wrist wraps (2 pieces)</p></li><li><p>Good protection for the wrists and knuckles</p></li><li><p>Loop for easier wrapping</p></li><li><p><strong>Length:</strong> 5 m</p></li></ul><p>Proteini.si hand wraps are made from semi-elastic cotton fabric, which provides flexibility and an ideal fit. At one end they have a thumb loop for easier wrapping, and at the other a Velcro closure for better adjustment and a secure fit. The wraps provide good support and protection for the wrists, knuckles and fingers against impacts and possible injuries.</p><ul><li><p><strong>Length:</strong> 5 m</p></li><li><p><strong>Width:</strong> 5 cm</p></li><li><p><strong>Colour:</strong> black</p></li><li><p><strong>Pack:</strong> 2 wraps</p></li></ul>' AS nvarchar(max))
+WHERE Product_Id = 2253;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2253 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 746)) BEGIN PRINT 'length mismatch 2253'; SET @bad += 1; END;
+
+-- Product_Id: 2254 (PROTEINI.SI KNEE WRAPS)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI KNEE WRAPS' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>High-quality elastic material that protects the knees and provides extra support and comfort during exercise</p></li><li><p>Adjustable – one size fits all</p></li><li><p>Sold as a pair!</p></li></ul><p>Knee wraps are designed to support the knees during weight exercises such as squats and deadlifts.</p><p>Made from durable cotton, these elastic wraps are fully adjustable and fasten with a Velcro closure.</p><p>They are sold as a pair. The wraps are 1.5 metres long and 8 cm wide, and when stretched they can reach a length of approximately 3 metres.</p><ul><li><p>High-quality elastic material for knee protection, extra support and comfort during exercise</p></li><li><p>Adjustable – one size fits all</p></li><li><p>Velcro closure</p></li><li><p>Sold as a pair</p></li><li><p><strong>Length:</strong> 150 cm</p></li><li><p><strong>Width:</strong> 8 cm</p></li></ul>' AS nvarchar(max))
+WHERE Product_Id = 2254;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2254 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 22
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 882)) BEGIN PRINT 'length mismatch 2254'; SET @bad += 1; END;
+
+-- Product_Id: 2255 (PROTEINI.SI LADY SPORT BAG)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI LADY SPORT BAG' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Spacious sports bag – suitable for fitness, sports activities and travel</p></li><li><p>Very spacious main zip compartment for easy access</p></li><li><p>Removable, padded shoulder strap</p></li><li><p>Can also be carried as a backpack</p></li></ul><p>The spacious <strong>pink and black Proteini.si sports bag</strong> is made from durable polyester. It is suitable for fitness, other sports activities and travel. The bag has a spacious main zip compartment and two side compartments, suitable for storing damp clothes and shoes. The shoulder strap is padded for extra comfort and is adjustable in length. The bag also has two carry handles. The bottom is padded for extra protection.</p><p><strong>In addition</strong>, the bag has two adjustable shoulder straps hidden in the pocket on the bottom, so it can also be used as a backpack.</p><p><strong>Material:</strong> 100% polyester</' AS nvarchar(max))
+        + N'p><p><strong>Dimensions:</strong> 50 × 28 × 30 cm</p>'
+WHERE Product_Id = 2255;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2255 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 26
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 953)) BEGIN PRINT 'length mismatch 2255'; SET @bad += 1; END;
+
+-- Product_Id: 2256 (PROTEINI.SI LADY SPORT BAG, pink)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI LADY SPORT BAG, pink' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Multi-purpose, medium-sized cylindrical sports bag</p></li><li><p>Attractive pattern in pink, purple and red</p></li><li><p>Made from durable polyester</p></li><li><p>With practical pockets in different sizes and carrying straps</p></li></ul><p><strong>The Proteini.si women’s sports bag</strong> is a practical, durable, medium-sized bag with a cylindrical shape. It is made from durable polyester with a diamond pattern in which the colours blend into one another. Both sides carry the lettering “Proteini.si women”.</p><p>The bag is suitable for fitness, other sports and travel. It has a main zip compartment, two mesh side compartments suitable for storing damp clothes and shoes, and two small outer zip pockets for keeping small items, a wallet, phone and similar.</p><p>The shoulder strap is padded for extra comfort and is adjustable in length. The bag also has two carry handles.' AS nvarchar(max))
+        + N' The bottom is padded for extra protection.</p><p><strong>Material:</strong> polyester, nylon</p><p><strong>Dimensions:</strong></p><ul><li><p><strong>Length:</strong> 47 cm</p></li><li><p><strong>Diameter:</strong> 26 cm</p></li></ul>'
+WHERE Product_Id = 2256;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2256 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 32
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1135)) BEGIN PRINT 'length mismatch 2256'; SET @bad += 1; END;
+
+-- Product_Id: 2257 (PROTEINI.SI LIFTING STRAPS)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI LIFTING STRAPS' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Straps that help when lifting weights</p></li><li><p>Reduce the load on the fingers and wrists</p></li><li><p>For exercises such as deadlifts, lat pulldowns and rows</p></li></ul><p><strong>Lifting straps</strong> are bands that provide extra support when lifting weights.</p><p>They are made from soft material and are loop-shaped, which allows a more comfortable and secure grip when lifting.</p><p>They are especially useful and almost indispensable for deadlifts, lat pulldowns and rowing exercises.</p><p><strong>Size:</strong> universal</p><p><strong>Dimensions:</strong> 57 × 4–4.5 cm</p><p><strong>Colour:</strong> black</p>' AS nvarchar(max))
+WHERE Product_Id = 2257;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2257 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 26
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 643)) BEGIN PRINT 'length mismatch 2257'; SET @bad += 1; END;
+
+-- Product_Id: 2258 (PROTEINI.SI PILL BOX)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI PILL BOX' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Organiser for storing tablets and capsules</p></li><li><p>5 compartments</p></li><li><p>Easy opening and secure closing</p></li><li><p><strong>Dimensions:</strong> 11 × 9.5 × 3 cm</p></li></ul><p><strong>PROTEINI.SI PILL BOX</strong> is a practical box with <strong>five compartments</strong> (2 larger and 3 smaller) in which you can <strong>store your supplements</strong> in tablet and capsule form.</p><p>The box has an <strong>attractive</strong> and <strong>modern</strong> design, is made from <strong>BPA-free plastic</strong> and is available in three colours – attractive <strong>yellow</strong> and <strong>pink</strong>, as well as classic <strong>black</strong>.</p><p><strong>Main features:</strong></p><ul><li><p>5 compartments for organising your food supplements</p></li><li><p>Attractive and modern design</p></li><li><p>Made from BPA-free plastic</p></li><li><p>Dishwash' AS nvarchar(max))
+        + N'er safe</p></li><li><p>Push-button clasp for easy opening and secure closing</p></li><li><p>Suitable for everyday use and travel</p></li><li><p><strong>Dimensions:</strong> 11 × 9.5 × 3 cm</p></li></ul><p>Now you can carefree keep all the supplements you need close at hand to meet your daily needs for amino acids, vitamins and minerals.</p>'
+WHERE Product_Id = 2258;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2258 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 20
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1242)) BEGIN PRINT 'length mismatch 2258'; SET @bad += 1; END;
+
+-- Product_Id: 2259 (PROTEINI.SI PUSH-UP BARS)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI PUSH-UP BARS' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Handles for doing push-ups</p></li><li><p>For strengthening the upper body (chest, triceps and shoulders)</p></li><li><p>Greater intensity and faster results</p></li><li><p>Provide greater safety and comfort during exercise</p></li></ul><p>Push-up bars are a very effective tool for strengthening the upper body (chest, triceps and shoulders). They are a better alternative to classic push-ups because they allow greater intensity and greater comfort during exercise, without direct pressure on the wrists and palms. With them you can do more repetitions than with classic push-ups.</p><p>In addition, the bars allow a greater range of motion during push-ups, making the exercise more challenging and encouraging faster muscle development. They can be used in different ways, depending on your goal and the muscle group you want to activate (chest, triceps or shoulders). Placing the bars ' AS nvarchar(max))
+        + N'closer together activates the triceps, while a wider placement – at shoulder width or wider – engages the shoulder muscles more.</p><p>If you do push-ups regularly, these bars will let you further increase your strength and range of motion while protecting your wrists and palms. That way you can focus more on your chest, shoulders and triceps.</p><p>The handles are covered with foam for a better grip and greater comfort. The covering also protects the floor and prevents slipping during exercise.</p><p><strong>FEATURES:</strong></p><ul><li><p><strong>Dimensions:</strong> 18 × 13 × 11 cm</p></li><li><p><strong>Material:</strong> metal, foam</p></li><li><p><strong>Colour:</strong> black</p></li></ul>'
+WHERE Product_Id = 2259;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2259 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 24
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1606)) BEGIN PRINT 'length mismatch 2259'; SET @bad += 1; END;
+
+-- Product_Id: 2260 (PROTEINI.SI GRAB PADS)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI GRAB PADS' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Pads for an easier, more secure grip during training</p></li><li><p>Provide protection and comfort</p></li><li><p>Prevent blisters</p></li></ul><p><strong>Grab Pads</strong> are pads that allow a better grip when lifting weights.</p><p>They provide proper protection and comfort for the palms when lifting heavy weights.</p>' AS nvarchar(max))
+WHERE Product_Id = 2260;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2260 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 21
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 335)) BEGIN PRINT 'length mismatch 2260'; SET @bad += 1; END;
+
+-- Product_Id: 2261 (PROTEINI.SI RESISTANCE BAND, 70cm, light difficulty (yellow))
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI RESISTANCE BAND, 70cm, light difficulty (yellow)' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Closed-loop elastic resistance band with a circumference of 70 cm</p></li><li><p>Suitable for full-body workouts</p></li><li><p>A popular training aid among women</p></li><li><p>Allows effective exercises for strengthening the thighs and glutes</p></li><li><p><strong>Difficulty:</strong> light (yellow)</p></li></ul><p>The closed-loop polyester resistance band allows full-body training. It can also be used to simulate gym machine exercises. The band creates good muscular resistance in every exercise and in both directions of movement. It allows movement in all directions, better distribution of muscular effort and correct execution of exercises.</p><p>It can be used to strengthen most muscle groups, for Pilates, muscle toning, medical rehabilitation or stretching at home and in the gym. It is especially popular with women because it allows very effective exercises for the thigh' AS nvarchar(max))
+        + N's and glutes.</p><p><strong>FEATURES:</strong></p><ul><li><p><strong>Resistance:</strong> light</p></li><li><p><strong>Dimensions:</strong> circumference 70 cm, width 5.5 cm</p></li><li><p><strong>Material:</strong> polyester</p></li><li><p><strong>Colour:</strong> yellow</p></li></ul><p><strong>ADVANTAGES:</strong></p><ul><li><p>Multi-purpose use</p></li><li><p>Light and practical to carry</p></li><li><p>Comfortable to use</p></li><li><p>Does not slide up or down during exercise</p></li><li><p>Improves training quality and muscle flexibility</p></li></ul><p><strong>Net quantity:</strong> 1 elastic resistance band / pack</p>'
+WHERE Product_Id = 2261;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2261 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 60
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1532)) BEGIN PRINT 'length mismatch 2261'; SET @bad += 1; END;
+
+-- Product_Id: 2262 (PROTEINI.SI SPEED JUMP ROPE)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI SPEED JUMP ROPE' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Speed jump rope with a bearing system for faster rotation</p></li><li><p>For warming up, cardio, strengthening the leg muscles and performing “Double Unders”</p></li><li><p>Adjustable rope length (up to 3 m)</p></li></ul><p><strong>The speed jump rope</strong> is a simple and effective training tool that helps develop speed, agility and coordination. It allows smooth, fast rotation through the air and is popular for warming up, cardio and strengthening the leg muscles. Thanks to its fast rotation, it is also used in CrossFit for performing “Double Unders” (two passes of the rope per jump).</p><p><strong>The speed jump rope</strong> is made from a 3-metre steel cable with a plastic coating, which allows jumping at high speed.</p><p>The bearing system allows smooth, fast rotation without tangling, which contributes to better results and faster muscle warm-up. The rope rotates at' AS nvarchar(max))
+        + N' a 90° angle, which allows greater comfort and safety during exercise, and the longer handles make rotation easier.</p><p>The steel cable can be adjusted up to a length of 3 metres – simply shorten it to the desired length and secure it again with the screw. It is suitable for everyone.</p><p><strong>FEATURES:</strong></p><ul><li><p><strong>Rope length:</strong> 3 m</p></li><li><p><strong>Material:</strong> PVC-coated steel (rope), steel (handles)</p></li><li><p><strong>Colour:</strong> silver and black</p></li></ul>'
+WHERE Product_Id = 2262;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2262 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 27
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1422)) BEGIN PRINT 'length mismatch 2262'; SET @bad += 1; END;
+
+-- Product_Id: 2263 (PROTEINI.SI WOMEN'S FITNESS BELT, PINK)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI WOMEN''S FITNESS BELT, PINK' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Polyester and leather fitness belt</p></li><li><p>Helps prevent hernia</p></li><li><p>Protects the spine when lifting weights</p></li><li><p>Designed for women</p></li></ul><p><strong>The Proteini.si women’s fitness belt</strong>, made from polyester and neoprene, is intended for more experienced exercisers who lift weights. It provides support and helps protect the back when using heavier weights.</p><ul><li><p>Ideal for lifting heavy weights</p></li><li><p>Provides support and protection for the back</p></li><li><p>Universal fit</p></li><li><p><strong>Available sizes:</strong> S, M</p></li></ul><p><strong>MEASUREMENTS:</strong></p><ul><li><p>S = 74–87 cm</p></li><li><p>M = 84–97 cm</p></li></ul><p><strong>MATERIAL:</strong></p><ul><li><p>Polyester: 50%</p></li><li><p>Neoprene: 40%</p></li><li><p>Other materials (metal, nylon): 10%</p></li></ul>' AS nvarchar(max))
+WHERE Product_Id = 2263;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2263 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 38
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 869)) BEGIN PRINT 'length mismatch 2263'; SET @bad += 1; END;
+
+-- Product_Id: 2267 (DEDICATED UNSTOPPABLE PUMP)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'DEDICATED UNSTOPPABLE PUMP' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Legendary pre-workout supplement for a better “pump” effect</p></li><li><p>Premium ingredients</p></li><li><p>STIMULANT-FREE</p></li><li><p>Pure “pump” effect, no energy crash and no tingling</p></li><li><p>Multi-award-winning flavours</p></li><li><p>30 servings</p></li></ul><p><strong>Food supplement with sweeteners.</strong></p><p>UNSTOPPABLE PUMP™ contains exceptionally powerful ingredients, fully disclosed and dosed at the highest possible level for legendary results. No fillers, sugars or useless ingredients.</p><p>Feel for yourself, just a few minutes after taking UNSTOPPABLE PUMP™, why it carries exactly that name.</p><p><strong>NO STIMULANTS, NO ENERGY CRASH, NO TINGLING</strong></p><p>UNSTOPPABLE PUMP™ contains no stimulant ingredients and no ingredients that cause tingling, so you can easily fall asleep at night. It is perfectly balanced to help you finish your worko' AS nvarchar(max))
+        + N'uts without feeling overstimulated when you get home. All the physical performance benefits and an even better “pump” effect – with no stimulants!</p><p><strong>ULTRA-HIGH DOSES</strong></p><p>UNSTOPPABLE PUMP™ contains exceptionally powerful ingredients in doses that set high industry standards and that you will rarely find in other products, for legendary results. How powerful? How about a full 27,000 mg of active ingredients! We don’t skimp on dosing, so you don’t have to compromise on your performance.</p><p><strong>FULLY TRANSPARENT FORMULA</strong></p><p>All our formulas are fully disclosed. We have no need to hide behind fancy names like “proprietary blends”, which essentially give no accurate information about the real ingredients and their amounts.</p><p><strong>MULTI-AWARD-WINNING FLAVOURS</strong></p><p>Although UNSTOPPABLE PUMP™ contains large amounts of powerful ingredients,'
+        + N' we also made sure a team of flavour experts did their job. The result is a stimulant-free pre-workout you will genuinely look forward to drinking.</p><p><strong>THE ULTIMATE EXPERIENCE</strong></p><p>The synergy between all the ingredients is what really sets UNSTOPPABLE PUMP™ apart from other products. Every ingredient is present at a maximum, exceptionally high dose and works in perfect harmony with the others. UNSTOPPABLE PUMP™ works differently from every product you have used so far.</p><p>No other stimulant-free pre-workout will give you the same impressive results that only UNSTOPPABLE PUMP™ can. This revolutionary product is truly one of a kind and, like all DEDICATED® products, is built for fast results. How fast? In just 5 minutes!</p><p><strong>Net quantity:</strong> 405 g</p>',
+    InstructionsForUseEn = CAST(N'The dose is 1/2 scoop (13.5 g) for beginners and 1 full scoop (27 g) for advanced users.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'BEGINNERS: Take 1/2 scoop 30 minutes before your workout. ADVANCED: Take 1 full scoop 30 minutes before your workout. WARNING: A varied, balanced diet and a healthy lifestyle are important. Food supplements are not a substitute for a varied diet. Please consult your doctor before use if you have a medical condition. Not recommended if you are pregnant or breastfeeding. Do not use if the safety seal is broken or missing. Use only as directed. Store in a cool, dry place. KEEP OUT OF REACH OF CHILDREN. Read the entire label before use.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1/2 scoop in 250 ml and 1 scoop in 200–300 ml of cold water.' AS nvarchar(max))
+WHERE Product_Id = 2267;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2267 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 26
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2599
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 88
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 538
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 64)) BEGIN PRINT 'length mismatch 2267'; SET @bad += 1; END;
+
+-- Product_Id: 2268 (DEDICATED UNSTOPPABLE PRE-WORKOUT)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'DEDICATED UNSTOPPABLE PRE-WORKOUT' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Legendary pre-workout supplement for improved performance</p></li><li><p>Premium ingredients</p></li><li><p>Muscle “pump”, performance, energy, focus and taste – ALL IN ONE</p></li><li><p>Multi-award-winning flavours</p></li><li><p>30 servings</p></li></ul><p><strong>UNSTOPPABLE™ – A legendary formula from the new generation of pre-workout supplements!</strong></p><p><strong>Food supplement with sweeteners.</strong></p><p><strong>Contains caffeine (195 mg/14 g; 390 mg/28 g). Not recommended for children or pregnant women.</strong></p><p>The legendary pre-workout for an instant performance boost has been upgraded in every respect – muscle “pump”, performance, energy, focus AND taste!</p><p>Breaking records, unlocking your true potential and pushing past your own limits – that is exactly what UNSTOPPABLE™ was created for.</p><ul><li><p><strong>FORMULATED WITH PREMIUM INGREDIENTS' AS nvarchar(max))
+        + N'</strong></p></li><li><p><strong>HIGH DOSES AND EFFECTIVENESS</strong></p></li></ul><p>UNSTOPPABLE™ contains exceptionally powerful ingredients, fully disclosed and dosed at the highest possible level for legendary results.</p><p><strong>Feel it for yourself, just a few minutes after taking UNSTOPPABLE™.</strong></p><p><strong>ENERGY WITHOUT A CRASH</strong></p><p>Unstoppable™ contains a powerful combination of stimulant ingredients that help you give your maximum and push your workouts all the way. It is perfectly balanced to provide an even, long-lasting energy boost without leaving you drained after training.</p><p><strong>HIGH DOSES</strong></p><p>Unstoppable™ contains exceptionally powerful ingredients at the highest possible doses for legendary results. We don’t skimp on dosing, so you don’t have to compromise on your performance.</p><p><strong>FULLY TRANSPARENT FORMULA</strong></p'
+        + N'><p>All our formulas are fully disclosed. We have no need to hide behind fancy names like “proprietary blends”, which essentially give no real information about the ingredients and their amounts. 100% free of empty marketing promises!</p><p><strong>MULTI-AWARD-WINNING FLAVOURS</strong></p><p>Although Unstoppable™ contains large amounts of powerful ingredients, we also made sure a team of flavour experts did their job. The result is a pre-workout you will genuinely look forward to drinking.</p><p><strong>BECOME UNSTOPPABLE</strong></p><p>Thanks to proven, effective ingredients at the highest possible doses, Unstoppable™ gives you an intense experience that will motivate you to break records and push past your own limits.</p><p>You don’t have to take only our word for it – Unstoppable™ has won multiple awards from leading industry experts and websites, who recognise it as a truly effective'
+        + N', record-breaking pre-workout!</p><p>Unstoppable™ was created with one single goal – to deliver the ultimate pre-workout experience... LIKE NOTHING YOU HAVE HAD BEFORE!</p><p><strong>THE ULTIMATE EXPERIENCE</strong></p><p>The synergy between all the ingredients is what really sets UNSTOPPABLE™ apart from other products. Every ingredient is present at a precisely defined maximum dose and works in perfect harmony with the others.</p><p>UNSTOPPABLE™ works differently from every product you have used so far. No other pre-workout will give you the same impressive results that only UNSTOPPABLE™ can.</p><p>UNSTOPPABLE™ is a truly unique and revolutionary product that, like all DEDICATED® products, delivers fast results!</p><p><strong>Feel the effect for yourself. It’s time to become UNSTOPPABLE!</strong></p><p><strong>ACTIVE INGREDIENTS:</strong></p><ul><li><p>L-citrulline</p></li><li><p>Beta-a'
+        + N'lanine</p></li><li><p>Betaine anhydrous</p></li><li><p>Caffeine anhydrous – enough caffeine to boost energy without overstimulation</p></li><li><p>Mango leaf extract (Zynamite™) – a revolutionary new stimulant extract, reported not to cause side effects</p></li><li><p>L-tyrosine</p></li><li><p>Vitamin B3 (niacin)</p></li><li><p>Potassium and sodium – for optimal hydration</p></li><li><p>Vitamin C</p></li><li><p>AstraGin® – an ingredient that can increase absorption, and with it the effectiveness of all the ingredients in UNSTOPPABLE™, helping them work more efficiently.</p></li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 420 g</p>',
+    InstructionsForUseEn = CAST(N'The dose is 1/2 scoop (14 g) for beginners and 1 full scoop (28 g) for advanced users.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'BEGINNERS: Take 1/2 scoop 30 minutes before your workout. ADVANCED: Take 1 full scoop 30 minutes before your workout. WARNING: A varied, balanced diet and a healthy lifestyle are important. Food supplements are not a substitute for a varied diet. Please consult your doctor before use if you have a medical condition. Not recommended if you are pregnant or breastfeeding. Do not use if the safety seal is broken or missing. Use only as directed. Store in a cool, dry place. KEEP OUT OF REACH OF CHILDREN. Read the entire label before use. Contains caffeine (195 mg per 14 g; 390 mg per 28 g). This product should not be used in combination with caffeine or stimulants from other sources. Do not exceed a daily intake of 400 mg of caffeine.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1/2 scoop in 250 ml and 1 scoop in 200–300 ml of cold water.' AS nvarchar(max))
+WHERE Product_Id = 2268;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2268 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 33
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 4314
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 86
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 739
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 64)) BEGIN PRINT 'length mismatch 2268'; SET @bad += 1; END;
+
+-- Product_Id: 2270 (BODY ATTACK 100% PURE CREATINE)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BODY ATTACK 100% PURE CREATINE' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Creatine monohydrate</p></li><li><p>Micro-fine powder with no additives</p></li><li><p>Cologne List product</p></li></ul><p><strong>Food supplement with creatine monohydrate, intended for adults who engage in high-intensity physical activity.</strong></p><p><strong>Increase your maximum strength!</strong></p><p>Whether it’s the final sprint or the last rep of your workout, with Body Attack 100% Pure Creatine Powder you can push your limits and reach your best physical performance! The micro-fine creatine monohydrate powder impresses with its pure, additive-free composition and dissolves excellently in fruit juice or water, helping you stay one step ahead.</p><p>100% Pure Creatine is an excellent choice to support the following goals:</p><ul><li><p>Increasing strength</p></li><li><p>More intense training sessions</p></li><li><p>Maintaining muscle mass</p></li><li><p>Faster reco' AS nvarchar(max))
+        + N'very</p></li></ul><p><strong>Who is 100% Pure Creatine suitable for?</strong></p><ul><li><p>Fitness enthusiasts</p></li><li><p>Athletes</p></li><li><p>Strength athletes</p></li><li><p>Endurance and team-sport athletes</p></li><li><p>People who want to gain weight</p></li></ul><p><strong>Creatine – white gold</strong></p><p>Creatine is a natural substance that the body itself produces from the amino acids glycine, arginine and methionine in the liver, kidneys and pancreas. There are several forms of creatine, but the monohydrate is especially easily absorbed by the body, which is why it is the active ingredient in 100% Pure Creatine. Take advantage of this to improve your physical performance during training.</p><p><strong>Clear benefits</strong></p><p>Increase your maximum strength during training and improve your speed in intense endurance training. 100% Pure Creatine is a truly versati'
+        + N'le product and an excellent partner for everyone.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 300 g / 500 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 2 scoops (3.4 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving twice a day with plenty of fluid (300 ml), preferably before and after intense training. On non-training days, take 1 serving twice a day with plenty of fluid (300 ml) – the first in the morning straight after getting up and the second before bed. WARNING: Do not exceed the stated recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children! After opening, use the product as soon as possible. Keep away from direct heat and light.' AS nvarchar(max))
+WHERE Product_Id = 2270;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2270 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1985
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 37
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 509)) BEGIN PRINT 'length mismatch 2270'; SET @bad += 1; END;
+
+-- Product_Id: 2272 (OPTIMUM ELECTROLYTE POWDER)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OPTIMUM ELECTROLYTE POWDER' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>An effective blend of electrolytes (sodium, magnesium, potassium) that supports hydration and energy levels</p></li><li><p>For intense or endurance training</p></li><li><p>No sugar and no unnecessary additives</p></li><li><p>Dissolves easily and refreshes</p></li></ul><p><strong>Food supplement with electrolytes, in powder form with sweetener, intended for preparing a drink.</strong></p><p><strong>What are electrolytes?</strong></p><p>Electrolytes are essential minerals, including sodium, potassium and magnesium, that play an important role in various physiological functions. This refreshing electrolyte powder is formulated to provide key minerals in precise amounts, helping you be ready before, during or after strenuous physical activity.</p><p><strong>Performance benefits:</strong></p><ul><li><p>Provides 400 mg sodium, 300 mg potassium** and 113 mg magnesium* per serving</p>' AS nvarchar(max))
+        + N'</li><li><p>Potassium contributes to normal muscle function**</p></li><li><p>Magnesium contributes to electrolyte balance and helps reduce tiredness and fatigue*</p></li><li><p>No sugar and no unnecessary additives</p></li></ul><p><strong>When to use this product?</strong></p><ul><li><p><strong>Before training:</strong> Prepare your body with essential electrolytes.</p></li><li><p><strong>During training:</strong> Support your mineral intake during long or intense workouts.</p></li><li><p><strong>After training:</strong> Replace minerals lost through sweat.</p></li></ul><p><strong>Why choose this product?</strong></p><p>With more than 35 years of experience in sports nutrition and a presence in more than 90 countries, Optimum Nutrition offers top quality you can rely on. This electrolyte formula dissolves quickly, mixes easily and is available in refreshing lemon and forest fruit flavour'
+        + N's. It is designed to support your active lifestyle, with no added sugar and no unnecessary ingredients.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 33 servings (264 g)</p>',
+    InstructionsForUseEn = CAST(N'Serving size: 8 g (~1 full scoop).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Recommended use: 1 serving daily. WARNING: Do not exceed the recommended daily dose. The product is not a substitute for a balanced diet. Keep out of reach of children! If you are taking medication or have a health condition, consult a healthcare professional before use. Do not use during pregnancy or breastfeeding. STORAGE: Store in a cool, dry place, protected from direct sunlight.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Add 1 serving to 450 ml of cold water and stir until the powder has completely dissolved.' AS nvarchar(max))
+WHERE Product_Id = 2272;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2272 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 26
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2045
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 34
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 386
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 89)) BEGIN PRINT 'length mismatch 2272'; SET @bad += 1; END;
+
+-- Product_Id: 2273 (OLIMP GOLD-VIT B FORTE, 60 tabs)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP GOLD-VIT B FORTE, 60 tabs' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>B-group vitamin complex</li><li>Supports nutrient metabolism and energy production</li><li>Intended for athletes and people with a stressful lifestyle</li></ul><h3>.</h3><p>GOLD-VIT B FORTE is a food supplement in tablet form with a complex of B-group vitamins, which are necessary for numerous processes in the body to run properly. Vitamin B2, niacin and biotin contribute to the normal functioning of the nervous system and to the maintenance of normal skin. In addition, biotin contributes to normal macronutrient metabolism.</p><p>Vitamins B6 and B12 contribute to normal red blood cell formation. Folate contributes to normal blood formation and to normal amino acid synthesis, which is especially important during intense physical activity.</p><p>Source: https://en.olimp-labs.com/</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'Serving size: 1 tablet.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily. WARNING: Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. A varied and balanced diet and a healthy lifestyle are recommended. Keep out of reach of children.' AS nvarchar(max))
+WHERE Product_Id = 2273;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2273 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 31
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 800
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 23
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 255)) BEGIN PRINT 'length mismatch 2273'; SET @bad += 1; END;
+
+-- Product_Id: 2274 (CH Alpha)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'CH Alpha' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<h3>ch</h3><p>CH-ALPHA<br>Degeneration of the cartilage in the joints can cause loss of elasticity and increased stiffness in the joints that carry the greatest load, such as the knees and hips. This can be caused by excessive exercise, repetitive movement or increased body weight, as well as by an inactive lifestyle without much movement. It usually begins in the third decade of life and progresses over the years.</p><p>What is cartilage?</p><p>Cartilage is a firm, elastic tissue that covers all the joints and protects the bones from rubbing against each other. Cartilage is a smooth surface that lets the bones glide finely when they move and helps absorb pressure during physical activity.</p><p>Articular cartilage contains type II collagen and proteoglycans in the intercellular substance, responsible for strength and elasticity.</p><p>This intercellular substance is made up mainly of wa' AS nvarchar(max))
+        + N'ter, type II collagen (which provides firmness and lubrication at the same time) and proteoglycans (which prevent compression).</p><p>It is vitally important to maintain normal collagen levels in the tissues of the bones, cartilage, ligaments and joints! Healthy, normal movement of the body is fundamental!</p><p>When the natural regenerative process cannot meet the body’s daily needs because of injuries, excess weight or overtraining, the connective tissue becomes damaged.</p><p>As connective tissue is lost, fluid is lost too and friction increases, leading to reduced elasticity and a gradual increase in discomfort and pain.</p><p>Special cells, chondrocytes, control the rate of cartilage regeneration in the joints and recognise changes in cartilage structure. When conditions change, chondrocytes respond by rebuilding the worn cartilage.</p><p>Unusually for any tissue in the body, cartil'
+        + N'age contains no nerves or blood vessels. This contributes to very slow regeneration and makes treatment more difficult. Cartilage is an actively growing tissue and needs continuous regeneration to perform its function as protector of the joints.</p><p>Who benefits from CH-ALPHA?</p><p>Quite simply, anyone interested in improving their mobility and quality of life.</p><p>People who benefit from CH-ALPHA:</p><p>Those who work lifting heavy loads.</p><p>People who do repetitive and exhausting work.</p><p>People with excess body weight.</p><p>Physically inactive people.</p><p>Athletes.</p><p>Is CH-ALPHA safe to use?</p><p>According to medical studies, there are no known interactions with other medicines or any foods.</p><p>There are no reports of allergic reactions.</p><p>30 ampoules<br>Dosage: 1 ampoule per day</p>',
+    InstructionsForUseEn = CAST(N'Dosage: 1 ampoule per day' AS nvarchar(max))
+WHERE Product_Id = 2274;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2274 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 8
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2623
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 25)) BEGIN PRINT 'length mismatch 2274'; SET @bad += 1; END;
+
+-- Product_Id: 2275 (VAST V8 ULTRA)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'VAST V8 ULTRA' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>4-in-1 high-performance pre-workout booster</p></li><li><p>With 7 patented ingredients</p></li><li><p>With TriBsyn™ – beta-alanine without the tingling sensation</p></li><li><p>Perfect for long workouts and heavy physical loads</p></li><li><p>Tasty sugar-free drink</p></li><li><p>20 servings</p></li></ul><p><strong>Food supplement, especially intended for athletes. Powder for preparing a drink with amino acids and plant extracts, with sweeteners.</strong></p><p><strong>High caffeine content (300 mg/18.2 g). Not recommended for children or pregnant or breastfeeding women.</strong></p><p>V8 ULTRA marks the start of a new era in training. With 7 patented active ingredients, clinically proven doses and uncompromising action, it is intended for everyone who wants to go beyond standard limits.</p><p>V8 ULTRA is the first pre-workout in Europe to contain TriBsyn™ – a new form of beta' AS nvarchar(max))
+        + N'-alanine with hydro-oleo technology that allows good absorption without the typical tingling sensation.</p><p><strong>4-IN-1 PRE-WORKOUT FORMULA</strong></p><p><strong>Performance. Focus. Muscle “pump”. Hydration.</strong></p><p>V8 ULTRA combines the latest technologies in a single high-performance formula. It is designed to deliver exactly the benefits that matter at every stage of your workout.</p><p>From the warm-up to the last rep, the 4-in-1 formula gives you the energy, mental clarity and endurance you need to get the most out of every workout.</p><p><strong>Reach your peak. Every time.</strong></p><p><strong>KEY ADVANTAGES:</strong></p><ul><li><p>Premium 4-in-1 high-performance pre-workout booster</p></li><li><p>The first formula on the market with 7 patented ingredients</p></li><li><p>With TriBsyn™ – latest-generation beta-alanine that does not cause a tingling sensation</p></li>'
+        + N'<li><p>Peak ATP®</p></li><li><p>300 mg PurCaf® – natural caffeine from green coffee beans¹</p></li><li><p>8 g citrulline malate, 2.5 g BetaPower® and S7® – amino acids and plant extracts</p></li><li><p>50 mg Senactiv® – a complex of plant extracts</p></li><li><p>1600 mg VitaCholine™</p></li><li><p>Electrolyte matrix of pink Himalayan salt, magnesium and potassium</p></li><li><p>Perfect for intense weight training, powerlifting, Hyrox and HIIT. Ideal for long workouts and heavy physical loads.</p></li><li><p>3 tasty sugar-free variants: black cherry & lime, blue raspberry, pink lemonade</p></li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 364 g</p>',
+    InstructionsForUseEn = CAST(N'Serving size: 1 scoop (18.2 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume 1 serving 20–30 minutes before training or sports activity. Recommended daily use: 1 serving. WARNING: High caffeine content (300 mg/18.2 g). Not recommended for children or pregnant or breastfeeding women. It is recommended not to consume more than 400 mg of caffeine per day. Do not exceed the recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children! Store in a cool, dry place.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 serving with 300 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2275;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2275 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 13
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2530
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 31
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 454
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 35)) BEGIN PRINT 'length mismatch 2275'; SET @bad += 1; END;
+
+-- Product_Id: 2276 (SPORTNAHRUNG SUPER BOOST)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'SPORTNAHRUNG SUPER BOOST' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>4-in-1 high-performance pre-workout booster</p></li><li><p>With 7 patented ingredients</p></li><li><p>With TriBsyn™ – beta-alanine without the tingling sensation</p></li><li><p>Perfect for long workouts and heavy physical loads</p></li><li><p>Tasty sugar-free drink</p></li><li><p>20 servings</p></li></ul><p><strong>Food supplement, especially intended for athletes. Powder for preparing a drink with amino acids and plant extracts, with sweeteners.</strong></p><p><strong>High caffeine content (300 mg/18.2 g). Not recommended for children or pregnant or breastfeeding women.</strong></p><p>V8 ULTRA marks the start of a new era in training. With 7 patented active ingredients, clinically proven doses and uncompromising action, it is intended for everyone who wants to go beyond standard limits.</p><p>V8 ULTRA is the first pre-workout in Europe to contain TriBsyn™ – a new form of beta' AS nvarchar(max))
+        + N'-alanine with hydro-oleo technology that allows good absorption without the typical tingling sensation.</p><p><strong>4-IN-1 PRE-WORKOUT FORMULA</strong></p><p><strong>Performance. Focus. Muscle “pump”. Hydration.</strong></p><p>V8 ULTRA combines the latest technologies in a single high-performance formula. It is designed to deliver exactly the benefits that matter at every stage of your workout.</p><p>From the warm-up to the last rep, the 4-in-1 formula gives you the energy, mental clarity and endurance you need to get the most out of every workout.</p><p><strong>Reach your peak. Every time.</strong></p><p><strong>KEY ADVANTAGES:</strong></p><ul><li><p>Premium 4-in-1 high-performance pre-workout booster</p></li><li><p>The first formula on the market with 7 patented ingredients</p></li><li><p>With TriBsyn™ – latest-generation beta-alanine that does not cause a tingling sensation</p></li>'
+        + N'<li><p>Peak ATP®</p></li><li><p>300 mg PurCaf® – natural caffeine from green coffee beans¹</p></li><li><p>8 g citrulline malate, 2.5 g BetaPower® and S7® – amino acids and plant extracts</p></li><li><p>50 mg Senactiv® – a complex of plant extracts</p></li><li><p>1600 mg VitaCholine™</p></li><li><p>Electrolyte matrix of pink Himalayan salt, magnesium and potassium</p></li><li><p>Perfect for intense weight training, powerlifting, Hyrox and HIIT. Ideal for long workouts and heavy physical loads.</p></li><li><p>3 tasty sugar-free variants: black cherry & lime, blue raspberry, pink lemonade</p></li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 364 g</p>',
+    InstructionsForUseEn = CAST(N'Serving size: 3 scoops (20 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume 30 minutes before training. Do not consume on an empty stomach. The maximum daily amount is 1 serving (20 g). WARNING: Do not exceed the recommended daily dose. Food supplements are not a substitute for a balanced and varied diet. Keep out of reach of young children. Not to be consumed by pregnant or breastfeeding women, people under 18 or people with cardiovascular disorders. STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 1 serving (20 g) in 500 ml of cold water.' AS nvarchar(max))
+WHERE Product_Id = 2276;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2276 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 24
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2530
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 452
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 50)) BEGIN PRINT 'length mismatch 2276'; SET @bad += 1; END;
+
+-- Product_Id: 2277 (SPORTNAHRUNG EAA LOADED)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'SPORTNAHRUNG EAA LOADED' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p></p><ul><li>7.4 g amino acids per serving (15 g)</li><li>All 9 essential amino acids (EAA) + L-glutamine and taurine</li><li>With added magnesium and vitamin B6 to reduce tiredness and support normal energy-yielding metabolism</li><li>Refreshing fruit flavour</li><li>22 servings</li></ul><p><strong>EAA Loaded – 7.4 g amino acids. One formula. Refreshing fruit flavour.</strong></p><p>When you want more from your amino acid formula, choose EAA Loaded.</p><p>EAA Loaded combines all <strong>9 essential amino acids</strong> with the additional amino acids <strong>L-glutamine</strong> and <strong>taurine</strong>. A single 15 g serving therefore provides a total of <strong>7,469 mg of amino acids.</strong></p><p>Amino acids are the basic building blocks of proteins and play an important role in sports nutrition. Among them are the <strong>essential amino acids (EAA)</strong>, which the huma' AS nvarchar(max))
+        + N'n body cannot produce on its own in sufficient amounts and which must therefore come from the diet. The essential amino acids are: <strong>leucine, isoleucine, valine, lysine, threonine, methionine, phenylalanine, tryptophan and histidine.</strong></p><p>For added value, the formula is enriched with <strong>magnesium</strong> and <strong>vitamin B6</strong>. Magnesium contributes to normal muscle and nervous system function and to the reduction of tiredness and fatigue, while vitamin B6 contributes to normal energy-yielding metabolism and to the reduction of tiredness and fatigue.</p><p>All of this is rounded off with a pleasant peach or strawberry/cherry flavour for a refreshing experience with every serving. EAA Loaded is intended for anyone looking for a high-quality, practical combination of amino acids and selected micronutrients in one formula.</p><p><strong>Why choose EAA Loaded?<'
+        + N'/strong></p><ul><li>7,469 mg amino acids per serving</li><li>All 9 essential amino acids (EAA)</li><li>Additional L-glutamine and taurine</li><li>191 mg magnesium per serving (51% RI)</li><li>1.62 mg vitamin B6 per serving (116% RI)</li><li>Refreshing fruit flavour</li><li>22 servings</li></ul><p><em>A varied and balanced diet and a healthy lifestyle are recommended.</em></p><p><strong>Net quantity:</strong> 330 g</p><p></p>',
+    InstructionsForUseEn = CAST(N'Serving size: 2 scoops (15 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume during physical activity. Let the drink stand briefly so the powder dissolves better. The maximum daily dose is 1 serving (15 g). WARNING: Do not exceed the recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children! STORAGE: Store in a dark, dry place at a temperature of up to 25°C.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 1 serving in 600–800 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2277;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2277 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 23
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2228
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 355
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 42)) BEGIN PRINT 'length mismatch 2277'; SET @bad += 1; END;
+
+-- Product_Id: 2278 (OLIMP CHELA-MAG B6 CRAMP, 20 шумливи таблети)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'OLIMP CHELA-MAG B6 CRAMP, 20 effervescent tablets' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>100 mg magnesium and 300 mg potassium per effervescent tablet</p></li><li><p>For normal muscle and nervous system function</p></li><li><p>Excellent absorption</p></li><li><p>With added vitamins B1, B2, B3, B6, B12 and biotin</p></li></ul><p><strong>FOR NORMAL MUSCLE FUNCTION</strong></p><p>Chela-Mag B6 Cramp is a food supplement in effervescent tablet form containing a highly absorbable form of magnesium as Albion amino acid chelate (magnesium bisglycinate), as well as a highly absorbable form of potassium. These ingredients contribute to normal muscle function and, together with vitamins B1, B2, B3, B6, B12 and biotin, support the normal functioning of the nervous system.</p><p>Scientific research has shown that <strong>magnesium</strong> is a mineral essential to human life and takes part in almost all processes in the body. It is important for normal muscle and nervous syst' AS nvarchar(max))
+        + N'em function, helps maintain electrolyte balance and contributes to protein synthesis. It also contributes to the reduction of tiredness and fatigue. Its presence is also necessary to maintain normal bones and teeth.</p><p><strong>Vitamin B6</strong> takes part in the absorption of magnesium from the gastrointestinal tract and, together with magnesium, is involved in many processes in the body.</p><p><strong>Potassium</strong> plays an important role in muscle and nervous system function. It also contributes to the maintenance of normal blood pressure.</p><p>Source: https://en.olimp-labs.com/</p>',
+    InstructionsForUseEn = CAST(N'Serving size: 1 tablet.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'WARNING: Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a varied and balanced diet. A varied and balanced diet and a healthy lifestyle are recommended. Keep out of reach of children. Do not use in case of hypersensitivity to any of the ingredients.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 1 serving in 200 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2278;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2278 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 49
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1502
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 23
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 299
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 38)) BEGIN PRINT 'length mismatch 2278'; SET @bad += 1; END;
+
+-- Product_Id: 2279 (SPORTNAHRUNG CREATINE CHEWABLE TABLETS)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'SPORTNAHRUNG CREATINE CHEWABLE TABLETS' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Tasty orange or cherry flavoured chewable creatine tablets</p></li><li><p>Support muscle growth and maintenance</p></li><li><p>Increase physical performance</p></li><li><p>Ideal for use on the go</p></li></ul><p><strong>Food supplement with creatine, sugars and sweeteners.</strong></p><p>The new chewable creatine tablets from sportnahrung.at are ideal for all athletes who want extra support in reaching their sports goals. Creatine supports muscle growth, contributes to the maintenance of muscle mass and increases physical performance.</p><p>The practical chewable tablet form, with a great orange or cherry flavour, makes it easy to take your creatine with you wherever you go.</p><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 200 tablets</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'Serving size: 4 tablets.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 1 serving daily, between meals or straight after training. When using creatine, ensure sufficient daily fluid intake. WARNING: Use is recommended only for physically active adults and should be limited to a maximum of 8 weeks, followed by a break of at least 4 weeks. Creatine increases physical performance in successive bursts of short-term, very high-intensity exercise (the beneficial effect is obtained with a daily intake of 3 g of creatine). Do not exceed the recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children! Store in a cool, dry place. Do not expose to direct sunlight.' AS nvarchar(max))
+WHERE Product_Id = 2279;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2279 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 38
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 828
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 24
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 656)) BEGIN PRINT 'length mismatch 2279'; SET @bad += 1; END;
+
+-- Product_Id: 2280 (PROTEINI.SI PROTEIN BROWNIE)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI PROTEIN BROWNIE' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>Rich, moist dark chocolate brownie</li><li>High in protein</li><li>Soft and moist texture</li><li>Low in sugars</li><li>Ideal as a practical snack on the go</li></ul><p><strong>High-protein bakery product with sugar and sweeteners.</strong></p><p>Enjoy the rich taste of dark chocolate while getting an extra serving of protein. Our Protein Brownie combines a soft, moist texture with an intense chocolate flavour, making it the ideal snack for an active lifestyle, after training or whenever you want something sweet without compromising your diet.</p><p>Made with egg white, whey protein and almond flour, each brownie provides 17 g of protein per 100 g and contributes to the maintenance and recovery of muscles. It is sweetened with a combination of sugar and sweeteners and offers great taste with only 2 g of sugars per 100 g.</p><p><strong>Why you’ll love it:</strong></p><ul><li>Rich ' AS nvarchar(max))
+        + N'dark chocolate flavour</li><li>High in protein – 17 g per 100 g</li><li>Only 2 g of sugars per 100 g</li><li>Soft and moist texture</li><li>With chocolate pieces</li><li>Great as a snack, dessert or after training</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 60 g / 15 x 60 g</p>'
+WHERE Product_Id = 2280;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2280 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 27
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1258)) BEGIN PRINT 'length mismatch 2280'; SET @bad += 1; END;
+
+-- Product_Id: 2281 (USN CREATINE MONOHYDRATE - RED FRUIT PUNCH)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'USN CREATINE MONOHYDRATE - RED FRUIT PUNCH' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Micronised creatine monohydrate</p></li><li><p>Flavoured version – available in two tasty fruit flavours</p></li><li><p>Helps maintain energy levels during muscle contractions</p></li><li><p>Helps increase muscle mass</p></li><li><p>Fast absorption and recovery</p></li></ul><p><strong>Food supplement with creatine monohydrate, with sweeteners.</strong></p><p>USN’s micronised creatine monohydrate, in pure form and with high absorption, <strong>is now also available in a flavoured version</strong>, in <strong>two juicy fruit flavours</strong> – red fruit punch and tropical.</p><p>With a daily intake of at least 3 g of creatine, creatine increases physical performance in successive short bursts of high-intensity exercise. During muscle contractions, it helps maintain balanced ATP levels.</p><p>Creatine monohydrate supplementation is safe and suitable for anyone who trains in shor' AS nvarchar(max))
+        + N't, intense intervals. We recommend taking 3–5 g of creatine monohydrate straight after training, together with whey protein and carbohydrates, for optimal nutrient absorption and improved recovery.</p><p>Creatine is a nitrogenous organic compound found naturally in all vertebrates. The highest concentrations are present in muscle tissue. Creatine serves as a high-energy compound that provides quick energy, especially for muscle tissue, where a relatively large amount of ATP needs to be used in a short period. Taking creatine as a supplement increases the concentration of creatine in the muscles. Creatine can, to a certain extent, increase muscle strength, especially in anaerobic (short-duration) sports activities. It also increases muscle mass by increasing water retention in the muscles.</p><p><strong>Net quantity:</strong> 500 g</p>',
+    InstructionsForUseEn = CAST(N'The serving size is 1 scoop (6.3 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Do not consume more than 4 servings per day. It is important to drink enough fluids every day. WARNING: Consult your doctor before use if you are taking medication or have been diagnosed with a medical condition. Not recommended for pregnant or breastfeeding women or people under 18. Do not exceed the recommended daily dose. Food supplements should not be used as a substitute for a balanced and varied diet and a healthy lifestyle. Keep out of reach of children! Store in a cool, dry place.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 serving (6.3 g) with 250 ml of cold water.' AS nvarchar(max))
+WHERE Product_Id = 2281;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2281 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 42
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1746
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 36
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 493
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 48)) BEGIN PRINT 'length mismatch 2281'; SET @bad += 1; END;
+
+-- Product_Id: 2283 (PROTEINI.SI RESISTANCE BAND, 70cm, medium difficulty (green))
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI RESISTANCE BAND, 70cm, medium difficulty (green)' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Closed-loop elastic resistance band with a 70 cm circumference</p></li><li><p>Suitable for full-body training</p></li><li><p>A popular training aid among women</p></li><li><p>Allows effective exercises to strengthen the thighs and glutes</p></li><li><p><strong>Resistance:</strong> medium (green)</p></li></ul><p>The closed-loop polyester resistance band allows full-body training. It can also be used to simulate exercises on gym machines. The band provides good resistance when activating the muscles in both directions of movement. It allows movement in all directions, better distribution of muscle effort and correct execution of exercises.</p><p>It can be used to strengthen most muscle groups, for Pilates, muscle toning, medical rehabilitation or stretching at home and in the gym. It is especially popular with women because it allows very effective exercises for the thighs and g' AS nvarchar(max))
+        + N'lutes.</p><p><strong>FEATURES:</strong></p><ul><li><p><strong>Resistance:</strong> medium</p></li><li><p><strong>Dimensions:</strong> circumference 70 cm, width 5.5 cm</p></li><li><p><strong>Material:</strong> polyester</p></li><li><p><strong>Colour:</strong> green</p></li></ul><p><strong>ADVANTAGES:</strong></p><ul><li><p>Multi-purpose use</p></li><li><p>Light and practical to carry</p></li><li><p>Comfortable to use</p></li><li><p>Does not slide up or down during exercise</p></li><li><p>Improves training quality and muscle flexibility</p></li></ul><p><strong>Net quantity:</strong> 1 elastic resistance band / pack</p>'
+WHERE Product_Id = 2283;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2283 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 60
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1525)) BEGIN PRINT 'length mismatch 2283'; SET @bad += 1; END;
+
+-- Product_Id: 2284 (PROTEINI.SI RESISTANCE BAND, 70cm, X-heavy difficulty (black))
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI RESISTANCE BAND, 70cm, X-heavy difficulty (black)' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Closed-loop elastic resistance band with a 70 cm circumference</p></li><li><p>Suitable for full-body training</p></li><li><p>A popular training aid among women</p></li><li><p>Allows effective exercises to strengthen the thighs and glutes</p></li><li><p><strong>Resistance:</strong> extra heavy (black)</p></li></ul><p>The closed-loop polyester resistance band allows full-body training. It can also be used to simulate exercises on gym machines. The band creates good muscle resistance in every exercise and in both directions of movement. It allows movement in all directions, better distribution of muscle effort and correct execution of exercises.</p><p>It can be used to strengthen most muscle groups, for Pilates, muscle toning, medical rehabilitation or stretching at home and in the gym. It is especially popular with women because it allows very effective exercises for the thighs ' AS nvarchar(max))
+        + N'and glutes.</p><p><strong>FEATURES:</strong></p><ul><li><p><strong>Resistance:</strong> extra heavy</p></li><li><p><strong>Dimensions:</strong> circumference 70 cm, width 5.5 cm</p></li><li><p><strong>Material:</strong> polyester</p></li><li><p><strong>Colour:</strong> black</p></li></ul><p><strong>ADVANTAGES:</strong></p><ul><li><p>Multi-purpose use</p></li><li><p>Light and practical to carry</p></li><li><p>Comfortable to use</p></li><li><p>Does not slide up or down during exercise</p></li><li><p>Improves training quality and muscle flexibility</p></li></ul><p><strong>Net quantity:</strong> 1 elastic resistance band / pack</p>'
+WHERE Product_Id = 2284;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2284 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 61
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1535)) BEGIN PRINT 'length mismatch 2284'; SET @bad += 1; END;
+
+-- Product_Id: 2285 (PROTEINI.SI BOOTY HIP BAND, M, TURQUOISE)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI BOOTY HIP BAND, M, TURQUOISE' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Fabric elastic band for hip and glute training</p></li><li><p>For muscle toning, body shaping and increased glute activation during exercise</p></li><li><p>Available in 3 different sizes, depending on your choice of exercises and the desired intensity</p></li><li><p>Durable and comfortable, does not roll up or slip</p></li><li><p>Multi-purpose use</p></li></ul><p>The Proteini.si booty hip band is a fabric elastic training band that is an indispensable aid for training at home and in the gym.</p><p><strong>FEATURES:</strong></p><ul><li><p>3 different sizes, depending on your choice of exercises and intensity:</p><ul><li><p><strong>S (pink)</strong> – 33 × 7.6 cm – high resistance: narrow squat</p></li><li><p><strong>M (turquoise)</strong> – 38 × 7.6 cm – medium resistance: side leg raise, clamshell, lateral band walk</p></li><li><p><strong>L (grey)</strong> – 43 × 7.6 cm – low ' AS nvarchar(max))
+        + N'resistance: lunge, wide squat</p></li></ul></li><li><p><strong>Material:</strong> polyester and latex</p></li></ul><p><strong>ADVANTAGES:</strong></p><ul><li><p><strong>DURABILITY:</strong> The sturdy fabric is interwoven with special elastic fibres that allow a wide range of motion. The bands are designed not to tear during use.</p></li><li><p><strong>COMFORT:</strong> The fabric is sturdy, yet soft and pleasant on the skin. It does not pinch, tear, roll up or slip, so you can focus on your workout instead of constantly adjusting your equipment.</p></li><li><p><strong>DOES NOT ROLL UP:</strong> The large width and the inner latex grip layer prevent the band from rolling up during exercise.</p></li><li><p><strong>MULTI-PURPOSE USE:</strong> Can be used for Insanity, Pilates, CrossFit, Beachbody and glute workouts. Ideal for fitness, glute exercises and squats.</p></li></ul><p><strong>BEN'
+        + N'EFITS:</strong></p><ul><li><p><strong>GREATER GLUTE ACTIVATION</strong> – up to 400%.</p></li><li><p><strong>STRENGTHENING AND TONING:</strong> The bands help tone and strengthen the legs, glutes, thighs, calves, quadriceps, hamstrings, core muscles, the muscles around the hips, the abductors, arms and shoulders. They are easy to use and suitable for everyone, from beginners to experienced exercisers.</p></li><li><p><strong>IMPROVED MOBILITY, FLEXIBILITY AND STRENGTH:</strong> Excellent for hip stretching and for exercises involving the knees, muscles and joints. It can help reduce the risk of injury or be used after a sports or other injury. Before starting an exercise programme during recovery, it is best to consult a doctor or physiotherapist. Ideal for physical therapy and rehabilitation at home.</p></li><li><p><strong>FAT BURNING:</strong> By training the largest muscle groups, you '
+        + N'can indirectly stimulate the fat-burning process.</p></li></ul><p><strong>Net quantity:</strong> 1 hip and glute training band / pack</p>'
+WHERE Product_Id = 2285;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2285 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 40
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2837)) BEGIN PRINT 'length mismatch 2285'; SET @bad += 1; END;
+
+-- Product_Id: 2286 (PROTEINI.SI BOOTY HIP BAND, L, GRAY)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI BOOTY HIP BAND, L, GRAY' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Fabric elastic band for hip and glute training</p></li><li><p>For muscle toning, body shaping and increased glute activation during exercise</p></li><li><p>Available in 3 different sizes, depending on your choice of exercises and the desired intensity</p></li><li><p>Durable and comfortable, does not roll up or slip</p></li><li><p>Multi-purpose use</p></li></ul><p>The Proteini.si booty hip band is a fabric elastic training band that is an indispensable aid for training at home and in the gym.</p><p><strong>FEATURES:</strong></p><ul><li><p>3 different sizes, depending on your choice of exercises and intensity:</p><ul><li><p><strong>S (pink)</strong> – 33 × 7.6 cm – high resistance: narrow squat</p></li><li><p><strong>M (turquoise)</strong> – 38 × 7.6 cm – medium resistance: side leg raise, clamshell, lateral band walk</p></li><li><p><strong>L (grey)</strong> – 43 × 7.6 cm – low ' AS nvarchar(max))
+        + N'resistance: lunge, wide squat</p></li></ul></li><li><p><strong>Material:</strong> polyester and latex</p></li></ul><p><strong>ADVANTAGES:</strong></p><ul><li><p><strong>DURABILITY:</strong> The sturdy fabric is interwoven with special elastic fibres that allow a wide range of motion. The bands are designed not to tear during use.</p></li><li><p><strong>COMFORT:</strong> The fabric is sturdy, yet soft and pleasant on the skin. It does not pinch, tear, roll up or slip, so you can focus on your workout instead of constantly adjusting your equipment.</p></li><li><p><strong>DOES NOT ROLL UP:</strong> The large width and the inner latex grip layer prevent the band from rolling up during exercise.</p></li><li><p><strong>MULTI-PURPOSE USE:</strong> Can be used for Insanity, Pilates, CrossFit, Beachbody and glute workouts. Ideal for fitness, glute exercises and squats.</p></li></ul><p><strong>BEN'
+        + N'EFITS:</strong></p><ul><li><p><strong>GREATER GLUTE ACTIVATION</strong> – up to 400%.</p></li><li><p><strong>STRENGTHENING AND TONING:</strong> The bands help tone and strengthen the legs, glutes, thighs, calves, quadriceps, hamstrings, core muscles, the muscles around the hips, the abductors, arms and shoulders. They are easy to use and suitable for everyone, from beginners to experienced exercisers.</p></li><li><p><strong>IMPROVED MOBILITY, FLEXIBILITY AND STRENGTH:</strong> Excellent for hip stretching and for exercises involving the knees, muscles and joints. It can help reduce the risk of injury or be used after a sports or other injury. Before starting an exercise programme during recovery, it is best to consult a doctor or physiotherapist. Ideal for physical therapy and rehabilitation at home.</p></li><li><p><strong>FAT BURNING:</strong> By training the largest muscle groups, you '
+        + N'can indirectly stimulate the fat-burning process.</p></li></ul><p><strong>Net quantity:</strong> 1 hip and glute training band / pack</p>'
+WHERE Product_Id = 2286;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2286 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2837)) BEGIN PRINT 'length mismatch 2286'; SET @bad += 1; END;
+
+-- Product_Id: 2287 (DEDICATED LIQUID GRIP CHALK)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'DEDICATED LIQUID GRIP CHALK' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Liquid chalk (magnesium)</p></li><li><p>Dries quickly and lasts a long time</p></li><li><p>Keeps palms dry during exercise</p></li><li><p>Ensures a secure grip when training</p></li><li><p>For weightlifting, climbing, gymnastics, pole dancing, bowling and more</p></li><li><p><strong>Net quantity:</strong> 250 ml</p></li></ul><p><strong>Liquid chalk.</strong></p><p>Liquid Grip Chalk keeps your palms dry and improves your grip during training. It is suitable for weightlifting as well as other sports where a secure grip and preventing sweaty palms are needed.</p><p>The chalk absorbs excess sweat and improves grip during exercise. It stops equipment slipping from your hands, making your workout safer and more effective! Just apply a small amount of the liquid to ensure a secure grip during training.</p><p><strong>FEATURES:</strong></p><ul><li><p>High-quality liquid chalk</p></li><' AS nvarchar(max))
+        + N'li><p>Much more practical than block or powder chalk</p></li><li><p>Absorbs excess sweat</p></li><li><p>Provides a good grip</p></li><li><p>Long-lasting effect</p></li><li><p>Suitable for use in various sports (multi-purpose)</p></li></ul><p><strong>Net quantity:</strong> 250 ml</p>',
+    InstructionsForUseDescriptionEn = CAST(N'DIRECTIONS: Shake the bottle vigorously before each use. Apply a small amount to clean, dry palms and let it dry completely. The product is ready to use once the chalk has dried. After training, wash off with warm water and soap. WARNING: Highly flammable liquid and vapour. Causes serious eye irritation. May cause drowsiness or dizziness. May cause an allergic skin reaction. Keep away from all sources of ignition. Avoid breathing the vapour. KEEP OUT OF REACH OF CHILDREN. Avoid contact with eyes and broken skin. If the product gets into the eyes, rinse immediately with water. Test the product on a small area before full use. Stop use if irritation or a skin rash appears. Do not swallow. For external use only. Let the product dry completely before touching equipment. Keep tightly closed in a cool, well-ventilated place.' AS nvarchar(max))
+WHERE Product_Id = 2287;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2287 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 27
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1183
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 830)) BEGIN PRINT 'length mismatch 2287'; SET @bad += 1; END;
+
+-- Product_Id: 2289 (PROTEINI.SI SHAKER PLUS, 550ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI SHAKER PLUS, 550ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Practical pink shaker</p></li><li><p>Flip-back, locking cap on the drinking spout</p></li><li><p>Separate compartment for supplements (powder, capsules and tablets)</p></li><li><p><strong>Capacity:</strong> 650 ml</p></li></ul><p><strong>PROTEINI.SI PINK SHAKER PLUS</strong> is a practical shaker with a detachable compartment for storing your favourite sports supplements in powder, capsule or tablet form. It has a measuring scale up to 550 ml and a total capacity of up to 650 ml.</p><ul><li><p>Completely leak-proof</p></li><li><p>Drinking spout sealed on the inside and outside</p></li><li><p>Flip-back, locking cap on the drinking spout</p></li><li><p>Additional screw-on compartment for storing powder, capsules or tablets</p></li><li><p>Fits most car cup holders</p></li></ul>' AS nvarchar(max))
+WHERE Product_Id = 2289;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2289 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 796)) BEGIN PRINT 'length mismatch 2289'; SET @bad += 1; END;
+
+-- Product_Id: 2290 (BATTERY SHAKER PLUS 550ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY SHAKER PLUS 550ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Practical shaker</p></li><li><p>Flip-back, locking cap on the drinking spout</p></li><li><p>Separate compartment for supplements (powder, capsules and tablets)</p></li><li><p><strong>Capacity:</strong> 650 ml</p></li></ul><p><strong>BATTERY SHAKER PLUS</strong> is a practical shaker with a detachable compartment for storing your favourite sports supplements in powder, capsule or tablet form. It has a measuring scale up to 550 ml and a total capacity of up to 650 ml.</p><ul><li><p>Completely leak-proof</p></li><li><p>Drinking spout sealed on the inside and outside</p></li><li><p>Flip-back, locking cap on the drinking spout</p></li><li><p>Additional screw-on compartment for storing powder, capsules or tablets</p></li><li><p>Fits most car cup holders</p></li><li><p><strong>Colours:</strong> white, black</p></li></ul>' AS nvarchar(max))
+WHERE Product_Id = 2290;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2290 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 836)) BEGIN PRINT 'length mismatch 2290'; SET @bad += 1; END;
+
+-- Product_Id: 2291 (PROTEINI.SI BLACK NANO SHAKER, 300ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI BLACK NANO SHAKER, 300ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Fresh, modern Nano design</p></li><li><p><strong>Capacity:</strong> 300 ml</p></li></ul><p><strong>New Nano shaker in black</strong></p><ul><li><p>Fresh, modern Nano design</p></li><li><p><strong>Capacity:</strong> 300 ml</p></li><li><p>Measuring scale in ml and oz</p></li><li><p>100% leak-proof</p></li><li><p>High-quality, non-toxic plastic</p></li><li><p>Mesh insert that attaches to the lid</p></li><li><p>Microwave, dishwasher and freezer safe</p></li><li><p>Screw-on lid and cap</p></li><li><p>BPA and DEHP free</p></li><li><p>Plastic product made in Europe</p></li></ul>' AS nvarchar(max))
+WHERE Product_Id = 2291;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2291 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 36
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 589)) BEGIN PRINT 'length mismatch 2291'; SET @bad += 1; END;
+
+-- Product_Id: 2292 (PROTEINI.SI PINK NANO SHAKER, 300ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI PINK NANO SHAKER, 300ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Fresh, modern Nano design</p></li><li><p><strong>Capacity:</strong> 300 ml</p></li></ul><p><strong>New Nano shaker in pink</strong></p><ul><li><p>Fresh, modern Nano design</p></li><li><p><strong>Capacity:</strong> 300 ml</p></li><li><p>Measuring scale in ml and oz</p></li><li><p>100% leak-proof</p></li><li><p>High-quality, non-toxic plastic</p></li><li><p>Mesh insert that attaches to the lid</p></li><li><p>Microwave, dishwasher and freezer safe</p></li><li><p>Screw-on lid and cap</p></li><li><p>BPA and DEHP free</p></li><li><p>Plastic product made in Europe</p></li></ul>' AS nvarchar(max))
+WHERE Product_Id = 2292;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2292 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 588)) BEGIN PRINT 'length mismatch 2292'; SET @bad += 1; END;
+
+-- Product_Id: 2293 (PROTEINI.SI SUPER SHAKER, 600ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI SUPER SHAKER, 600ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>High-quality three-compartment shaker</p></li><li><p>With separate compartments for storing tablets, capsules and powder</p></li><li><p>Made from BPA and DEHP free plastic</p></li><li><p>100% leak-proof</p></li></ul><p><strong>FEATURES:</strong></p><ul><li><p>Shaker with 3 compartments for storing food supplements</p></li><li><p>One large cup and two additional compartments</p></li><li><p><strong>Tablet and capsule compartment (150 ml)</strong> – divided into 4 smaller sections</p></li><li><p><strong>Compartment for protein, other powders or liquids (200 ml)</strong></p></li><li><p><strong>Main cup capacity:</strong> 600 ml (measuring scale up to 500 ml)</p></li><li><p>Easy screw-on lid and cap</p></li><li><p>Recessed hexagonal strainer that prevents powder clumps</p></li><li><p>Made from high-quality, non-toxic plastic</p></li><li><p>Made in Europe</p></li><li><p>Fresh, moder' AS nvarchar(max))
+        + N'n WAVE design</p></li><li><p>100% leak-proof</p></li><li><p>BPA and DEHP free</p></li></ul>'
+WHERE Product_Id = 2293;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2293 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 31
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 991)) BEGIN PRINT 'length mismatch 2293'; SET @bad += 1; END;
+
+-- Product_Id: 2294 (PROTEINI.SI SHAKER TRANSPARENT-BLACK, 700ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI SHAKER TRANSPARENT-BLACK, 700ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Top-quality shaker</p></li><li><p>Transparent with a black lid</p></li><li><p>Easy to use, BPA free</p></li><li><p><strong>Capacity:</strong> 700 ml</p></li></ul><p>Proteini.si has created a new shaker for preparing your favourite shakes.</p><ul><li><p><strong>Capacity:</strong> 700 ml</p></li><li><p>Measuring scale in ml and oz</p></li><li><p>Screw-on lid closure</p></li><li><p>Modern colours</p></li><li><p>Made from high-quality polypropylene (PP)</p></li><li><p>Complies with regulations for food-contact materials</p></li><li><p>Shatterproof and dishwasher safe</p></li><li><p>Ideal for all kinds of mixed drinks</p></li><li><p>BPA free and made from non-toxic plastic</p></li><li><p>Fits car cup holders</p></li><li><p>Plastic product made in Europe</p></li></ul>' AS nvarchar(max))
+WHERE Product_Id = 2294;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2294 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 43
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 783)) BEGIN PRINT 'length mismatch 2294'; SET @bad += 1; END;
+
+-- Product_Id: 2295 (PROTEINI.SI SHAKER TRANSPARENT-PINK, 700ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI SHAKER TRANSPARENT-PINK, 700ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Top-quality shaker</p></li><li><p>Transparent with a pink lid</p></li><li><p>Easy to use, BPA free</p></li><li><p><strong>Capacity:</strong> 700 ml</p></li></ul><p><strong>A high-quality shaker for preparing protein shakes, hydration drinks and other beverages.</strong></p><p>Europe’s most popular shaker has been further refined by the manufacturer. It is reliable and extremely practical for everyday use.</p><ul><li><p>One of the highest-quality shakers on the market</p></li><li><p>Attractive design</p></li><li><p>Easy to use</p></li><li><p><strong>Minimum capacity:</strong> 700 ml</p></li><li><p>Modern colours</p></li><li><p>Excellent seal</p></li><li><p>Screw-on lid closure (“TWIST LID”)</p></li><li><p>Excellent mixing</p></li><li><p>Not dishwasher safe</p></li><li><p>Made from high-quality materials</p></li><li><p>BPA free</p></li></ul>' AS nvarchar(max))
+WHERE Product_Id = 2295;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2295 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 42
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 862)) BEGIN PRINT 'length mismatch 2295'; SET @bad += 1; END;
+
+-- Product_Id: 2296 (PROTEINI.SI BIDON "ACTIVE LIFESTYLE", 650ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI BIDON "ACTIVE LIFESTYLE", 650ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>650 ml plastic bottle for water and other drinks</p></li><li><p>With the “ACTIVE LIFESTYLE” print</p></li><li><p>With measuring scale</p></li><li><p>BPA and DEHP free</p></li></ul><p><strong>A quality bottle for preparing isotonic, energy, recovery and other drinks.</strong></p><ul><li><p>With the “ACTIVE LIFESTYLE” print</p></li><li><p>Ergonomic design for easier holding and drinking</p></li><li><p>With measuring scale</p></li><li><p>With a rubber drinking spout</p></li><li><p>Leak-proof</p></li><li><p>BPA and DEHP free</p></li><li><p>Made in Europe</p></li><li><p>Fits most car and bicycle bottle holders</p></li><li><p><strong>Capacity:</strong> 650 ml</p></li><li><p><strong>Colour:</strong> transparent</p></li></ul>' AS nvarchar(max))
+WHERE Product_Id = 2296;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2296 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 43
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 738)) BEGIN PRINT 'length mismatch 2296'; SET @bad += 1; END;
+
+-- Product_Id: 2299 (BATTERY SUPERCHARGED PUMP)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY SUPERCHARGED PUMP' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Refreshing tropical-flavoured drink</p></li><li><p>A combination of amino acids, creatine and caffeine – all in one drink</p></li><li><p>Contains creatine to support physical performance during high-intensity exercise</p></li><li><p>Quick and easy to prepare</p></li><li><p>Suitable as part of an active lifestyle</p></li></ul><p><strong>Food supplement with sweetener.</strong></p><p>Contains caffeine (150 mg per serving). Not recommended for children or pregnant women.</p><p>This powdered food supplement with a refreshing tropical flavour is intended for anyone who wants to step up their sports routine. The advanced combination of amino acids, creatine and caffeine makes a practical, tasty drink before training or during the active part of your day.</p><p>It contains creatine, which, with a daily intake of 3 g, contributes to increased physical performance in successive bursts ' AS nvarchar(max))
+        + N'of short-term, high-intensity exercise. The added caffeine provides the characteristic pre-workout feeling, getting you ready to train.</p><p><strong>MAIN ADVANTAGES:</strong></p><ul><li><p>Advanced pre-workout formula with amino acids, creatine and caffeine</p></li><li><p>Refreshing tropical flavour: orange, lemon and pineapple</p></li><li><p>Creatine contributes to improved physical performance during short-term, high-intensity exercise (with a daily intake of 3 g)</p></li><li><p>An ideal choice before training or as part of an active lifestyle</p></li><li><p>Quick and easy preparation of a tasty drink</p></li></ul><p><strong>MAIN INGREDIENTS:</strong></p><ul><li><p>Creatine contributes to improved physical performance during intense physical activity (with a daily intake of 3 g)</p></li><li><p>Caffeine helps increase alertness and improve concentration during training</p></li><li><p>T'
+        + N'he amino acids L-citrulline, beta-alanine, L-tyrosine and L-arginine are often part of pre-workout formulas for active people</p></li><li><p>Synephrine – a natural compound obtained from bitter orange (<em>Citrus aurantium</em>)</p></li></ul><p><em>A varied and balanced diet and a healthy lifestyle are recommended.</em></p><p><strong>Net quantity:</strong> 300 g</p>',
+    InstructionsForUseEn = CAST(N'Serving size: 2 scoops (10 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume 1 serving 30 minutes before training. Do not consume on an empty stomach. The maximum daily amount is 1 serving (10 g). WARNING: Do not exceed the recommended daily dose. Food supplements are not a substitute for a balanced and varied diet. Keep out of reach of young children. Not recommended for pregnant or breastfeeding women, people under 18 or people with cardiovascular disease. Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 1 serving in 500 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2299;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2299 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2168
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 449
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 38)) BEGIN PRINT 'length mismatch 2299'; SET @bad += 1; END;
+
+-- Product_Id: 2300 (BATTERY STIM-FREE PUMP)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY STIM-FREE PUMP' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>A “clean” pre-workout for serious training</p></li><li><p>100% stimulant-free – no caffeine and no energy crash</p></li><li><p>Formula with amino acids and creatine</p></li><li><p>Refreshing citrus flavour (orange and lemon)</p></li><li><p>Easy to prepare, for maximum training readiness</p></li></ul><p><strong>Food supplement with sweetener.</strong></p><p>Stim-Free Pump is the right choice when you want a maximum workout without compromise and without stimulants. No caffeine, no sudden energy crash – just focus on training and the feeling that you can give even more, at any time of day, even in the evening.</p><p>The advanced combination of citrulline, beta-alanine, arginine, tyrosine and creatine is designed for everyone who takes training seriously. This is a pre-workout with a “clean” formula – no unnecessary additives, only proven ingredients like those used in the best f' AS nvarchar(max))
+        + N'ormulas.</p><p>When you don’t want stimulation but still want a real pre-workout experience, Stim-Free Pump is the right choice.</p><p>It contains creatine, which, with a daily intake of 3 g, contributes to increased physical performance in successive bursts of short-term, high-intensity exercise.</p><p><strong>ADVANTAGES:</strong></p><ul><li><p>Caffeine-free – a stimulant-free formula</p></li><li><p>An alternative to classic pre-workouts, suitable for use at any time of day</p></li><li><p>Refreshing citrus flavour (orange and lemon)</p></li><li><p>Contains creatine monohydrate</p></li><li><p>Quick and easy drink preparation</p></li></ul><p><strong>KEY INGREDIENTS:</strong></p><ul><li><p>L-citrulline DL-malate – a core ingredient in advanced pre-workout formulas</p></li><li><p>Beta-alanine – a popular choice for intense workouts</p></li><li><p>Creatine monohydrate – to support physical p'
+        + N'erformance during high-intensity exercise (with a daily intake of 3 g)</p></li><li><p>L-arginine – an amino acid often included in sports supplements</p></li><li><p>L-tyrosine – an amino acid associated with an active lifestyle</p></li></ul><p>A varied and balanced diet and a healthy lifestyle are recommended.</p><p><strong>Net quantity:</strong> 300 g</p>',
+    InstructionsForUseEn = CAST(N'Serving size: 2 scoops (10 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume 1 serving 30 minutes before training. The maximum daily amount is 1 serving (10 g).
+
+WARNING: Do not exceed the recommended daily dose. Food supplements are not a substitute for a balanced and varied diet. Keep out of reach of young children. Not recommended for pregnant or breastfeeding women or children under 18.
+
+STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 1 serving in 500 ml of water.' AS nvarchar(max))
+WHERE Product_Id = 2300;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2300 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 22
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 2158
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 390
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 38)) BEGIN PRINT 'length mismatch 2300'; SET @bad += 1; END;
+
+-- Product_Id: 2301 (T-SHIRT LELY,)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'T-SHIRT LELY,' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Men’s LELY T-shirt</p></li><li><p>Available in 9 different colours</p></li><li><p>100% cotton</p></li></ul><p>The men’s LELY T-shirt is made of cotton and features a Proteini.si logo print. It is very soft and comfortable to wear, making it suitable for both sports activities and leisure.</p><p>Available in 9 different colours.</p><p><strong>COMPOSITION:</strong> 100% cotton</p>' AS nvarchar(max))
+WHERE Product_Id = 2301;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2301 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 13
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 392)) BEGIN PRINT 'length mismatch 2301'; SET @bad += 1; END;
+
+-- Product_Id: 2302 (USN QHUSH PRE-WORKOUT, 220g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'USN QHUSH PRE-WORKOUT, 220g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>High-caffeine pre-workout and intra-workout supplement</p></li><li><p><strong>250 mg caffeine per serving</strong></p></li><li><p>With vitamins, beta-alanine, L-arginine and L-citrulline</p></li><li><p>For better focus and physical performance</p></li><li><p>20 servings</p></li></ul><p><strong>Food supplement with amino acids, plant extracts, caffeine and vitamins, with sweeteners.</strong></p><p>Contains caffeine (250 mg/11 g). Not recommended for children or pregnant or breastfeeding women.</p><p>Improve your training performance with a top pre-workout drink designed to take your energy and concentration to a higher level.</p><p>USN QHUSH Black is a pre-workout powder that provides excellent support for intense workouts in the gym, at home or before a run.</p><p><strong>HIGH STIMULATION LEVEL</strong></p><p>QHUSH Black contains 250 mg of caffeine in every serving, providing ' AS nvarchar(max))
+        + N'a strong energy boost before your next workout.</p><p><strong>FOCUS WHEN YOU NEED IT MOST</strong></p><p>QHUSH not only provides a strong energy boost, it also contains L-theanine (from green tea extract), which helps maintain a high level of concentration while you work towards your goals.</p><p><strong>ADVANCED FORMULA</strong></p><p>This is not an ordinary high-caffeine energy drink, but an advanced pre-workout formula. Enjoy a combination of training-support ingredients, including beta-alanine, L-arginine and L-citrulline, as well as vitamins B6 and B12, which contribute to the reduction of tiredness and fatigue.</p><p>A balanced and varied diet and a healthy lifestyle are important.</p><p><strong>Net quantity:</strong> 220 g</p>',
+    InstructionsForUseEn = CAST(N'Serving size: 1 scoop (11 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'For best results, consume 30 minutes before training. After opening, use the product within 1 month.
+
+WARNINGS: Contains caffeine (250 mg/11 g). Not recommended for children or pregnant or breastfeeding women. For adults only. Do not exceed 400 mg of caffeine per day from all sources (200 mg per day for pregnant and breastfeeding women). As with all food supplements, consult a doctor before use, especially if you have health problems and/or are taking medication. Do not exceed 1 serving (11 g) per day. Maintain adequate hydration. Suitable for vegetarians and vegans. Do not exceed the recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children!' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Mix 1 scoop (11 g) with 250 ml of water. Shake well for 30 seconds.' AS nvarchar(max))
+WHERE Product_Id = 2302;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2302 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 27
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1643
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 29
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 714
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 67)) BEGIN PRINT 'length mismatch 2302'; SET @bad += 1; END;
+
+-- Product_Id: 2303 (USN QHUSH ENERGY)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'USN QHUSH ENERGY' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Energy drink with a HIGH CAFFEINE CONTENT (150 mg per can)</p></li><li><p>With vitamins, amino acids and plant extracts</p></li><li><p>For more energy, focus and motivation</p></li><li><p>To help you cope with mental and physical effort</p></li></ul><p>Carbonated non-alcoholic drink with vitamins, amino acids, plant extracts and caffeine, with sweeteners. High caffeine content (30 mg/100 ml). Not recommended for children or pregnant or breastfeeding women.</p><p>QHUSH Energy, with 150 mg of caffeine per can, provides an exceptional energy boost in the form of a tasty carbonated drink with no sugar, carbohydrates or calories. Enjoy it whenever you need energy, focus and motivation, whether you are training, working in the office, studying or gaming. The drink is suitable for people with an active lifestyle.</p><p>In addition to caffeine, the drink contains:</p><ul><li><p>B-grou' AS nvarchar(max))
+        + N'p vitamins (niacin, B6, B12 and pantothenic acid), which contribute to the normal functioning of the nervous system and normal psychological function, to the reduction of tiredness and fatigue, and to normal mental performance.</p></li><li><p>Taurine</p></li><li><p>Carnitine</p></li><li><p>Theanine</p></li><li><p>Ginseng</p></li></ul><p>Some flavours of the drink also contain:</p><ul><li><p>Vitamin C (Electric Blue Gaming flavour) – contributes to normal psychological function, the reduction of tiredness and fatigue, and the normal function of the immune system during and after intense physical exercise. The beneficial effect is obtained with a daily intake of 200 mg in addition to the recommended daily intake of vitamin C.</p></li><li><p>Tyrosine and phosphatidylserine (Glacier flavour)</p></li></ul><p>A balanced and varied diet and a healthy lifestyle are important.</p><p>The compositi'
+        + N'on depends on the flavour.</p><p>Net quantity: 500 ml / 24 × 500 ml</p>',
+    InstructionsForUseEn = CAST(N'Serving size: 1 can (500 ml).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume when you need energy and concentration. Consume in moderation. Do not exceed the maximum recommended daily dose (1 can). Serve chilled. After opening, keep refrigerated and consume within 48 hours. WARNING: Not recommended for people sensitive to caffeine. Do not exceed 400 mg of caffeine per day from all sources (200 mg per day for pregnant and breastfeeding women). Consume as part of a balanced, healthy lifestyle. Store in a cool place.' AS nvarchar(max))
+WHERE Product_Id = 2303;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2303 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 16
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1871
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 29
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 450)) BEGIN PRINT 'length mismatch 2303'; SET @bad += 1; END;
+
+-- Product_Id: 2304 (SPORTNAHRUNG MAGNESIUM BISGLYCINATE (NEW))
+UPDATE dbo.Products SET
+    NameEn = CAST(N'SPORTNAHRUNG MAGNESIUM BISGLYCINATE (NEW)' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Food supplement with magnesium</p></li><li><p>For bone health, muscle recovery, energy production and normal nervous system function</p></li><li><p>30-day supply</p></li></ul><p><strong>Food supplement.</strong></p><p>Magnesium provides comprehensive support for bone health, muscle recovery, energy production and nervous system balance.</p><p><strong>BENEFITS OF MAGNESIUM:</strong></p><ul><li><p>Helps maintain healthy bones and normal immune system function.</p></li><li><p>Helps relax muscles, reduce cramps and ease tension.</p></li><li><p>Supports proper hydration and helps maintain normal blood pressure.</p></li><li><p>Contributes to cardiovascular health, helps stabilise energy levels, reduce tiredness and improve nervous system function.</p></li></ul><p>A varied and balanced diet and a healthy lifestyle are recommended.</p><p><strong>Net quantity:</strong> 120 capsules</p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'Serving size: 4 capsules.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 4 capsules with a glass of water after training or before bed.
+
+WARNINGS: Do not exceed the recommended daily dose. Food supplements are not a substitute for a balanced and varied diet and a healthy lifestyle. Keep out of reach of young children.
+
+STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max))
+WHERE Product_Id = 2304;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2304 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 41
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 900
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 317)) BEGIN PRINT 'length mismatch 2304'; SET @bad += 1; END;
+
+-- Product_Id: 2305 (BATTERY MAGNESIUM BISGLYCINATE)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY MAGNESIUM BISGLYCINATE' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Magnesium bisglycinate – a high-quality organic form of magnesium</p></li><li><p>Good absorption and gentle on the stomach</p></li><li><p>Supports muscles after exercise and physical exertion</p></li><li><p>Helps reduce tiredness and fatigue</p></li><li><p>For active people, athletes and everyday well-being</p></li><li><p>1-month supply</p></li></ul><p><strong>Food supplement.</strong></p><p>Magnesium is an essential mineral for active people, as it contributes to normal muscle function, helps reduce tiredness and fatigue and supports recovery after physical exertion. It is suitable for anyone who wants to support their body in everyday activities, sport and relaxation.</p><p>The product contains magnesium in the form of magnesium bisglycinate, in which magnesium is bound to the amino acid glycine. This organic form of magnesium is valued for its good absorption and gentle eff' AS nvarchar(max))
+        + N'ect on the digestive system. It has no laxative effect and does not irritate the digestive tract, making it an excellent choice for people with a sensitive stomach and for anyone who wants to avoid the common digestive problems associated with other forms of magnesium.</p><p><strong>WHY CHOOSE MAGNESIUM BISGLYCINATE?</strong></p><ul><li><p>Organic form of magnesium with good bioavailability</p></li><li><p>Suitable for topping up your daily magnesium intake</p></li><li><p>Contributes to normal muscle and nervous system function</p></li><li><p>Helps reduce tiredness and fatigue</p></li><li><p>Involved in energy metabolism</p></li><li><p>Contributes to the maintenance of healthy bones and electrolyte balance</p></li></ul><p>A varied and balanced diet and a healthy lifestyle are recommended.</p><p><strong>Net quantity:</strong> 120 capsules</p>',
+    InstructionsForUseEn = CAST(N'Serving size: 4 capsules.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Take 4 capsules with a glass of water after training or before bed.
+
+WARNINGS: Do not exceed the recommended daily dose. Food supplements are not a substitute for a balanced and varied diet and a healthy lifestyle. Keep out of reach of young children.
+
+STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max))
+WHERE Product_Id = 2305;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2305 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 30
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1752
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 317)) BEGIN PRINT 'length mismatch 2305'; SET @bad += 1; END;
+
+-- Product_Id: 2306 (T-SHIRT NOEL)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'T-SHIRT NOEL' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Men’s black T-shirt</p></li><li><p>With an evolution motif and the “EVOLUTION GYM” print</p></li><li><p>100% cotton</p></li></ul><p>Men’s black cotton T-shirt with a small Proteini.si logo on the front and an evolution motif with the “EVOLUTION GYM” print on the back. The T-shirt is light and comfortable to wear, suitable for sports activities and leisure.</p><p>Composition: 100% cotton</p>' AS nvarchar(max))
+WHERE Product_Id = 2306;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2306 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 12
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 404)) BEGIN PRINT 'length mismatch 2306'; SET @bad += 1; END;
+
+-- Product_Id: 2307 (LONG LEGGINGS, TAJA)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'LONG LEGGINGS, TAJA' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>TAJA women’s leggings in modern ribbed fabric</p></li><li><p>For complete comfort and an attractive look</p></li><li><p>Made from slightly thicker fabric</p></li><li><p>Squat-proof</p></li><li><p>Available in 2 different colours</p></li><li><p>The Taja sports top, short- and long-sleeved tops and short leggings are also available</p></li></ul><p>TAJA women’s leggings are suitable for wearing during training or in your free time. They are made of modern ribbed fabric that is slightly thicker and provides complete comfort while giving an attractive look. The high waist and the elastic hem at the bottom of the legs ensure comfort during exercise and stop the leggings slipping down, so they stay in place. The fabric is squat-proof, so you can do squats without worry. The look of the leggings is further accentuated by a drawstring at the waist.</p><p>The model in the photo is 173 c' AS nvarchar(max))
+        + N'm tall and wears size M.</p><p><strong>MAIN FEATURES:</strong></p><ul><li><p>Made of modern ribbed fabric for an attractive look</p></li><li><p>Soft and comfortable</p></li><li><p>Extremely stretchy</p></li><li><p>Made from slightly thicker fabric</p></li><li><p>Squat-proof</p></li><li><p>Mid-high waist</p></li><li><p>With a drawstring at the waist</p></li><li><p><strong>Composition:</strong> 90% nylon, 10% spandex</p></li><li><p><strong>Available colours:</strong> black, blue</p></li></ul>'
+WHERE Product_Id = 2307;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2307 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 19
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1395)) BEGIN PRINT 'length mismatch 2307'; SET @bad += 1; END;
+
+-- Product_Id: 2308 (SPORTS TOP WITH ZIPPER (LONG SLEEVES) TYRA)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'SPORTS TOP WITH ZIPPER (LONG SLEEVES) TYRA' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>TYRA long-sleeved sports top with zip</p></li><li><p>Comfortable, slim fit</p></li><li><p>With thumbholes in the sleeves and two zipped side pockets</p></li><li><p>Can be worn as a base or mid layer</p></li><li><p>Available in 2 colours</p></li><li><p>TYRA long leggings and sports bra are also available</p></li></ul><p>The short TYRA sports top with long sleeves, zip and pockets is suitable for training and leisure. The sleeves have thumbholes and the side pockets close with a zip.</p><p>The model in the photo is 168 cm tall and wears size S.</p><p><strong>MAIN FEATURES:</strong></p><ul><li><p>Practical, comfortable sports top with zip</p></li><li><p>Can be worn as a base or mid layer</p></li><li><p>Lightweight material and slim fit</p></li><li><p>With thumbholes</p></li><li><p>With two zipped side pockets</p></li><li><p><strong>Composition:</strong> 78% nylon, 22% spandex</p>' AS nvarchar(max))
+        + N'</li><li><p><strong>Colours:</strong> black, purple</p></li><li><p>TYRA long leggings and sports bra are also available</p></li></ul>'
+WHERE Product_Id = 2308;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2308 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 42
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1033)) BEGIN PRINT 'length mismatch 2308'; SET @bad += 1; END;
+
+-- Product_Id: 2309 (LONG LEGGINGS SARA)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'LONG LEGGINGS SARA' AS nvarchar(max)),
+    DescriptionEn = CAST(N'' AS nvarchar(max))
+WHERE Product_Id = 2309;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2309 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 18
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 0)) BEGIN PRINT 'length mismatch 2309'; SET @bad += 1; END;
+
+-- Product_Id: 2310 (WOMEN T-SHIRT LOLA)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'WOMEN T-SHIRT LOLA' AS nvarchar(max)),
+    DescriptionEn = CAST(N'' AS nvarchar(max))
+WHERE Product_Id = 2310;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2310 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 18
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 0)) BEGIN PRINT 'length mismatch 2310'; SET @bad += 1; END;
+
+-- Product_Id: 2311 (WOMEN T-SHIRT OUTSIDE THE BOX)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'WOMEN T-SHIRT OUTSIDE THE BOX' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>OUTSIDE THE BOX women’s T-shirt</p></li><li><p>Available in 1 colour</p></li><li><p>100% cotton</p></li></ul><p>The OUTSIDE THE BOX women’s T-shirt is made of 100% cotton and features a Proteini.si logo print and the words THINK OUTSIDE THE BOX. It has a body-hugging cut, and the material is very soft and comfortable to wear, making it suitable for both sports activities and leisure.</p><p>Composition: 100% cotton</p>' AS nvarchar(max))
+WHERE Product_Id = 2311;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2311 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 29
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 432)) BEGIN PRINT 'length mismatch 2311'; SET @bad += 1; END;
+
+-- Product_Id: 2312 (LONG LEGGINGS TYRA)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'LONG LEGGINGS TYRA' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>TYRA women’s long leggings</p></li><li><p>With a scrunch effect to accentuate the glutes</p></li><li><p>Light and breathable</p></li><li><p>Available in 2 colours</p></li><li><p>The TYRA sports bra and long-sleeved sports top are also available</p></li></ul><p>TYRA women’s long leggings are made of smooth, stretchy fabric that provides complete comfort and lightness when worn. The high waist stops the leggings slipping down during exercise and helps them stay in place. The nylon and elastane fabric effectively wicks away sweat during sports activities, allowing freedom of movement, comfort and freshness all day long. They are squat-proof, for worry-free training.</p><p>The model in the photo is 168 cm tall and wears size S.</p><p><strong>MAIN FEATURES:</strong></p><ul><li><p>Scrunch effect to accentuate the glutes</p></li><li><p>High waist</p></li><li><p>Squat-proof</p></li><l' AS nvarchar(max))
+        + N'i><p>For complete comfort and an attractive look</p></li><li><p><strong>Composition:</strong> 78% nylon, 22% spandex</p></li><li><p><strong>Colours:</strong> black, purple</p></li><li><p>The TYRA sports bra and long-sleeved sports top are also available</p></li></ul>'
+WHERE Product_Id = 2312;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2312 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 18
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1167)) BEGIN PRINT 'length mismatch 2312'; SET @bad += 1; END;
+
+-- Product_Id: 2313 (LONG LEGGINGS EVA)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'LONG LEGGINGS EVA' AS nvarchar(max)),
+    DescriptionEn = CAST(N'' AS nvarchar(max))
+WHERE Product_Id = 2313;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2313 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 17
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 0)) BEGIN PRINT 'length mismatch 2313'; SET @bad += 1; END;
+
+-- Product_Id: 2314 (SPORTS BRA EVA (s/m))
+UPDATE dbo.Products SET
+    NameEn = CAST(N'SPORTS BRA EVA (s/m)' AS nvarchar(max)),
+    DescriptionEn = CAST(N'' AS nvarchar(max))
+WHERE Product_Id = 2314;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2314 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 20
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 0)) BEGIN PRINT 'length mismatch 2314'; SET @bad += 1; END;
+
+-- Product_Id: 2315 (LEGGINGS DEMI (beige, M):)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'LEGGINGS DEMI (beige, M):' AS nvarchar(max)),
+    DescriptionEn = CAST(N'' AS nvarchar(max))
+WHERE Product_Id = 2315;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2315 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 25
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 0)) BEGIN PRINT 'length mismatch 2315'; SET @bad += 1; END;
+
+-- Product_Id: 2316 (SPORTS BRA PIA)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'SPORTS BRA PIA' AS nvarchar(max)),
+    DescriptionEn = CAST(N'' AS nvarchar(max))
+WHERE Product_Id = 2316;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2316 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 14
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 0)) BEGIN PRINT 'length mismatch 2316'; SET @bad += 1; END;
+
+-- Product_Id: 2317 (SPORTS BRA NELLY)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'SPORTS BRA NELLY' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>NELLY women’s sports bra</p></li><li><p>Perfect fit and support for the bust</p></li><li><p>With thin straps</p></li><li><p>Multi-purpose use</p></li><li><p>Available in 3 colours</p></li><li><p>NELLY short and long leggings are also available</p></li></ul><p>The NELLY women’s sports bra is made of soft, stretchy fabric that allows exceptional freedom of movement, even during the most intense sports activities. It can be worn as underwear or as a standalone top. It has soft, thin pads that shape the bust nicely and can be removed for an even lighter feel. Unlike other sports tops, the straps are thinner and join at the back.</p><p>The model in the photo is 168 cm tall and wears size S.</p><p><strong>MAIN FEATURES:</strong></p><ul><li><p>Suitable for sports activities and leisure</p></li><li><p>The double-layer fabric and wider elastic band under the bust provide extra support<' AS nvarchar(max))
+        + N'/p></li><li><p>Seamless fabric for complete comfort</p></li><li><p>Effectively wicks away sweat and keeps skin feeling dry</p></li><li><p>Made from a material that allows maximum freedom of movement</p></li><li><p>With thin, adjustable-length straps</p></li><li><p><strong>Composition:</strong> 90% nylon, 10% spandex</p></li><li><p><strong>Available colours:</strong> turquoise, orange</p></li><li><p>NELLY short and long leggings are also available</p></li></ul>'
+WHERE Product_Id = 2317;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2317 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 16
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1364)) BEGIN PRINT 'length mismatch 2317'; SET @bad += 1; END;
+
+-- Product_Id: 2318 (BATTERY CREATINE, 250g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BATTERY CREATINE, 250g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>100% pure creatine</li><li>Unflavoured</li><li>Increases physical performance</li><li>One of the most popular food supplements among athletes</li><li>Made in our own production facilities in the EU</li></ul><p><strong>Creatine powder. Food supplement. Unflavoured.</strong></p><p>Battery Creatine consists of 100% pure creatine, one of the most popular food supplements among athletes. One of the biggest challenges we face in training is the depletion of our energy reserves, which can limit our performance. Creatine increases physical performance in successive bursts of short-term, high-intensity exercise (the beneficial effect is obtained with a daily intake of 3 g of creatine).</p><p><strong>Safe and high quality – made in our own production facilities in the EU</strong></p><ul><li>Proven ingredients, with no unnecessary additives.</li><li>Made in the EU to high quality and safety' AS nvarchar(max))
+        + N' standards.</li></ul><p><em>A balanced and varied diet and a healthy lifestyle are important.</em></p><p><strong>Net quantity:</strong> 500 g</p>',
+    InstructionsForUseEn = CAST(N'Serving size: 1 full scoop (3.4 g). Use a scale for accurate measuring.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume 20 minutes before training. On non-training days, consume in the morning on an empty stomach. The maximum daily amount is 1 serving. The product is intended for adults who engage in high-intensity physical activity.
+
+WARNINGS: Do not exceed the recommended daily dose. The product should not be used as a substitute for a balanced diet. Keep out of reach of children!
+
+STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 1 serving in 250 ml of lukewarm water.' AS nvarchar(max))
+WHERE Product_Id = 2318;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2318 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 22
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1045
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 71
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 441
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 47)) BEGIN PRINT 'length mismatch 2318'; SET @bad += 1; END;
+
+-- Product_Id: 2319 (PROTEINI.SI 100% PURE CREATINE (FLAVOURED))
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI 100% PURE CREATINE (FLAVOURED)' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>A simple, effective and reliable creatine food supplement</p></li><li><p>3000 mg of pure creatine per serving</p></li><li><p>For everyone who wants more strength and noticeable progress</p></li><li><p>Developed and made in our own production facilities in the EU</p></li><li><p>58 servings for long-term training support and continuous progress</p></li></ul><p><strong>Improve your performance with uncompromising purity you can trust.</strong></p><p><strong>Ready to take your training to the next level?</strong></p><p>Proteini.si 100% Pure Creatine with a refreshing lemon flavour is made for everyone who expects more from their body. Each serving provides 3000 mg of pure creatine, which increases physical performance in successive bursts of short-term, high-intensity exercise – exactly in the moments that lead to real progress.</p><p>Thanks to quick and easy preparation, it is id' AS nvarchar(max))
+        + N'eal to take before training, but also on non-training days, when you still need energy and focus.</p><p>Complete purity of ingredients and verified production in the EU ensure top quality you can feel with every rep.</p><p><strong>WHY CHOOSE PROTEINI.SI 100% PURE CREATINE?</strong></p><ul><li><p>3000 mg of pure creatine per serving – the optimal amount to support physical performance during intense exertion</p></li><li><p>Refreshing lemon flavour, ready in just a few seconds</p></li><li><p>Developed and made in our own production facilities in the EU – for reliable quality and pure ingredients</p></li></ul><p>If you train hard, choose a supplement that supports your performance.</p><p><strong>Proteini.si 100% Pure Creatine – your support for strength, explosiveness and progress.</strong></p>',
+    InstructionsForUseEn = CAST(N'Serving size: 4.2 g (1 full scoop – use a scale for accurate measuring).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Consume 20 minutes before training. On non-training days, consume in the morning on an empty stomach. The maximum daily amount is 1 serving (4.2 g). The product is intended for adults who engage in high-intensity physical activity.
+
+WARNINGS: Do not exceed the recommended daily dose. Food supplements are not a substitute for a balanced and varied diet and a healthy lifestyle. Keep out of reach of young children!
+
+STORAGE: Store in a dark, dry place at a temperature below 25°C.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 4.2 g of powder in 250 ml of lukewarm water.' AS nvarchar(max))
+WHERE Product_Id = 2319;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2319 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 42
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1702
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 72
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 481
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 53)) BEGIN PRINT 'length mismatch 2319'; SET @bad += 1; END;
+
+-- Product_Id: 2320 (LONG LEGGINS NELLY)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'LONG LEGGINS NELLY' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>NELLY women’s long leggings</p></li><li><p>With a scrunch effect to accentuate the glutes</p></li><li><p>Made from slightly thicker fabric</p></li><li><p>Squat-proof</p></li><li><p>Available in 3 colours</p></li><li><p>NELLY short leggings and sports top are also available</p></li></ul><p>NELLY women’s long leggings are suitable for sports activities and leisure, providing complete comfort and lightness when worn. The high waist stops the leggings slipping down during exercise and helps them stay in place. The nylon and spandex fabric effectively wicks away sweat during sports activities, allowing unrestricted freedom of movement, comfort and freshness all day long. The leggings are squat-proof, for worry-free training.</p><p>The model in the photo is 168 cm tall and wears size S.</p><p>MAIN FEATURES:</p><ul><li><p>Scrunch effect to accentuate the glutes</p></li><li><p>Made fr' AS nvarchar(max))
+        + N'om slightly thicker fabric</p></li><li><p>Squat-proof</p></li><li><p>Stretchy and comfortable</p></li><li><p>For complete comfort and an attractive look</p></li><li><p>Composition: 90% nylon, 10% spandex</p></li><li><p>Colours: light grey, purple, black</p></li><li><p>NELLY short leggings and sports top are also available</p></li></ul>'
+WHERE Product_Id = 2320;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2320 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 18
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1237)) BEGIN PRINT 'length mismatch 2320'; SET @bad += 1; END;
+
+-- Product_Id: 2322 (NUTREND CARNITINE DRINK, 750ml, LEMON)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'NUTREND CARNITINE DRINK, 750ml, LEMON' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li>A refreshing ready-to-drink beverage</li><li>Sugar-free</li><li>1000 mg L-carnitine per serving</li><li>With caffeine and taurine</li></ul><p><strong>Flavoured non-alcoholic drink with sweeteners, with added L-carnitine, taurine and caffeine.</strong></p><p><strong>Carbonated flavoured non-alcoholic drink with sweeteners, with added L-carnitine, taurine and caffeine.</strong><br>(flavours: Raspberry, Cola, Mojito, Mango &amp; Coconut, Lavender, Strawberry &amp; Mint)</p><p>A refreshing, sugar-free ready-to-drink beverage containing 1000 mg of L-carnitine, with added stimulating ingredients such as caffeine and taurine. The drink is an excellent choice for supporting physical performance and helps maintain proper hydration during training. Thanks to its light, refreshing taste, it fits easily into your training routine and helps you drink fluids regularly.</p><ul><li>1000 mg L-car' AS nvarchar(max))
+        + N'nitine</li><li>1000 mg taurine</li><li>40 mg caffeine</li><li>Sugar-free</li></ul><p><strong>RECOMMENDED USE:</strong> 1 bottle per day. Drink 20–30 minutes before physical activity. It can also be used during training.</p><p><strong>USE:</strong> Once opened, consume the product within 24 hours.</p><p><strong>Suitable for athletes, with sweeteners.</strong> Intended for particular nutritional needs. Not intended for children, pregnant or breastfeeding women. Keep out of reach of children! Store in a dry place at a temperature up to 25°C, protected from direct sunlight. Do not freeze. Contains caffeine. Not suitable for registered athletes. The manufacturer is not liable for damage caused by improper use or storage.</p><p><strong>Net quantity:</strong> 750 ml</p>'
+WHERE Product_Id = 2322;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2322 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 37
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1673)) BEGIN PRINT 'length mismatch 2322'; SET @bad += 1; END;
+
+-- Product_Id: 2325 (DYMATIZE CREATINE MONOHYDRATE 300g)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'DYMATIZE CREATINE MONOHYDRATE 300g' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p>Push past your training limits! Looking for an extra boost for better performance during intense workouts? Creatine increases physical performance in short-term, high-intensity exercise such as strength training.<br><br>Like you, Dymatize makes no compromises on quality and uses only Creapure® – high-quality creatine monohydrate.<br><br>Creatine is a natural substance found in the body. It plays a key role in transporting and storing energy in all cells. A daily intake of 3 g of creatine over a period of at least 4 weeks has been shown to increase muscle creatine content.<br><br>Unflavoured and highly pure, Dymatize® CREATINE MONOHYDRATE, mixed with water or another caffeine-free drink, is the perfect choice for periods of intense training.</p><p><br></p><p>Net quantity: 300g</p><p></p>' AS nvarchar(max)),
+    InstructionsForUseEn = CAST(N'2 scoops daily. Consume as part of a varied and balanced diet and a healthy lifestyle.' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'Creatine is not suitable for children and adolescents. It is intended only for adults who engage in intense physical activity. Food supplements are not a substitute for a varied and balanced diet and a healthy lifestyle. Do not exceed the recommended daily dose. Keep out of reach of children.' AS nvarchar(max))
+WHERE Product_Id = 2325;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2325 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 34
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 800
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 86
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 293)) BEGIN PRINT 'length mismatch 2325'; SET @bad += 1; END;
+
+-- Product_Id: 2326 (APPLIED NUTRITION CREATINE MONOHYDRATE, 250G)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'APPLIED NUTRITION CREATINE MONOHYDRATE, 250G' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p>Applied Nutrition Creatine Monohydrate is micronised creatine powder. The unflavoured variant contains 100% creatine monohydrate, with 5 g of creatine per serving.</p><p><br>Available in packs of:<br>- 250 g (50 servings)<br>- 500 g (100 servings)<br>- 1 kg (200 servings)<br></p><p>&nbsp;Use the Informed Sport tested batch register for Applied Nutrition Creatine Monohydrate Professional to check the batch number printed on the pack: https://sport.wetestyoutrust.com/ja/node/1146294&nbsp;&nbsp;</p><p>KEY ADVANTAGES:<br><br>- Increased strength and power: Helps you lift heavier weights and do more reps, contributing to greater muscle growth over time.<br>- Improved sports performance: Ideal for high-intensity sports and activities, to improve overall performance and endurance.<br>- Improved muscle recovery: Helps reduce muscle soreness and speed up recovery, allowing more frequent traini' AS nvarchar(max))
+        + N'ng.<br>- Support for lean muscle mass: Promotes the growth of lean muscle tissue without unnecessary gains in body fat.<br>- Mixes easily with water.<br>- Tested for athletes by Informed Sport.<br>- Halal-certified product.</p><p></p><p></p>',
+    InstructionsForUseEn = CAST(N'Add 1 serving (5 g) to water, shake and drink. Use 1–2 times a day, preferably just before and after physical activity. After 8 weeks of continuous use, take a 1-week break, then repeat the cycle.' AS nvarchar(max))
+WHERE Product_Id = 2326;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2326 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 44
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1141
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 196)) BEGIN PRINT 'length mismatch 2326'; SET @bad += 1; END;
+
+-- Product_Id: 2327 (APPLIED NUTRITION CREATINE MONOHYDRATE, 500G)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'APPLIED NUTRITION CREATINE MONOHYDRATE, 500G' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p>Applied Nutrition Creatine Monohydrate is micronised creatine powder. The unflavoured variant contains 100% creatine monohydrate, with 5 g of creatine per serving.</p><p><br>Available in packs of:<br>- 250 g (50 servings)<br>- 500 g (100 servings)<br>- 1 kg (200 servings)<br></p><p>&nbsp;Use the Informed Sport tested batch register for Applied Nutrition Creatine Monohydrate Professional to check the batch number printed on the pack: https://sport.wetestyoutrust.com/ja/node/1146294&nbsp;&nbsp;</p><p>KEY ADVANTAGES:<br><br>- Increased strength and power: Helps you lift heavier weights and do more reps, contributing to greater muscle growth over time.<br>- Improved sports performance: Ideal for high-intensity sports and activities, to improve overall performance and endurance.<br>- Improved muscle recovery: Helps reduce muscle soreness and speed up recovery, allowing more frequent traini' AS nvarchar(max))
+        + N'ng.<br>- Support for lean muscle mass: Promotes the growth of lean muscle tissue without unnecessary gains in body fat.<br>- Mixes easily with water.<br>- Tested for athletes by Informed Sport.<br>- Halal-certified product.</p>',
+    InstructionsForUseEn = CAST(N'Add 1 serving (5 g) to water, shake and drink. Use 1–2 times a day, preferably just before and after physical activity. After 8 weeks of continuous use, take a 1-week break, then repeat the cycle.' AS nvarchar(max))
+WHERE Product_Id = 2327;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2327 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 44
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1127
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 196)) BEGIN PRINT 'length mismatch 2327'; SET @bad += 1; END;
+
+-- Product_Id: 2330 (RABEKO SAUCE, 350ml)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'RABEKO SAUCE, 350ml' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<p><strong>Rabeko Zero sauces – great taste without unnecessary compromises</strong></p><p>Want to enrich your favourite meals with tasty sauces without unnecessary calories, sugars and fats? Then Rabeko Zero sauces are the right choice! With a variety of flavours and a light composition, they are a great way to enjoy your favourite meals without compromising your diet.</p><p><strong>WHAT MAKES THEM SUCH A GOOD CHOICE?</strong></p><ul><li><p>Low calorie value</p></li><li><p>Reduced sugar content compared with classic sauces</p></li><li><p>Light composition, with no unnecessary additives</p></li><li><p>No artificial colours</p></li><li><p>Fit perfectly into a balanced, mindful lifestyle</p></li></ul><p><strong>PERFECT WITH:</strong></p><ul><li><p>Fries and snacks made in an air fryer</p></li><li><p>Burgers, tortillas, toasties and omelettes</p></li><li><p>Grilled food and various main dis' AS nvarchar(max))
+        + N'hes</p></li><li><p>As a topping or dip for your favourite snacks</p></li></ul><p>Whether you train, watch your diet or simply want to make more mindful choices, Rabeko Zero sauces let you enjoy your favourite flavours without compromise. Tasty, light and ideal for every day!</p>'
+WHERE Product_Id = 2330;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2330 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 19
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1179)) BEGIN PRINT 'length mismatch 2330'; SET @bad += 1; END;
+
+-- Product_Id: 2331 (PROTEINI.SI ULTIMATE GRIPS)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'PROTEINI.SI ULTIMATE GRIPS' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Makes lifting weights easier</p></li><li><p>Provides a more secure grip</p></li><li><p>Offers wrist support</p></li><li><p>Easy to use</p></li></ul><p><strong>Proteini.si Ultimate Grips</strong> are an advanced training accessory designed to improve your grip and maximise your training performance and results.</p><p><strong>Proteini.si Ultimate Grips</strong> have a durable rubber surface that provides a stable, secure grip. The unique rubber surface wraps around the bar and adapts to its shape, allowing a firm hold when lifting weights. The adjustable Velcro strap provides extra protection and comfort for the palms and wrists.</p>' AS nvarchar(max))
+WHERE Product_Id = 2331;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2331 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 26
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 650)) BEGIN PRINT 'length mismatch 2331'; SET @bad += 1; END;
+
+-- Product_Id: 2334 (BOLERO)
+UPDATE dbo.Products SET
+    NameEn = CAST(N'BOLERO' AS nvarchar(max)),
+    DescriptionEn = CAST(N'<ul><li><p>Instant flavoured fruit drink</p></li><li><p>Wide choice of flavours</p></li><li><p>With added vitamin C</p></li><li><p>Sugar, gluten and lactose free</p></li><li><p>1 sachet = 1.5 L of drink</p></li><li><p>ENERGY variant: 1 sachet = 500 ml of drink</p></li></ul><p>Refresh yourself from the inside with BOLERO CLASSIC. Enjoy the wide choice of flavours at any time of day.</p><p><strong>BOLERO CLASSIC:</strong></p><ul><li><p>With added vitamin C</p></li><li><p>Sugar, gluten and lactose free</p></li><li><p>No artificial colours or preservatives</p></li><li><p>1 sachet = 1.5 L of drink</p></li></ul><p><strong>BOLERO ENERGY:</strong></p><ul><li><p>With added caffeine and taurine for more energy</p></li><li><p>Sugar, gluten and lactose free</p></li><li><p>No artificial colours or preservatives</p></li><li><p>1 sachet = 500 ml of drink</p></li></ul><p><strong>DID YOU KNOW THAT BOLERO' AS nvarchar(max))
+        + N' DRINKS:</strong></p><ul><li><p>Contain no sugar</p></li><li><p>Are affordable and offer a wide choice of flavours</p></li><li><p>Can be made with sparkling water or ordinary tap water</p></li><li><p>Are low in calories</p></li><li><p>Let you adjust the amount of water yourself, depending on how intense you want the flavour</p></li><li><p>Are a tasty choice for anyone watching their diet</p></li><li><p>Are practically packed, so you can take them anywhere – to work, training or on holiday</p></li><li><p>Let you create endless flavour combinations by mixing two or more different flavours</p></li></ul>',
+    InstructionsForUseEn = CAST(N'Serving size: 1 sachet (9 g / 8 g).' AS nvarchar(max)),
+    InstructionsForUseDescriptionEn = CAST(N'STORAGE: Store in a dry place at a temperature of 15–25°C.' AS nvarchar(max)),
+    InstructionsOnHowToUseItEn = CAST(N'Dissolve 1 serving in 1.5 L of cold water (dissolve the ENERGY flavour in 250 ml of cold water). You can adjust the amount of water depending on the desired intensity of flavour.' AS nvarchar(max))
+WHERE Product_Id = 2334;
+IF EXISTS (SELECT 1 FROM dbo.Products WHERE Product_Id = 2334 AND (ISNULL(DATALENGTH(NameEn),0)/2 <> 6
+    OR ISNULL(DATALENGTH(DescriptionEn),0)/2 <> 1507
+    OR ISNULL(DATALENGTH(InstructionsForUseEn),0)/2 <> 35
+    OR ISNULL(DATALENGTH(InstructionsForUseDescriptionEn),0)/2 <> 58
+    OR ISNULL(DATALENGTH(InstructionsOnHowToUseItEn),0)/2 <> 178)) BEGIN PRINT 'length mismatch 2334'; SET @bad += 1; END;
+
+IF @bad > 0 BEGIN ROLLBACK TRANSACTION; THROW 50001, 'Length check failed; rolled back.', 1; END;
+COMMIT TRANSACTION;
+PRINT 'ok';
+GO

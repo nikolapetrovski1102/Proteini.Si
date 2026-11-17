@@ -43,6 +43,14 @@ CREATE OR ALTER PROCEDURE dbo.usp_Product_Create
     @InstructionsForUseAl NVARCHAR(MAX) = NULL,
     @InstructionsForUseDescriptionAl NVARCHAR(MAX) = NULL,
     @InstructionsOnHowToUseItAl NVARCHAR(MAX) = NULL,
+    @NameEn NVARCHAR(MAX) = NULL,
+    @DescriptionEn NVARCHAR(MAX) = NULL,
+    @NutritionValuesIngredientsEn NVARCHAR(MAX) = NULL,
+    @NutritionValuesIngredientsDescriptionEn NVARCHAR(MAX) = NULL,
+    @NutritionInformationEn NVARCHAR(MAX) = NULL,
+    @InstructionsForUseEn NVARCHAR(MAX) = NULL,
+    @InstructionsForUseDescriptionEn NVARCHAR(MAX) = NULL,
+    @InstructionsOnHowToUseItEn NVARCHAR(MAX) = NULL,
     @RecommendedForYou BIT,
     @ProductsInTheOutlet BIT,
     @JustForMe BIT,
@@ -73,6 +81,8 @@ BEGIN
          IsGiftVoucher, VoucherMinAmount, VoucherMaxAmount, NameAl, DescriptionAl,
          NutritionValuesIngredientsAl, NutritionValuesIngredientsDescriptionAl, NutritionInformationAl,
          InstructionsForUseAl, InstructionsForUseDescriptionAl, InstructionsOnHowToUseItAl,
+         NameEn, DescriptionEn, NutritionValuesIngredientsEn, NutritionValuesIngredientsDescriptionEn,
+         NutritionInformationEn, InstructionsForUseEn, InstructionsForUseDescriptionEn, InstructionsOnHowToUseItEn,
          RecommendedForYou, ProductsInTheOutlet, JustForMe,
          HasVariants, Variant_Display_Type, LoyaltyPercentage)
         VALUES
@@ -85,6 +95,8 @@ BEGIN
          @IsGiftVoucher, @VoucherMinAmount, @VoucherMaxAmount, @NameAl, @DescriptionAl,
          @NutritionValuesIngredientsAl, @NutritionValuesIngredientsDescriptionAl, @NutritionInformationAl,
          @InstructionsForUseAl, @InstructionsForUseDescriptionAl, @InstructionsOnHowToUseItAl,
+         @NameEn, @DescriptionEn, @NutritionValuesIngredientsEn, @NutritionValuesIngredientsDescriptionEn,
+         @NutritionInformationEn, @InstructionsForUseEn, @InstructionsForUseDescriptionEn, @InstructionsOnHowToUseItEn,
          @RecommendedForYou, @ProductsInTheOutlet, @JustForMe,
          @HasVariants, @Variant_Display_Type, @LoyaltyPercentage);
 

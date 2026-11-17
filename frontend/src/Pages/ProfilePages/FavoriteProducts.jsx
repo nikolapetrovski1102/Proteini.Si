@@ -110,7 +110,7 @@ export default function FavoriteProducts() {
                 </div>
                 <div className="flex flex-1 flex-col p-3.5 sm:p-4">
                   <p className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900">{fav.productName}</p>
-                  <p className="mt-auto pt-2 text-[15px] font-bold tabular-nums text-gray-900">
+                  <p className="mt-auto pt-2 text-[17px] font-bold tabular-nums sm:text-lg text-gray-900">
                     <Price value={fav.productPrice} />
                   </p>
                 </div>

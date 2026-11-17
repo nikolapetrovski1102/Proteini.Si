@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #141409;
+  --yellow: #fdc700;
+  --paper: #f6f5f1;
+  --line: #e7e4da;
+  --muted: #6b6b63;
+}
+
+body {
+  margin: 0;
+}
+
+.scroll-x {
+  scrollbar-width: thin;
+}

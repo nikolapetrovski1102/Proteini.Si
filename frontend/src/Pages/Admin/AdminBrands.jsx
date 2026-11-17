@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FiEdit2, FiImage, FiPlus, FiStar, FiTag, FiTrash2 } from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight, FiEdit2, FiImage, FiPlus, FiStar, FiTag, FiTrash2 } from "react-icons/fi";
 import { api } from "../../services/api";
 import {
   AdminPage,
@@ -19,6 +19,7 @@ import {
 import { useConfirm, useToast } from "./adminFeedback";
 
 const HEADER_SLOTS = 4;
+const ORDINALS = ["First", "Second", "Third", "Fourth"];
 const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
 const MAX_BYTES = 8 * 1024 * 1024;
 
@@ -186,6 +187,37 @@ export default function AdminBrands() {
     }
   };
 
+  // Moves a header brand one place left (-1) or right (+1). The four brands swap their existing positions, so the
+  // order of every other brand stays as it was.
+  const moveFeatured = async (index, direction) => {
+    const target = index + direction;
+    if (target < 0 || target >= featured.length) return;
+    const reordered = [...featured];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    let positions = featured.map((b) => Number(b.display_Order) || 0).sort((a, b) => a - b);
+    if (new Set(positions).size !== positions.length) positions = positions.map((_, i) => positions[0] + i);
+    const changes = reordered
+      .map((brand, i) => ({ brand, displayOrder: positions[i] }))
+      .filter(({ brand, displayOrder }) => Number(brand.display_Order) !== displayOrder);
+    setBusyId("order");
+    try {
+      for (const { brand, displayOrder } of changes) {
+        await api.updateAdminBrand(brand.brand_Id, {
+          name: brand.brand_Name,
+          slug: brand.brand_Slug,
+          isFeatured: true,
+          displayOrder,
+        });
+      }
+      toast.success("Header order saved.");
+    } catch (orderError) {
+      toast.error(orderError.message);
+    } finally {
+      setBusyId(null);
+      await load();
+    }
+  };
+
   const remove = async (brand) => {
     if (brand.product_Count > 0) {
       toast.error(`${brand.brand_Name} is used by ${productsLabel(brand.product_Count)}. Move them to another brand first.`);
@@ -238,7 +270,7 @@ export default function AdminBrands() {
 
       <Card
         title="In the header"
-        description="These 4 brands appear with their photo on the left of the Brands menu, in this order (lowest position first). The picture is shown whole, exactly as uploaded, on white. Best size: 800 × 600 px, landscape."
+        description="These 4 brands appear with their photo on the left of the Brands menu, in this order. Use the arrows to change who is first, second, third and last. The picture is shown whole, exactly as uploaded, on white. Best size: 800 × 600 px, landscape."
       >
         {loading ? (
           <Loading label="Loading brands…" />
@@ -246,11 +278,11 @@ export default function AdminBrands() {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {slots.map((brand, index) =>
               brand ? (
+                <div key={brand.brand_Id} className="overflow-hidden rounded-xl bg-white ring-1 ring-black/[0.08]">
                 <button
-                  key={brand.brand_Id}
                   type="button"
                   onClick={() => edit(brand)}
-                  className="group block overflow-hidden rounded-xl bg-white text-left ring-1 ring-black/[0.08] transition hover:ring-black/20 active:scale-[0.98]"
+                  className="group block w-full text-left transition hover:bg-black/[0.02] active:scale-[0.98]"
                 >
                   <span className="relative block aspect-[4/3] overflow-hidden bg-white">
                     {brand.header_Image_Url ? (
@@ -264,9 +296,25 @@ export default function AdminBrands() {
                   </span>
                   <span className="block border-t border-black/[0.06] px-3 py-2">
                     <span className="block truncate text-sm font-bold text-gray-900">{brand.brand_Name}</span>
-                    <span className="block text-[11px] text-gray-500">Position {brand.display_Order} · Click to edit</span>
+                    <span className="block text-[11px] text-gray-500">{ORDINALS[index]} · Click to edit</span>
                   </span>
                 </button>
+                <div className="flex items-center justify-between border-t border-black/[0.06] px-1.5 py-1">
+                  <IconButton
+                    icon={FiChevronLeft}
+                    label={`Move ${brand.brand_Name} earlier`}
+                    disabled={index === 0 || busyId !== null}
+                    onClick={() => moveFeatured(index, -1)}
+                  />
+                  <span className="text-[12px] font-bold tabular-nums text-gray-700">{index + 1} / {featured.length}</span>
+                  <IconButton
+                    icon={FiChevronRight}
+                    label={`Move ${brand.brand_Name} later`}
+                    disabled={index >= featured.length - 1 || busyId !== null}
+                    onClick={() => moveFeatured(index, 1)}
+                  />
+                </div>
+                </div>
               ) : (
                 <div
                   key={`empty-${index}`}

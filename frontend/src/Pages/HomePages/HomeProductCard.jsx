@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { FiHeart, FiShoppingBag } from "react-icons/fi";
 import { FaHeart } from "react-icons/fa";
-import { formatSaleEndDate, isSaleActive } from "../../utils/salePricing";
+import { discountPercent, formatSaleEndDate, isSaleActive } from "../../utils/salePricing";
 import { Starburst } from "./sections/Decor";
 import { BoxIcon } from "../Components/ShopIcons";
 import { referralPrice, useReferralOffer } from "../../utils/referralOffer";
@@ -57,10 +57,13 @@ export default function HomeProductCard({
   });
   const finalPrice = codePrice ?? (hasSale ? salePrice : regularPrice);
   const hasDiscount = finalPrice > 0 && finalPrice < regularPrice;
-  const discount = hasDiscount ? Math.round(((regularPrice - finalPrice) / regularPrice) * 100) : 0;
-  const saleEndDate = showSaleEnd && saleActive ? formatSaleEndDate(product, saleEndLocale) : null;
+  const discount = hasDiscount ? discountPercent(regularPrice, finalPrice) : 0;
+  const saleEndDate = showSaleEnd && hasSale ? formatSaleEndDate(product, saleEndLocale) : null;
   const href = productHref(product);
-  const name = language === "al" && product.nameAl ? product.nameAl : product.name;
+  const name =
+    (language === "al" && product.nameAl) ||
+    (language === "en" && product.nameEn) ||
+    product.name;
   const soldOut = showStock && isSoldOut(product);
 
   // Same tub listed once per weight: show the weight under the name so the cards can be told apart.
@@ -207,11 +210,11 @@ export default function HomeProductCard({
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
             {hasDiscount ? (
               <>
-                <span className="whitespace-nowrap text-[15px] font-extrabold leading-tight text-[#E3262F] sm:text-lg"><Price value={finalPrice} /></span>
-                <span className="whitespace-nowrap text-[11px] text-gray-400 line-through sm:text-xs"><Price value={regularPrice} /></span>
+                <span className="whitespace-nowrap text-[17px] font-extrabold leading-tight text-[#E3262F] sm:text-xl"><Price value={finalPrice} /></span>
+                <span className="whitespace-nowrap text-xs text-gray-400 line-through sm:text-sm"><Price value={regularPrice} /></span>
               </>
             ) : (
-              <span className="whitespace-nowrap text-[15px] font-extrabold leading-tight text-gray-900 sm:text-lg"><Price value={regularPrice} /></span>
+              <span className="whitespace-nowrap text-[17px] font-extrabold leading-tight text-gray-900 sm:text-xl"><Price value={regularPrice} /></span>
             )}
             {codeLine}
           </div>
@@ -247,11 +250,11 @@ export default function HomeProductCard({
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
             {hasDiscount ? (
               <>
-                <span className="whitespace-nowrap text-[15px] font-extrabold leading-tight text-[#E3262F] sm:text-lg"><Price value={finalPrice} /></span>
-                <span className="whitespace-nowrap text-[11px] text-gray-400 line-through sm:text-xs"><Price value={regularPrice} /></span>
+                <span className="whitespace-nowrap text-[17px] font-extrabold leading-tight text-[#E3262F] sm:text-xl"><Price value={finalPrice} /></span>
+                <span className="whitespace-nowrap text-xs text-gray-400 line-through sm:text-sm"><Price value={regularPrice} /></span>
               </>
             ) : (
-              <span className="whitespace-nowrap text-[15px] font-extrabold leading-tight text-gray-900 sm:text-lg"><Price value={regularPrice} /></span>
+              <span className="whitespace-nowrap text-[17px] font-extrabold leading-tight text-gray-900 sm:text-xl"><Price value={regularPrice} /></span>
             )}
             {codeLine}
           </div>

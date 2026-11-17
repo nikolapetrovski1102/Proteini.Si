@@ -8,6 +8,7 @@ import { CountryFlag } from "./AddressFields";
 const SHOP_LANGUAGES = [
   { code: "mk", iso2: "MK", countryKey: "macedonia", languageKey: "languageMacedonian" },
   { code: "al", iso2: "AL", countryKey: "albania", languageKey: "languageAlbanian" },
+  { code: "en", iso2: "GB", countryKey: "unitedKingdom", languageKey: "languageEnglish" },
 ];
 
 // Sister Proteini shops; picking one leaves for that shop's site.

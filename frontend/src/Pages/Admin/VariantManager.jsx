@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { FiArrowLeft, FiCopy, FiEdit2, FiImage, FiLayers, FiPlus, FiStar, FiTrash2 } from "react-icons/fi";
 import { api } from "../../services/api";
 import {
@@ -399,12 +399,20 @@ const emptyVariantForm = {
   sku: "",
   isDefault: false,
   ingredients: "",
+  ingredientsAl: "",
+  ingredientsEn: "",
   description: "",
   variant_Image_Path: "",
   loyaltyPercentage: "",
 };
 
-export default function VariantManager({ productId, productName, onVariantsChange }) {
+/**
+ * Variant list + editor. The parent hosts the Save/Cancel buttons (the product modal's sticky footer) through the ref:
+ *  ref.save()          – validate and save the open variant
+ *  ref.requestClose()  – close the editor, asking first if there are unsaved changes; resolves true when closed
+ * onEditorChange({ open, dirty, saving, isNew }) reports the editor state so the parent can swap its footer.
+ */
+const VariantManager = forwardRef(function VariantManager({ productId, productName, onVariantsChange, onEditorChange }, ref) {
   const toast = useToast();
   const confirm = useConfirm();
   const [variants, setVariants] = useState([]);
@@ -419,6 +427,9 @@ export default function VariantManager({ productId, productName, onVariantsChang
   const [formData, setFormData] = useState(emptyVariantForm);
   const [showErrors, setShowErrors] = useState(false);
   const errors = showErrors ? validateVariant(formData) : {};
+  const savedSnapshot = useRef(JSON.stringify(emptyVariantForm));
+  const closePromptOpen = useRef(false);
+  const isDirty = showForm && (Boolean(imageFile) || JSON.stringify(formData) !== savedSnapshot.current);
 
   const getPackagingWeightValue = (packaging) => {
     const weight = packaging?.weight_Grams ?? packaging?.Weight_Grams ?? packaging?.weight_grams;
@@ -514,19 +525,44 @@ export default function VariantManager({ productId, productName, onVariantsChang
     setImageFile(null);
   };
 
-  const startNew = () => {
+  const openForm = (variant, nextForm) => {
+    savedSnapshot.current = JSON.stringify(nextForm);
     setShowErrors(false);
-    setEditingVariant(null);
-    setFormData({ ...emptyVariantForm, ddv_Percentage: productVat, isDefault: variants.length === 0 });
+    setEditingVariant(variant);
+    setFormData(nextForm);
+  };
+
+  /** Close the editor; if something was changed, ask first. Resolves true when the editor closed. */
+  const requestClose = async () => {
+    if (!showForm) return true;
+    if (closePromptOpen.current) return false;
+    if (isDirty) {
+      closePromptOpen.current = true;
+      const discard = await confirm({
+        title: "Discard unsaved variant changes?",
+        message: "You changed this variant but didn't save. Leaving now throws those changes away.",
+        confirmLabel: "Discard changes",
+        cancelLabel: "Keep editing",
+        tone: "danger",
+      });
+      setTimeout(() => {
+        closePromptOpen.current = false;
+      }, 0);
+      if (!discard) return false;
+    }
+    closeForm();
+    return true;
+  };
+
+  const startNew = () => {
+    openForm(null, { ...emptyVariantForm, ddv_Percentage: productVat, isDefault: variants.length === 0 });
     setImagePreview(null);
     setImageFile(null);
     setShowForm(true);
   };
 
   const openEdit = (variant) => {
-    setShowErrors(false);
-    setEditingVariant(variant);
-    setFormData({
+    openForm(variant, {
       option_Type: variant.option_Type === "color" ? "color" : "flavor",
       flavor_Name: variant.flavor_Name || "",
       packaging_Id: variant.packaging_Id || variant.Packaging_Id || "",
@@ -540,6 +576,8 @@ export default function VariantManager({ productId, productName, onVariantsChang
       sku: variant.sku || "",
       isDefault: variant.isDefault || false,
       ingredients: variant.ingredients || "",
+      ingredientsAl: variant.ingredientsAl || "",
+      ingredientsEn: variant.ingredientsEn || "",
       description: variant.description || "",
       variant_Image_Path: variant.variant_Image_Path || "",
       loyaltyPercentage: variant.loyaltyPercentage || variant.LoyaltyPercentage || "",
@@ -564,6 +602,8 @@ export default function VariantManager({ productId, productName, onVariantsChang
       sku: formData.sku || null,
       isDefault: formData.isDefault,
       ingredients: formData.ingredients || null,
+      ingredientsAl: formData.ingredientsAl || null,
+      ingredientsEn: formData.ingredientsEn || null,
       description: formData.description || null,
       variant_Image_Path: imagePath,
       loyaltyPercentage: formData.loyaltyPercentage ? parseFloat(formData.loyaltyPercentage) : null,
@@ -571,6 +611,7 @@ export default function VariantManager({ productId, productName, onVariantsChang
   };
 
   const handleSave = async () => {
+    if (saving) return;
     const found = validateVariant(formData);
     if (Object.keys(found).length > 0) {
       setShowErrors(true);
@@ -646,6 +687,17 @@ export default function VariantManager({ productId, productName, onVariantsChang
     }
   };
 
+  useImperativeHandle(ref, () => ({ save: handleSave, requestClose }));
+
+  // Tell the parent what the editor is doing so it can show the right footer buttons.
+  const onEditorChangeRef = useRef(onEditorChange);
+  onEditorChangeRef.current = onEditorChange;
+  const isNew = !editingVariant;
+  useEffect(() => {
+    onEditorChangeRef.current?.({ open: showForm, dirty: isDirty, saving, isNew });
+  }, [showForm, isDirty, saving, isNew]);
+  useEffect(() => () => onEditorChangeRef.current?.({ open: false, dirty: false, saving: false, isNew: false }), []);
+
   if (loading) return <Loading label="Loading variants…" />;
 
   /* --------------------------------------------------------- form view */
@@ -654,11 +706,12 @@ export default function VariantManager({ productId, productName, onVariantsChang
     return (
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <button type="button" onClick={closeForm} className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900">
+          <button type="button" onClick={requestClose} className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900">
             <FiArrowLeft size={15} aria-hidden="true" /> All variants
           </button>
           <p className="font-display text-lg font-bold uppercase tracking-tight text-gray-900">
             {editingVariant ? "Edit variant" : "New variant"}
+            {isDirty && <span className="ml-2 align-middle font-sans text-xs font-semibold normal-case tracking-normal text-[#b3191f]">Unsaved</span>}
           </p>
         </div>
 
@@ -780,6 +833,12 @@ export default function VariantManager({ productId, productName, onVariantsChang
                 <Field label="Ingredients">
                   <textarea name="ingredients" rows={3} value={formData.ingredients} onChange={handleInputChange} className={textareaClass} />
                 </Field>
+                <Field label="Ingredients (Albanian)" hint="Shown when the shop is in Albanian. Empty shows the Macedonian text.">
+                  <textarea name="ingredientsAl" rows={3} value={formData.ingredientsAl} onChange={handleInputChange} className={textareaClass} lang="sq" />
+                </Field>
+                <Field label="Ingredients (English)" hint="Shown when the shop is in English. Empty shows the Macedonian text.">
+                  <textarea name="ingredientsEn" rows={3} value={formData.ingredientsEn} onChange={handleInputChange} className={textareaClass} lang="en" />
+                </Field>
                 <Field label="Description" hint="Optional. Extra text for this variant only.">
                   <textarea name="description" rows={3} value={formData.description} onChange={handleInputChange} className={textareaClass} />
                 </Field>
@@ -820,14 +879,6 @@ export default function VariantManager({ productId, productName, onVariantsChang
           </div>
         </div>
 
-        <div className="flex flex-wrap justify-end gap-2 border-t border-black/[0.06] pt-4">
-          <Button variant="secondary" onClick={closeForm}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} loading={saving}>
-            {editingVariant ? "Save variant" : "Add variant"}
-          </Button>
-        </div>
       </div>
     );
   }
@@ -931,4 +982,6 @@ export default function VariantManager({ productId, productName, onVariantsChang
       )}
     </div>
   );
-}
+});
+
+export default VariantManager;

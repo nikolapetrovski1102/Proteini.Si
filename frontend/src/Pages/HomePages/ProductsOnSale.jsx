@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../translation/LanguageContext";
 import { useQuickPurchase } from "../Hooks/useQuickPurchase";
 import { LargeLoader } from "../Components/Loaders/LargeLoader";
-import { isSaleActive } from "../../utils/salePricing";
+import { discountPercent, isSaleActive, onePerProduct } from "../../utils/salePricing";
 import HomeProductCard from "./HomeProductCard";
 import HomeProductRail from "./HomeProductRail";
 import Reveal from "./sections/Reveal";
@@ -31,11 +31,16 @@ export default function ProductsOnSale({ mode = "sale" }) {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const data = await api.getProducts();
-      const filteredProducts = data.filter((product) =>
-        mode === "upcoming"
-          ? product.upcomingPromotion === true
-          : isSaleActive(product),
+      // Same source as the shop's "show all" page: one row per packaging with that packaging's own sale price
+      // (discounts set per variant only live on the variant, not on the plain product row). One card per product.
+      const data = await api.getFilteredProducts({
+        [mode === "upcoming" ? "upcomingPromotions" : "onSale"]: true,
+        sortBy: "createdAt",
+        sortOrder: "DESC",
+        pageSize: 200,
+      });
+      const filteredProducts = onePerProduct(data.products).filter(
+        (product) => mode === "upcoming" || isSaleActive(product),
       );
       setProducts(filteredProducts);
       setError(null);
@@ -135,7 +140,7 @@ export default function ProductsOnSale({ mode = "sale" }) {
     : products.reduce((max, product) => {
         const regular = Number(product.price) || 0;
         const sale = Number(product.compare_Price) || 0;
-        return sale > 0 && sale < regular ? Math.max(max, Math.round(((regular - sale) / regular) * 100)) : max;
+        return Math.max(max, discountPercent(regular, sale));
       }, 0);
 
   return (

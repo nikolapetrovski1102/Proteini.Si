@@ -21,6 +21,8 @@ CREATE OR ALTER PROCEDURE dbo.usp_ProductVariants_Create
     @OptionType NVARCHAR(MAX),
     @VariantImagePath NVARCHAR(MAX),
     @Ingredients NVARCHAR(MAX),
+    @IngredientsAl NVARCHAR(MAX) = NULL,
+    @IngredientsEn NVARCHAR(MAX) = NULL,
     @NutritionInfo NVARCHAR(MAX),
     @Description NVARCHAR(MAX),
     @DisplayOrder INT,
@@ -51,13 +53,13 @@ BEGIN
         INSERT INTO dbo.ProductVariants (
             Product_Id, SKU, Flavor_Id, Flavor_Name, Packaging_Id, Packaging_Name,
             Price, DDV_Percentage, Compare_Price,
-            Quantity, Low_Stock_Threshold, Variant_Name, Option_Type, Variant_Image_Path, Ingredients,
+            Quantity, Low_Stock_Threshold, Variant_Name, Option_Type, Variant_Image_Path, Ingredients, IngredientsAl, IngredientsEn,
             Nutrition_Info, Description, Display_Order, IsActive, IsDefault,
             LoyaltyPercentage, Created_At, Updated_At
         ) VALUES (
             @ProductId, @SKU, @FlavorId, @FlavorName, @ResolvedPackagingId, @PackagingName,
             @Price, @DDVPercentage, @ComparePrice,
-            @Quantity, @LowStockThreshold, @VariantName, @OptionType, @VariantImagePath, @Ingredients,
+            @Quantity, @LowStockThreshold, @VariantName, @OptionType, @VariantImagePath, @Ingredients, @IngredientsAl, @IngredientsEn,
             @NutritionInfo, @Description, @DisplayOrder, 1, @IsDefault,
             @LoyaltyPercentage, GETDATE(), GETDATE()
         );
@@ -68,6 +70,8 @@ BEGIN
             UPDATE dbo.Products SET Default_Variant_Id = @VariantId WHERE Product_Id = @ProductId;
 
         UPDATE dbo.Products SET HasVariants = 1 WHERE Product_Id = @ProductId;
+
+        EXEC dbo.usp_Product_SyncPriceFromVariants @ProductId = @ProductId;
 
     COMMIT TRANSACTION;
 

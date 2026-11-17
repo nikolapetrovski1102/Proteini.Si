@@ -58,6 +58,9 @@ public class CreateOrderDto
     public bool? MarketingConsent { get; set; }
     /// <summary>When the guest made that choice in the banner (ISO time).</summary>
     public DateTime? MarketingConsentGivenAt { get; set; }
+
+    /// <summary>Cloudflare Turnstile token from the checkout page (single use).</summary>
+    public string? TurnstileToken { get; set; }
 }
 
 public class GuestCheckoutCodeRequestDto
@@ -67,6 +70,9 @@ public class GuestCheckoutCodeRequestDto
     public string? Language { get; set; }
     /// <summary>The visitor's cookie-banner "Marketing" choice (true = may receive offers by email).</summary>
     public bool? MarketingConsent { get; set; }
+
+    /// <summary>Cloudflare Turnstile token from the checkout page (single use).</summary>
+    public string? TurnstileToken { get; set; }
 }
 
 public class GuestCheckoutCodeConfirmDto

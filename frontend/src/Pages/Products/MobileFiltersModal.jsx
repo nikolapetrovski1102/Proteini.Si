@@ -53,7 +53,10 @@ export default function MobileFiltersModal({
   useEffect(() => {
     if (isOpen) {
       setTempFilters({ ...selectedFilters });
-      updateProductCount({ ...selectedFilters });
+      // The applied filters' count is already on the page; no request needed.
+      countRequest.current += 1;
+      setUpdatingCount(false);
+      setTempProductCount(totalProducts);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, selectedFilters]);

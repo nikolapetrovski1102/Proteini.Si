@@ -48,6 +48,14 @@ public class Product
     public string? InstructionsForUseAl { get; set; }
     public string? InstructionsForUseDescriptionAl { get; set; }
     public string? InstructionsOnHowToUseItAl { get; set; }
+    public string? NameEn { get; set; }
+    public string? DescriptionEn { get; set; }
+    public string? NutritionValuesIngredientsEn { get; set; }
+    public string? NutritionValuesIngredientsDescriptionEn { get; set; }
+    public string? NutritionInformationEn { get; set; }
+    public string? InstructionsForUseEn { get; set; }
+    public string? InstructionsForUseDescriptionEn { get; set; }
+    public string? InstructionsOnHowToUseItEn { get; set; }
     public bool RecommendedForYou { get; set; }
     public bool ProductsInTheOutlet { get; set; }
     public bool JustForMe { get; set; }

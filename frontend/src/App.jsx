@@ -70,6 +70,8 @@ import AdminDeliveryLocations from "./Pages/Admin/AdminDeliveryLocations";
 import AdminTips from "./Pages/Admin/AdminTips";
 import AdminCategories from "./Pages/Admin/AdminCategories";
 import AdminBrands from "./Pages/Admin/AdminBrands";
+import AdminNutritionLabels from "./Pages/Admin/AdminNutritionLabels";
+import AdminMetaCatalog from "./Pages/Admin/AdminMetaCatalog";
 import AdminDiscounts from "./Pages/Admin/AdminDiscounts";
 import AdminProductPlacements from "./Pages/Admin/AdminProductPlacements";
 import AdminHomepageSections from "./Pages/Admin/AdminHomepageSections";
@@ -246,11 +248,13 @@ function AppContent() {
           <Route path="/admin-orders" element={<AdminOrders />} />
           <Route path="/admin-categories" element={<AdminCategories />} />
           <Route path="/admin-brands" element={<AdminBrands />} />
+          <Route path="/admin-nutrition-labels" element={<AdminNutritionLabels />} />
           <Route path="/admin-discounts" element={<AdminDiscounts />} />
           <Route path="/admin-product-placements" element={<AdminProductPlacements />} />
           <Route path="/admin-promotions" element={<AdminPromotions />} />
           <Route path="/admin-affiliates" element={<AdminAffiliates />} />
           <Route path="/admin-audience" element={<AdminAudience />} />
+          <Route path="/admin-meta-catalog" element={<AdminMetaCatalog />} />
           <Route path="/admin-marketing-emails" element={<AdminMarketingEmails />} />
           <Route path="/admin-gallery" element={<AdminGallery />} />
           <Route path="/admin-homepage-sections" element={<AdminHomepageSections />} />

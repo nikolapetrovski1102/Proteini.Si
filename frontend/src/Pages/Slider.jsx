@@ -5,18 +5,60 @@ import { useNavigate } from "react-router-dom";
 
 const SLIDE_MS = 8000;
 
+// ---- Banner list cache --------------------------------------------------------------------
+// The list used to be fetched on every visit to the home page, with a loader in place of the
+// hero until it arrived, and only then could the images start. Now the last list (and each
+// banner's shape) is kept in localStorage: the hero renders at once from it, with the images
+// straight from the browser cache, while a fresh list is fetched in the background.
+const CACHE_KEY = "home-sliders-v1";
+
+const readCache = () => {
+  try {
+    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+    return cached && Array.isArray(cached.sliders) ? cached : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeCache = (value) => {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(value));
+  } catch {
+    // storage full or blocked: the hero still works, just without the head start
+  }
+};
+
+// One request per page load, started as soon as this module loads (in parallel with the
+// app booting) and shared by every mount of the hero.
+let listPromise = null;
+const loadSliders = () => {
+  if (!listPromise) {
+    listPromise = api.getHomeSliders().then((data) => {
+      if (!Array.isArray(data)) throw new Error("Invalid data format from API");
+      return data.filter((slider) => slider.isActive === true);
+    });
+    listPromise.catch(() => {
+      listPromise = null; // let the next visit try again
+    });
+  }
+  return listPromise;
+};
+if (typeof window !== "undefined" && window.location.pathname === "/") loadSliders();
+
 // Full-screen hero carousel for the home page.
 export default function Slider() {
   const navigate = useNavigate();
-  const [sliders, setSliders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [cached] = useState(readCache);
+  const [sliders, setSliders] = useState(() => cached?.sliders || []);
+  const [loading, setLoading] = useState(() => !cached?.sliders?.length);
   const [error, setError] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const touchStartX = useRef(null);
   const sectionRef = useRef(null);
-  const [ratios, setRatios] = useState({}); // natural width/height per slide image
+  const [ratios, setRatios] = useState(() => cached?.ratios || {}); // natural width/height per slide image
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -26,19 +68,19 @@ export default function Slider() {
 
   useEffect(() => {
     let cancelled = false;
-    api
-      .getHomeSliders()
-      .then((data) => {
+    const hadCache = Boolean(cached?.sliders?.length);
+    loadSliders()
+      .then((fresh) => {
         if (cancelled) return;
-        if (!Array.isArray(data)) {
-          setError("Invalid data format from API");
-          return;
-        }
-        setSliders(data.filter((slider) => slider.isActive === true));
+        // Same list as the cached one: keep the current state so nothing re-renders or jumps.
+        setSliders((current) =>
+          JSON.stringify(current) === JSON.stringify(fresh) ? current : fresh,
+        );
       })
       .catch((err) => {
         console.error("Failed to fetch sliders:", err);
-        if (!cancelled) setError(err.message);
+        // A cached list stays on screen; only without one is the hero hidden.
+        if (!cancelled && !hadCache) setError(err.message);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -46,9 +88,14 @@ export default function Slider() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  },[cached]); // cached never changes after mount
 
   const count = sliders.length;
+
+  // Remember the list and the banner shapes for the next visit.
+  useEffect(() => {
+    if (count) writeCache({ sliders, ratios });
+  }, [sliders, ratios, count]);
 
   const goTo = useCallback(
     (index) => {
@@ -169,6 +216,11 @@ export default function Slider() {
       {sliders.map((slider, i) => {
         const active = i === currentIndex;
         const backdrop = needsBackdrop(slider);
+        // Only the slide on screen and its neighbours load their images (hidden slides used to all
+        // download at once and slow down the banner actually shown). Slide 0 always renders so the
+        // hero never starts empty; slides seen before come back from the browser cache.
+        const distance = Math.min(Math.abs(i - currentIndex), count - Math.abs(i - currentIndex));
+        const load = i === 0 || distance <= 1;
         return (
           <div
             key={slider.id}
@@ -178,7 +230,7 @@ export default function Slider() {
             onClick={() => handleSlideClick(slider)}
             aria-hidden={!active}
           >
-            {backdrop && (
+            {load && backdrop && (
               <img
                 src={getImageUrl(slider)}
                 alt=""
@@ -186,11 +238,10 @@ export default function Slider() {
                 className="absolute inset-0 h-full w-full scale-125 object-cover opacity-60 blur-2xl"
               />
             )}
-            <img
+            {load && <img
               src={getImageUrl(slider)}
               alt={slider.title || `slide-${i + 1}`}
-              loading={i === 0 ? "eager" : "lazy"}
-              fetchPriority={i === 0 ? "high" : undefined}
+              fetchPriority={i === 0 ? "high" : "low"}
               onLoad={(e) => {
                 const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
                 if (w && h && ratios[slider.id] !== w / h) {
@@ -198,7 +249,7 @@ export default function Slider() {
                 }
               }}
               className={`relative h-full w-full ${trimMobile && !backdrop ? "object-cover object-top" : "object-contain"}`}
-            />
+            />}
           </div>
         );
       })}

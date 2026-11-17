@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ProteiniSi.Contracts.Services;
 using ProteiniSi.Services.ExternalAuth;
 using ProteiniSi.Services.Instagram;
+using ProteiniSi.Services.MetaAds;
 
 namespace ProteiniSi.Services;
 
@@ -13,12 +14,17 @@ public static class ServiceRegistration
         services.AddSingleton<ICdnCacheService, CloudflareCacheService>();
         services.AddHttpClient(GoogleIdentityVerifier.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10));
         services.AddSingleton<IExternalIdentityVerifier, GoogleIdentityVerifier>();
+        services.AddHttpClient(TurnstileVerifier.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10));
+        services.AddSingleton<ITurnstileVerifier, TurnstileVerifier>();
         services.AddSingleton<IImageStorageService, ImageStorageService>();
         services.AddHttpClient(InstagramFeedSyncService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30));
         services.AddSingleton<InstagramTokenStore>();
         services.AddSingleton<IInstagramFeedSyncService, InstagramFeedSyncService>();
         services.AddHostedService<InstagramSyncWorker>();
         services.AddHostedService<DiscountSyncWorker>();
+        services.AddHttpClient(MetaAdsService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(60));
+        services.AddScoped<IMetaAdsAuthService, MetaAdsAuthService>();
+        services.AddScoped<IMetaAdsService, MetaAdsService>();
 
         services.AddScoped<IBranchLocationService, BranchLocationService>();
         services.AddScoped<ITipArticleService, TipArticleService>();

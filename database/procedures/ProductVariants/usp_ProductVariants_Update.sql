@@ -21,6 +21,8 @@ CREATE OR ALTER PROCEDURE dbo.usp_ProductVariants_Update
     @OptionType NVARCHAR(MAX),
     @VariantImagePath NVARCHAR(MAX),
     @Ingredients NVARCHAR(MAX),
+    @IngredientsAl NVARCHAR(MAX) = NULL,
+    @IngredientsEn NVARCHAR(MAX) = NULL,
     @NutritionInfo NVARCHAR(MAX),
     @Description NVARCHAR(MAX),
     @DisplayOrder INT,
@@ -57,6 +59,8 @@ BEGIN
             Option_Type = @OptionType,
             Variant_Image_Path = @VariantImagePath,
             Ingredients = @Ingredients,
+            IngredientsAl = @IngredientsAl,
+            IngredientsEn = @IngredientsEn,
             Nutrition_Info = @NutritionInfo,
             Description = @Description,
             Display_Order = @DisplayOrder,
@@ -67,14 +71,16 @@ BEGIN
         WHERE Variant_Id = @VariantId;
 
         DECLARE @Affected INT = @@ROWCOUNT;
+        DECLARE @ProductId INT = (SELECT Product_Id FROM dbo.ProductVariants WHERE Variant_Id = @VariantId);
 
         IF @Affected > 0 AND @IsDefault = 1
         BEGIN
-            DECLARE @ProductId INT = (SELECT Product_Id FROM dbo.ProductVariants WHERE Variant_Id = @VariantId);
-
             UPDATE dbo.ProductVariants SET IsDefault = 0 WHERE Product_Id = @ProductId AND Variant_Id != @VariantId;
             UPDATE dbo.Products SET Default_Variant_Id = @VariantId WHERE Product_Id = @ProductId;
         END
+
+        IF @Affected > 0
+            EXEC dbo.usp_Product_SyncPriceFromVariants @ProductId = @ProductId;
 
     COMMIT TRANSACTION;
 

@@ -9,7 +9,7 @@ import { useTips } from "./tips/useTips";
 import { findBuiltInTip, getTipImageUrl, localizeTip } from "./tips/tipsData";
 import Scribble from "./Components/Scribble";
 
-const dateLocale = (language) => (language === "al" ? "sq-AL" : "mk-MK");
+const dateLocale = (language) => (language === "al" ? "sq-AL" : language === "en" ? "en-GB" : "mk-MK");
 
 function ArticleSkeleton() {
   return (

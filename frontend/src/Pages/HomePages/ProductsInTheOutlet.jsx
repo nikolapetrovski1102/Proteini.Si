@@ -3,6 +3,7 @@ import { IoIosStarOutline } from "react-icons/io";
 import { FiHeart } from "react-icons/fi";
 import { FaHeart } from "react-icons/fa";
 import { api } from "../../services/api";
+import { onePerProduct } from "../../utils/salePricing";
 import { Link, useNavigate } from "react-router-dom";
 import { useLanguage } from "../translation/LanguageContext";
 import { useQuickPurchase } from "../Hooks/useQuickPurchase";
@@ -29,10 +30,9 @@ export default function ProductsInTheOutlet() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const data = await api.getProducts();
-      const filteredProducts = data.filter(
-        (product) => product.productsInTheOutlet === true,
-      );
+      // Shop filter rows carry each packaging's own sale price; one card per product.
+      const data = await api.getFilteredProducts({ outlet: true, sortBy: "createdAt", sortOrder: "DESC", pageSize: 200 });
+      const filteredProducts = onePerProduct(data.products);
       setProducts(filteredProducts);
       setError(null);
 

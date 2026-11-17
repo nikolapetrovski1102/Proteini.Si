@@ -48,6 +48,10 @@ export default function ProductsPage() {
   const isAuthenticated = api.isAuthenticated();
 
   const latestRequestId = useRef(0);
+  // Parameters of the last list request, so effects that fire together on load
+  // (path, filter options, URL filters, sort) don't send the same query 4-5 times.
+  const lastListKey = useRef(null);
+  const [optionsLoaded, setOptionsLoaded] = useState(false);
 
 
 
@@ -153,17 +157,13 @@ export default function ProductsPage() {
     };
   }, [filterOptions.categories, location.pathname, location.search, navigate]);
 
-  const fetchProducts = async (filters = {}, page = 1, isLoadMore = false) => {
-    const requestId = ++latestRequestId.current;
+  const fetchProducts = async (filters = {}, page = 1, isLoadMore = false, force = false) => {
+    // Category paths need the category list to build the right query; firing
+    // before it arrives only produces a wrong, immediately superseded request.
+    if (!optionsLoaded) return;
 
-    if (isLoadMore) {
-      setLoadMoreLoading(true);
-      isLoadingMoreRef.current = true;
-    } else {
-      setLoading(true);
-      isLoadingMoreRef.current = false;
-    }
-
+    let requestId;
+    let listKey;
     try {
       const pathInfo = getFiltersFromPath();
       let combinedFilters = { ...filters };
@@ -212,6 +212,20 @@ export default function ProductsPage() {
         searchTerm:
           filters.searchTerm || combinedFilters.searchTerm || null,
       };
+
+      listKey = JSON.stringify(filterParams);
+      if (!isLoadMore && !force && listKey === lastListKey.current) return;
+      lastListKey.current = listKey;
+
+      requestId = ++latestRequestId.current;
+      if (isLoadMore) {
+        setLoadMoreLoading(true);
+        isLoadingMoreRef.current = true;
+      } else {
+        setLoading(true);
+        isLoadingMoreRef.current = false;
+      }
+
       const data = await api.getFilteredProducts(filterParams);
 
       if (requestId !== latestRequestId.current) {
@@ -243,12 +257,14 @@ export default function ProductsPage() {
     } catch (error) {
       console.error("Error fetching products:", error);
       if (requestId === latestRequestId.current) {
-        setError("Failed to load products");
+        // Let the same query be retried.
+        if (lastListKey.current === listKey) lastListKey.current = null;
+        setError(translate("failedToLoadProducts"));
       }
     } finally {
       // A superseded request must not clear the spinner: the newer request is
       // still in flight, and clearing it here flashes the empty state.
-      if (requestId === latestRequestId.current) {
+      if (requestId !== undefined && requestId === latestRequestId.current) {
         if (isLoadMore) {
           setLoadMoreLoading(false);
           isLoadingMoreRef.current = false;
@@ -260,17 +276,16 @@ export default function ProductsPage() {
   };
 
   const fetchAllFavorites = async (productsList) => {
-    const favoriteStatus = {};
-    for (const product of productsList) {
-      try {
-        const response = await api.isFavorite(product.product_Id);
-        favoriteStatus[product.product_Id] = response.isFavorite;
-      } catch (error) {
-        console.error("Error checking favorite:", error);
-        favoriteStatus[product.product_Id] = false;
+    try {
+      const ids = await api.getFavoriteIds();
+      const favoriteStatus = {};
+      for (const product of productsList) {
+        favoriteStatus[product.product_Id] = ids.has(Number(product.product_Id));
       }
+      setFavorites((prev) => ({ ...prev, ...favoriteStatus }));
+    } catch (error) {
+      console.error("Error checking favorites:", error);
     }
-    setFavorites((prev) => ({ ...prev, ...favoriteStatus }));
   };
 
   const getSortByField = (sortOption) => {
@@ -431,7 +446,7 @@ export default function ProductsPage() {
   useEffect(() => {
     setCurrentPage(1);
     fetchProducts(selectedFilters, 1, false);
-  }, [location.pathname, filterOptions.categories]);
+  }, [location.pathname, filterOptions.categories, optionsLoaded]);
 
   useEffect(() => {
     if (!isLoadingMoreRef.current) {
@@ -474,6 +489,8 @@ export default function ProductsPage() {
         });
       } catch (error) {
         console.error("Error fetching filter options:", error);
+      } finally {
+        setOptionsLoaded(true);
       }
     };
     fetchFilterOptions();
@@ -863,10 +880,10 @@ export default function ProductsPage() {
         <div className="text-red-500 text-center">
           <p>{error}</p>
           <button
-            onClick={() => fetchProducts(selectedFilters, 1, false)}
+            onClick={() => fetchProducts(selectedFilters, 1, false, true)}
             className="mt-4 px-4 py-2 bg-blue-500 text-white rounded"
           >
-            Try Again
+            {translate("tryAgain")}
           </button>
         </div>
       </div>
@@ -1107,11 +1124,12 @@ export default function ProductsPage() {
 
 // ProductCard component
 function ProductGridSkeleton({ count = 8 }) {
+  const { translate } = useLanguage();
   return (
     <div
       className="grid grid-cols-2 lg:grid-cols-4 my-[18px] gap-3 sm:gap-5"
       aria-busy="true"
-      aria-label="Loading products"
+      aria-label={translate("loadingProducts")}
     >
       <BrandLoader size={0} className="hidden" />
       {Array.from({ length: count }).map((_, i) => (
@@ -1138,7 +1156,7 @@ function ProductCard(props) {
       showStock
       translate={translate}
       language={language}
-      saleEndLocale={language === "al" ? "sq-AL" : "mk-MK"}
+      saleEndLocale={language === "al" ? "sq-AL" : language === "en" ? "en-GB" : "mk-MK"}
     />
   );
 }

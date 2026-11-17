@@ -4,6 +4,8 @@
 #   deploy/deploy.sh stage        # stage.proteini.mk (API proxied at /api)
 #   deploy/deploy.sh prod         # proteini.mk (API proxied at /api, like the old site)
 #   deploy/deploy.sh stage api    # only the API (or: web, reports)
+#   deploy/deploy.sh prod meta-ads   # only the Meta ads dashboard (meta-ads.proteini.mk, prod only;
+#                                    # "prod all" ships it too). Its API lives in the prod API.
 #
 # "reports" is the daily report job (ProteiniSi.Reports). On prod it is run every
 # morning by proteinisi-daily-report.timer; on stage it is only run by hand:
@@ -25,7 +27,7 @@ HOST="${DEPLOY_HOST:-proteinisi}"
 case "$ENVIRONMENT" in
   prod)  SITE=https://proteini.mk;       API=https://proteini.mk;           SERVICE=proteinisi-api-prod;  PORT=6800 ;;
   stage) SITE=https://stage.proteini.mk; API=https://stage.proteini.mk; SERVICE=proteinisi-api-stage; PORT=6801 ;;
-  *) echo "usage: $0 prod|stage [all|api|web|reports]" >&2; exit 1 ;;
+  *) echo "usage: $0 prod|stage [all|api|web|reports|meta-ads]" >&2; exit 1 ;;
 esac
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -58,6 +60,22 @@ if [[ "$PART" == all || "$PART" == web ]]; then
   # nginx's open_file_cache (proteinisi-common.conf) keeps the old index.html open for up to
   # 120s per worker, pointing at bundles rsync just deleted. A reload drops that cache at once.
   ssh "$HOST" "chown -R proteinisi:proteinisi $REMOTE/web && nginx -t -q && systemctl reload nginx"
+fi
+
+if [[ "$PART" == meta-ads && "$ENVIRONMENT" != prod ]]; then
+  echo "The Meta ads dashboard only runs against production: $0 prod meta-ads" >&2; exit 1
+fi
+
+if [[ "$ENVIRONMENT" == prod && ( "$PART" == all || "$PART" == meta-ads ) ]]; then
+  echo "==> Building Meta ads dashboard"
+  cd "$ROOT/frontend"
+  [[ -d node_modules ]] || npm ci
+  npx vite build --config vite.meta-ads.config.js --outDir "$OUT/meta-ads" --emptyOutDir --logLevel warn
+
+  echo "==> Uploading Meta ads dashboard to $HOST:/srv/proteinisi/meta-ads/web"
+  ssh "$HOST" "mkdir -p /srv/proteinisi/meta-ads/web"
+  rsync -az --delete "$OUT/meta-ads/" "$HOST:/srv/proteinisi/meta-ads/web/"
+  ssh "$HOST" "chown -R proteinisi:proteinisi /srv/proteinisi/meta-ads && nginx -t -q && systemctl reload nginx"
 fi
 
 if [[ "$PART" == all || "$PART" == reports ]]; then

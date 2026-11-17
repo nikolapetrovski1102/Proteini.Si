@@ -43,6 +43,8 @@ public class ProductVariantProvider(ISqlHelper sql) : IProductVariantProvider
             values.OptionType,
             VariantImagePath = variant.Variant_Image_Path,
             variant.Ingredients,
+            variant.IngredientsAl,
+            variant.IngredientsEn,
             NutritionInfo = variant.Nutrition_Info,
             variant.Description,
             DisplayOrder = variant.Display_Order,
@@ -71,6 +73,8 @@ public class ProductVariantProvider(ISqlHelper sql) : IProductVariantProvider
             values.OptionType,
             VariantImagePath = variant.Variant_Image_Path,
             variant.Ingredients,
+            variant.IngredientsAl,
+            variant.IngredientsEn,
             NutritionInfo = variant.Nutrition_Info,
             variant.Description,
             DisplayOrder = variant.Display_Order,
@@ -134,4 +138,13 @@ public class ProductVariantProvider(ISqlHelper sql) : IProductVariantProvider
 
     public Task<string?> GetNutritionTableJsonAsync(int variantId) =>
         sql.ExecuteScalarAsync<string>(StoredProcedures.ProductVariants.GetNutritionTable, new { VariantId = variantId });
+
+    public Task<List<NutritionLabelTranslation>> GetNutritionLabelTranslationsAsync() =>
+        sql.QueryAsync<NutritionLabelTranslation>(StoredProcedures.NutritionLabels.GetAll);
+
+    public Task<List<string>> GetAllNutritionTablesJsonAsync() =>
+        sql.QueryAsync<string>(StoredProcedures.NutritionLabels.GetTables);
+
+    public async Task<int> SaveNutritionLabelTranslationsAsync(string itemsJson) =>
+        await sql.ExecuteScalarAsync<int>(StoredProcedures.NutritionLabels.Save, new { ItemsJson = itemsJson });
 }

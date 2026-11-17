@@ -1,6 +1,7 @@
 import { FiPhone } from "react-icons/fi";
 import { useState, useEffect } from "react";
 import { api } from "../../services/api";
+import { fetchRecommendedCards } from "../../utils/salePricing";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuickPurchase } from "../Hooks/useQuickPurchase";
 import { useLanguage } from "../translation/LanguageContext";
@@ -198,8 +199,8 @@ export default function Landing() {
   const fetchRecommendedProducts = async () => {
     setProductsLoading(true);
     try {
-      const data = await api.getProducts();
-      const filteredProducts = data.filter((product) => product.recommendedForYou === true);
+      // Only the recommended products, through the shop filter so each card carries its packaging's own sale price.
+      const filteredProducts = await fetchRecommendedCards(api);
       setRecommendedProducts(filteredProducts);
 
       if (isAuthenticated && filteredProducts.length > 0) {

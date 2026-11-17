@@ -41,6 +41,7 @@ public class ProductFilterQuery
     public bool NewProducts { get; set; }
     public bool BestSellers { get; set; }
     public bool Outlet { get; set; }
+    public bool RecommendedForYou { get; set; }
     public bool GiftVouchers { get; set; }
     public bool JustForMe { get; set; }
     public bool HasSearch { get; set; }

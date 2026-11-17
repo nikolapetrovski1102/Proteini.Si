@@ -37,7 +37,9 @@ CREATE OR ALTER PROCEDURE dbo.usp_Product_Filter
     -- before brand pins, brand pins before whole-shop pins (@PinAll). Sold-out pins are not lifted.
     @PinCategoryIds dbo.IntList READONLY,
     @PinBrandIds dbo.IntList READONLY,
-    @PinAll BIT = 0
+    @PinAll BIT = 0,
+    -- Optional (older API builds leave it off): only products the admin marked "recommended for you".
+    @RecommendedForYou BIT = 0
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -82,6 +84,10 @@ BEGIN
             ROW_NUMBER() OVER (
                 PARTITION BY pv.Product_Id, pv.GroupKey
                 ORDER BY
+                    -- A discounted, in-stock flavour represents the packaging so the card shows the sale
+                    -- and links to the variant that is actually on discount.
+                    CASE WHEN pv.Quantity > 0 AND pv.Compare_Price > 0 AND pv.Compare_Price < pv.Price
+                         THEN 0 ELSE 1 END,
                     CASE WHEN pv.IsDefault = 1 THEN 0 ELSE 1 END,
                     CASE WHEN pv.Quantity > 0 THEN 0 ELSE 1 END,
                     pv.Display_Order,
@@ -124,7 +130,7 @@ BEGIN
             ELSE NULL
         END AS Compare_Price,
         p.UpcomingPromotion,
-        p.ShortExpiry, p.ExpiryDate, p.IsGiftVoucher, p.VoucherMinAmount, p.VoucherMaxAmount, p.NameAl,
+        p.ShortExpiry, p.ExpiryDate, p.IsGiftVoucher, p.VoucherMinAmount, p.VoucherMaxAmount, p.NameAl, p.NameEn,
         p.RecommendedForYou, p.ProductsInTheOutlet, p.JustForMe,
         COALESCE(v.Price, p.Price) AS Price,
         p.HasVariants,
@@ -159,9 +165,9 @@ BEGIN
         ) ELSE CASE WHEN p.Flavor_Id IS NULL THEN 0 ELSE 1 END END AS FlavorCount,
         CASE WHEN @HasSearch = 1 THEN
             CASE
-                WHEN p.Name = @SearchExact OR p.NameAl = @SearchExact THEN 0
-                WHEN p.Name LIKE @SearchPrefix OR p.NameAl LIKE @SearchPrefix THEN 1
-                WHEN p.Name LIKE @SearchContains OR p.NameAl LIKE @SearchContains THEN 2
+                WHEN p.Name = @SearchExact OR p.NameAl = @SearchExact OR p.NameEn = @SearchExact THEN 0
+                WHEN p.Name LIKE @SearchPrefix OR p.NameAl LIKE @SearchPrefix OR p.NameEn LIKE @SearchPrefix THEN 1
+                WHEN p.Name LIKE @SearchContains OR p.NameAl LIKE @SearchContains OR p.NameEn LIKE @SearchContains THEN 2
                 WHEN b.Brand_Name LIKE @SearchContains THEN 3
                 ELSE 4
             END
@@ -235,11 +241,15 @@ BEGIN
       AND (@MinPrice IS NULL OR COALESCE(v.Price, p.Price) >= @MinPrice)
       AND (@MaxPrice IS NULL OR COALESCE(v.Price, p.Price) <= @MaxPrice)
       AND (@InStock = 0 OR ((ISNULL(p.HasVariants, 0) = 1 AND v.PackagingQuantity > 0) OR (ISNULL(p.HasVariants, 0) = 0 AND p.Quantity > 0)))
-      AND (@OnSale = 0 OR (p.ProductsOnSale = 1 AND (p.SaleEndDate IS NULL OR p.SaleEndDate >= CAST(GETDATE() AS date))))
+      -- Only cards that really show a lower price: when just one weight is discounted, the other weights stay out.
+      AND (@OnSale = 0 OR (p.ProductsOnSale = 1 AND (p.SaleEndDate IS NULL OR p.SaleEndDate >= CAST(GETDATE() AS date))
+            AND COALESCE(v.Compare_Price, p.SalePrice) > 0
+            AND COALESCE(v.Compare_Price, p.SalePrice) < COALESCE(v.Price, p.Price)))
       AND (@UpcomingPromotions = 0 OR p.UpcomingPromotion = 1)
       AND (@NewProducts = 0 OR p.NewInTheShop = 1)
       AND (@BestSellers = 0 OR ps.SoldCount > 0)
       AND (@Outlet = 0 OR p.ProductsInTheOutlet = 1)
+      AND (@RecommendedForYou = 0 OR p.RecommendedForYou = 1)
       AND (@GiftVouchers = 0 OR p.IsGiftVoucher = 1)
       AND (@JustForMe = 0 OR (p.JustForMe = 1
             AND ((ISNULL(p.HasVariants, 0) = 1 AND v.PackagingQuantity > 0) OR (ISNULL(p.HasVariants, 0) = 0 AND p.Quantity > 0))))
@@ -248,6 +258,7 @@ BEGIN
             FROM @SearchTerms term
             WHERE p.Name LIKE term.Value
                OR p.NameAl LIKE term.Value
+               OR p.NameEn LIKE term.Value
                OR b.Brand_Name LIKE term.Value
                OR f.Flavor_Name LIKE term.Value
                OR v.Flavor_Name LIKE term.Value

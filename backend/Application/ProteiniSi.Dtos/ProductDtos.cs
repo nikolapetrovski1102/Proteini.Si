@@ -24,6 +24,7 @@ public class ProductFilterDto
     public bool? NewProducts { get; set; }
     public bool? BestSellers { get; set; }
     public bool? Outlet { get; set; }
+    public bool? RecommendedForYou { get; set; }
     public bool? JustForMe { get; set; }
     public bool? UpcomingPromotions { get; set; }
     public bool? GiftVouchers { get; set; }
@@ -91,6 +92,7 @@ public class ProductSearchResultDto
     public decimal? VoucherMinAmount { get; set; }
     public decimal? VoucherMaxAmount { get; set; }
     public string? NameAl { get; set; }
+    public string? NameEn { get; set; }
     public bool ProductsInTheOutlet { get; set; }
     public int? Variant_Id { get; set; }
     public decimal? Variant_Price { get; set; }
@@ -149,6 +151,14 @@ public class ProductCreateDto
     public string? InstructionsForUseAl { get; set; }
     public string? InstructionsForUseDescriptionAl { get; set; }
     public string? InstructionsOnHowToUseItAl { get; set; }
+    public string? NameEn { get; set; }
+    public string? DescriptionEn { get; set; }
+    public string? NutritionValuesIngredientsEn { get; set; }
+    public string? NutritionValuesIngredientsDescriptionEn { get; set; }
+    public string? NutritionInformationEn { get; set; }
+    public string? InstructionsForUseEn { get; set; }
+    public string? InstructionsForUseDescriptionEn { get; set; }
+    public string? InstructionsOnHowToUseItEn { get; set; }
     public bool RecommendedForYou { get; set; }
     public bool ProductsInTheOutlet { get; set; }
     public bool JustForMe { get; set; }
@@ -205,6 +215,14 @@ public class ProductEditDto
     public string? InstructionsForUseAl { get; set; }
     public string? InstructionsForUseDescriptionAl { get; set; }
     public string? InstructionsOnHowToUseItAl { get; set; }
+    public string? NameEn { get; set; }
+    public string? DescriptionEn { get; set; }
+    public string? NutritionValuesIngredientsEn { get; set; }
+    public string? NutritionValuesIngredientsDescriptionEn { get; set; }
+    public string? NutritionInformationEn { get; set; }
+    public string? InstructionsForUseEn { get; set; }
+    public string? InstructionsForUseDescriptionEn { get; set; }
+    public string? InstructionsOnHowToUseItEn { get; set; }
     public bool RecommendedForYou { get; set; }
     public bool ProductsInTheOutlet { get; set; }
     public bool JustForMe { get; set; }
@@ -304,7 +322,10 @@ public class ProductFeedItemDto
     public string Name { get; set; } = "";
     public string? Description { get; set; }
     public string? Img { get; set; }
+    public int? BrandId { get; set; }
     public string? BrandName { get; set; }
+    /// <summary>",3,17,": the product's categories and their parents.</summary>
+    public string? CategoryIds { get; set; }
     public string? PackagingName { get; set; }
     public string? FlavorName { get; set; }
     public string? OptionType { get; set; }
@@ -314,4 +335,72 @@ public class ProductFeedItemDto
     public decimal? SalePrice { get; set; }
     public DateTime? SaleEndDate { get; set; }
     public int Quantity { get; set; }
+}
+
+/// <summary>
+/// One catalog row exactly as Meta Commerce Manager / Google Merchant Center read it (field names are the feed
+/// columns). Built once and used by both the XML feed and the admin "Meta catalog" export.
+/// </summary>
+public class CatalogFeedItemDto
+{
+    public int ProductId { get; set; }
+    public int? VariantId { get; set; }
+    public string Id { get; set; } = "";
+    public string? ItemGroupId { get; set; }
+    public string Title { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string Link { get; set; } = "";
+    public string? ImageLink { get; set; }
+    public string Availability { get; set; } = "";
+    public string Condition { get; set; } = "new";
+    public string Price { get; set; } = "";
+    public string? SalePrice { get; set; }
+    public string? SalePriceEffectiveDate { get; set; }
+    public string Brand { get; set; } = "";
+    public string GoogleProductCategory { get; set; } = "";
+    public string? ProductType { get; set; }
+    public string? Size { get; set; }
+    public string? Color { get; set; }
+    public string? CustomLabel0 { get; set; }
+    public string? CustomLabel1 { get; set; }
+    public string? CustomLabel2 { get; set; }
+    public int Quantity { get; set; }
+    public int? BrandId { get; set; }
+    public List<int> CategoryIds { get; set; } = [];
+    public string? Flavor { get; set; }
+    public bool OnSale => SalePrice is not null;
+}
+
+/// <summary>
+/// Which items go into the catalog. Empty = everything. Otherwise an item is included when it matches any pick:
+/// its id ("v12" / "p5"), its brand, one of its categories (subcategories included), or it is on discount.
+/// </summary>
+public class CatalogFeedSelection
+{
+    public HashSet<string> ItemIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public HashSet<int> BrandIds { get; set; } = [];
+    public HashSet<int> CategoryIds { get; set; } = [];
+    public bool OnSale { get; set; }
+
+    public bool IsEmpty => ItemIds.Count == 0 && BrandIds.Count == 0 && CategoryIds.Count == 0 && !OnSale;
+
+    public bool Includes(CatalogFeedItemDto item) =>
+        IsEmpty
+        || ItemIds.Contains(item.Id)
+        || ItemIds.Contains($"p{item.ProductId}")
+        || (item.BrandId is { } brandId && BrandIds.Contains(brandId))
+        || item.CategoryIds.Any(CategoryIds.Contains)
+        || (OnSale && item.OnSale);
+
+    /// <summary>Reads ?items=v12,p5&amp;brands=3&amp;categories=7,9&amp;onSale=1 (the public feed URL the admin copies).</summary>
+    public static CatalogFeedSelection Parse(string? items, string? brands, string? categories, string? onSale) => new()
+    {
+        ItemIds = new HashSet<string>(Split(items), StringComparer.OrdinalIgnoreCase),
+        BrandIds = Split(brands).Select(v => int.TryParse(v, out var n) ? n : 0).Where(n => n > 0).ToHashSet(),
+        CategoryIds = Split(categories).Select(v => int.TryParse(v, out var n) ? n : 0).Where(n => n > 0).ToHashSet(),
+        OnSale = onSale is "1" or "true",
+    };
+
+    private static IEnumerable<string> Split(string? value) =>
+        (value ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }

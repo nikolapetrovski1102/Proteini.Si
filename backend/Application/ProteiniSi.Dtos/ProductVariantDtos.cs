@@ -22,6 +22,8 @@ public class ProductVariantDto
     public string? Image_Path { get; set; }
     public string? Variant_Image_Path { get; set; }
     public string? Ingredients { get; set; }
+    public string? IngredientsAl { get; set; }
+    public string? IngredientsEn { get; set; }
     public string? Nutrition_Info { get; set; }
     public string? Description { get; set; }
     public int Display_Order { get; set; }
@@ -66,6 +68,8 @@ public class CreateProductVariantDto
     public string? Image_Path { get; set; }
     public string? Variant_Image_Path { get; set; }
     public string? Ingredients { get; set; }
+    public string? IngredientsAl { get; set; }
+    public string? IngredientsEn { get; set; }
     public string? Nutrition_Info { get; set; }
     public string? Description { get; set; }
     public int Display_Order { get; set; }
@@ -96,6 +100,8 @@ public class UpdateProductVariantDto
     public string? Image_Path { get; set; }
     public string? Variant_Image_Path { get; set; }
     public string? Ingredients { get; set; }
+    public string? IngredientsAl { get; set; }
+    public string? IngredientsEn { get; set; }
     public string? Nutrition_Info { get; set; }
     public string? Description { get; set; }
     public int Display_Order { get; set; }
@@ -196,10 +202,37 @@ public class TableRowData
     public string RowLabel { get; set; } = string.Empty;
     public List<string> Cells { get; set; } = new List<string>();
     public int IndentLevel { get; set; }
+    public string? RowLabelAl { get; set; }
+    public string? RowLabelEn { get; set; }
+    public List<string>? CellsAl { get; set; }
+    public List<string>? CellsEn { get; set; }
 }
 
 public class NutritionTableData
 {
     public List<string> Columns { get; set; } = new();
     public List<TableRowData> Rows { get; set; } = new();
+    public List<string>? ColumnsAl { get; set; }
+    public List<string>? ColumnsEn { get; set; }
+}
+
+public class NutritionLabelTranslation
+{
+    public string Mk { get; set; } = string.Empty;
+    public string? Al { get; set; }
+    public string? En { get; set; }
+}
+
+public class NutritionLabelUsageDto
+{
+    public string Mk { get; set; } = string.Empty;
+    public string? Al { get; set; }
+    public string? En { get; set; }
+    public int Count { get; set; }
+    public string Kind { get; set; } = "row";
+}
+
+public class SaveNutritionLabelsDto
+{
+    public List<NutritionLabelTranslation> Items { get; set; } = new();
 }

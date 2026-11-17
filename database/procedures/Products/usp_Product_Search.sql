@@ -54,6 +54,7 @@ BEGIN
         p.VoucherMinAmount,
         p.VoucherMaxAmount,
         p.NameAl,
+        p.NameEn,
         p.ProductsInTheOutlet,
         p.CreatedAt,
         b.Brand_Name AS BrandName,
@@ -85,6 +86,7 @@ BEGIN
             p.Product_Id = TRY_CONVERT(int, @SearchTermExact)
             OR p.Name LIKE @SearchTerm
             OR p.NameAl LIKE @SearchTerm
+            OR p.NameEn LIKE @SearchTerm
             OR b.Brand_Name LIKE @SearchTerm
             OR COALESCE(f.Flavor_Name, pv.Flavor_Name) LIKE @SearchTerm
             OR EXISTS (SELECT 1 FROM dbo.ProductVariants pv2

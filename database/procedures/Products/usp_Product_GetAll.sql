@@ -57,6 +57,7 @@ BEGIN
         VoucherMinAmount,
         VoucherMaxAmount,
         NameAl,
+        NameEn,
         RecommendedForYou,
         ProductsInTheOutlet,
         JustForMe

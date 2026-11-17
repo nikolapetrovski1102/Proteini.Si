@@ -21,6 +21,8 @@ public interface IProductVariantService
     Task DeleteNutritionAsync(int variantId);
     Task<NutritionTableData?> PasteNutritionTableAsync(int variantId, string rawText);
     Task<NutritionTableData?> GetNutritionTableAsync(int variantId);
+    Task<List<NutritionLabelUsageDto>> GetNutritionLabelsAsync();
+    Task<int> SaveNutritionLabelsAsync(SaveNutritionLabelsDto dto);
     Task<bool> UpdateNutritionTableAsync(int variantId, UpdateNutritionTableDto table);
     Task<bool> DeleteNutritionTableAsync(int variantId);
     Task<dynamic?> GetParentProductAsync(int variantId);

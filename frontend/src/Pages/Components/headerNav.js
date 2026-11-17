@@ -2,12 +2,14 @@
 // Kept out of Header.jsx so the component only deals with layout and behaviour.
 import {
   BarIcon,
+  BoltIcon,
   CalendarIcon,
   CapsuleIcon,
   DumbbellIcon,
   GiftIcon,
   GridIcon,
   MedalIcon,
+  MoleculeIcon,
   PriceTagIcon,
   ProteinTubIcon,
   SaleIcon,
@@ -219,6 +221,29 @@ export const buildCategoryNav = (translate) => {
           link: "/all-products/muscle-mass-quality-gain",
         },
         { label: translate("recovery"), link: "/all-products/recovery" },
+      ],
+    },
+  ];
+
+  const creatine = [
+    {
+      label: translate("creatine"),
+      link: "/all-products/creatine",
+      subItems: [
+        { label: translate("monohydrates"), link: "/all-products/monohydrates" },
+        { label: translate("advancedTypes"), link: "/all-products/advanced-types" },
+      ],
+    },
+  ];
+
+  const preWorkout = [
+    {
+      label: "PRE-WORKOUT",
+      link: "/all-products/pre-workout",
+      subItems: [
+        { label: translate("strengthEnergyPump"), link: "/all-products/strength-energy-pump" },
+        { label: translate("endurance"), link: "/all-products/endurance-enhancers" },
+        { label: translate("mentalFocus"), link: "/all-products/mental-focus" },
       ],
     },
   ];
@@ -435,6 +460,20 @@ export const buildCategoryNav = (translate) => {
       title: translate("protein"),
       link: "/all-products/proteins",
       columns: [protein.slice(0, 1), protein.slice(1, 2)],
+    },
+    {
+      key: "creatine",
+      icon: MoleculeIcon,
+      title: translate("creatineMenu"),
+      link: "/all-products/creatine",
+      columns: [creatine],
+    },
+    {
+      key: "preWorkout",
+      icon: BoltIcon,
+      title: translate("preWorkoutMenu"),
+      link: "/all-products/pre-workout",
+      columns: [preWorkout],
     },
     {
       key: "weightLoss",

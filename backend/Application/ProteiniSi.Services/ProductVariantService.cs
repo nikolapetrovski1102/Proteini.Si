@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using ProteiniSi.Contracts.Exceptions;
@@ -11,8 +12,12 @@ using ProteiniSi.Services.Helpers;
 
 namespace ProteiniSi.Services;
 
-public class ProductVariantService(IProductVariantProvider provider, IImageStorageService imageStorage) : IProductVariantService
+public class ProductVariantService(IProductVariantProvider provider, IImageStorageService imageStorage, IMemoryCache cache) : IProductVariantService
 {
+    private const string LabelCacheKey = "nutrition-label-translations";
+    private static readonly TimeSpan LabelCacheDuration = TimeSpan.FromHours(6);
+    private static readonly Regex Whitespace = new(@"\s+", RegexOptions.Compiled);
+    private static readonly Regex Cyrillic = new(@"[\u0400-\u04FF]", RegexOptions.Compiled);
     private const long MaxImageBytes = 5 * 1024 * 1024;
     private const string VariantImageFolder = "variant-images";
     private const string GalleryImageFolder = "variant-gallery";
@@ -191,11 +196,110 @@ public class ProductVariantService(IProductVariantProvider provider, IImageStora
             }
         }
 
-        return new NutritionTableData
+        var data = new NutritionTableData
         {
             Columns = table["columns"]?.ToObject<List<string>>() ?? new List<string>(),
             Rows = rows
         };
+        await TranslateNutritionTableAsync(data);
+        return data;
+    }
+
+    private static string NormalizeLabel(string? text) => Whitespace.Replace(text ?? "", " ").Trim();
+
+    private async Task<Dictionary<string, NutritionLabelTranslation>> GetLabelTranslationsAsync() =>
+        await cache.GetOrCreateAsync(LabelCacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = LabelCacheDuration;
+            var items = await provider.GetNutritionLabelTranslationsAsync();
+            var map = new Dictionary<string, NutritionLabelTranslation>(StringComparer.Ordinal);
+            foreach (var item in items)
+                map[NormalizeLabel(item.Mk)] = item;
+            return map;
+        }) ?? new Dictionary<string, NutritionLabelTranslation>(StringComparer.Ordinal);
+
+    // Fills the AL/EN copies of the table; anything without a translation keeps the Macedonian text.
+    private async Task TranslateNutritionTableAsync(NutritionTableData data)
+    {
+        var map = await GetLabelTranslationsAsync();
+
+        string Tr(string? text, bool english)
+        {
+            if (string.IsNullOrEmpty(text) || !Cyrillic.IsMatch(text))
+                return text ?? "";
+            if (!map.TryGetValue(NormalizeLabel(text), out var t))
+                return text;
+            var value = english ? t.En : t.Al;
+            return string.IsNullOrWhiteSpace(value) ? text : value;
+        }
+
+        data.ColumnsAl = data.Columns.Select(c => Tr(c, false)).ToList();
+        data.ColumnsEn = data.Columns.Select(c => Tr(c, true)).ToList();
+        foreach (var row in data.Rows)
+        {
+            row.RowLabelAl = Tr(row.RowLabel, false);
+            row.RowLabelEn = Tr(row.RowLabel, true);
+            row.CellsAl = row.Cells.Select(c => Tr(c, false)).ToList();
+            row.CellsEn = row.Cells.Select(c => Tr(c, true)).ToList();
+        }
+    }
+
+    public async Task<List<NutritionLabelUsageDto>> GetNutritionLabelsAsync()
+    {
+        var usage = new Dictionary<string, NutritionLabelUsageDto>(StringComparer.Ordinal);
+
+        void Add(string? text, string kind)
+        {
+            var mk = NormalizeLabel(text);
+            if (mk.Length == 0 || !Cyrillic.IsMatch(mk))
+                return;
+            if (!usage.TryGetValue(mk, out var item))
+                usage[mk] = item = new NutritionLabelUsageDto { Mk = mk, Kind = kind };
+            item.Count++;
+        }
+
+        foreach (var json in await provider.GetAllNutritionTablesJsonAsync())
+        {
+            JObject table;
+            try { table = JObject.Parse(json); }
+            catch (JsonException) { continue; }
+
+            if (table["columns"] is JArray columns)
+                foreach (var c in columns) Add(c.Type == JTokenType.String ? c.ToString() : null, "column");
+            if (table["rows"] is JArray rowsArray)
+                foreach (var row in rowsArray)
+                {
+                    Add(row["RowLabel"]?.ToString(), "row");
+                    if (row["Cells"] is JArray cells)
+                        foreach (var c in cells) Add(c.Type == JTokenType.String ? c.ToString() : null, "cell");
+                }
+        }
+
+        var map = await GetLabelTranslationsAsync();
+        foreach (var item in usage.Values)
+            if (map.TryGetValue(item.Mk, out var t))
+            {
+                item.Al = t.Al;
+                item.En = t.En;
+            }
+
+        return usage.Values.OrderByDescending(i => i.Count).ThenBy(i => i.Mk, StringComparer.Ordinal).ToList();
+    }
+
+    public async Task<int> SaveNutritionLabelsAsync(SaveNutritionLabelsDto dto)
+    {
+        var items = (dto.Items ?? new())
+            .Select(i => new { mk = NormalizeLabel(i.Mk), al = i.Al?.Trim(), en = i.En?.Trim() })
+            .Where(i => i.mk.Length > 0)
+            .ToList();
+        if (items.Count == 0)
+            return 0;
+        if (items.Any(i => i.mk.Length > 400 || (i.al?.Length ?? 0) > 400 || (i.en?.Length ?? 0) > 400))
+            throw new BadRequestException("Label too long", new { message = "Labels can be at most 400 characters" });
+
+        var saved = await provider.SaveNutritionLabelTranslationsAsync(JsonConvert.SerializeObject(items));
+        cache.Remove(LabelCacheKey);
+        return saved;
     }
 
     public Task<bool> UpdateNutritionTableAsync(int variantId, UpdateNutritionTableDto table) =>

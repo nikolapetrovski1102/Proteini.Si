@@ -511,6 +511,7 @@ export const api = {
         newProducts: filters.newProducts || false,
         bestSellers: filters.bestSellers || false,
         outlet: filters.outlet || false,
+        recommendedForYou: filters.recommendedForYou || false,
         upcomingPromotions: filters.upcomingPromotions || false,
         giftVouchers: filters.giftVouchers || false,
         justForMe: filters.justForMe || false,
@@ -1023,10 +1024,10 @@ export const api = {
     return data;
   },
 
-  async sendGuestCheckoutCode({ email, name, language, marketingConsent }) {
+  async sendGuestCheckoutCode({ email, name, language, marketingConsent, turnstileToken }) {
     return this.postOrderJson(
       "guest-verification/send",
-      { email, name, language, marketingConsent },
+      { email, name, language, marketingConsent, turnstileToken },
       "Could not send the code",
     );
   },
@@ -1852,6 +1853,7 @@ export const api = {
         throw new Error(data.message || "Failed to add to favorites");
       }
 
+      this._updateFavoriteIdsCache(productId, true);
       return data;
     } catch (error) {
       console.error("Add to favorites error:", error);
@@ -1884,6 +1886,7 @@ export const api = {
         throw new Error(data.message || "Failed to remove from favorites");
       }
 
+      this._updateFavoriteIdsCache(productId, false);
       return data;
     } catch (error) {
       console.error("Remove from favorites error:", error);
@@ -1920,32 +1923,44 @@ export const api = {
     }
   },
 
+  // One favorites list per user, shared by every caller. Product grids used to
+  // call /Favorite/check/{id} once per card (sequentially, on every refetch),
+  // which flooded the API; now they all reuse this single request.
+  _favoriteIdsCache: null, // { token, at, promise }
+  getFavoriteIds() {
+    const token = this.getToken();
+    if (!token) return Promise.resolve(new Set());
+    const cached = this._favoriteIdsCache;
+    if (cached && cached.token === token && Date.now() - cached.at < 60 * 1000) {
+      return cached.promise;
+    }
+    const promise = this.getFavorites().then((response) => {
+      if (!response?.success && !Array.isArray(response?.data)) {
+        // Do not keep a failed lookup around.
+        if (this._favoriteIdsCache?.promise === promise) this._favoriteIdsCache = null;
+        return new Set();
+      }
+      return new Set((response.data || []).map((fav) => Number(fav.productId ?? fav.ProductId)));
+    });
+    this._favoriteIdsCache = { token, at: Date.now(), promise };
+    return promise;
+  },
+  _updateFavoriteIdsCache(productId, isFavorite) {
+    const cached = this._favoriteIdsCache;
+    if (!cached) return;
+    cached.promise = cached.promise.then((ids) => {
+      const next = new Set(ids);
+      if (isFavorite) next.add(Number(productId));
+      else next.delete(Number(productId));
+      return next;
+    });
+  },
+
   // Check if product is favorited
   async isFavorite(productId) {
     try {
-      const token = this.getToken();
-      if (!token) {
-        return { isFavorite: false };
-      }
-
-      const response = await fetch(
-        `${API_BASE_URL}/Favorite/check/${productId}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to check favorite status");
-      }
-
-      return data;
+      const ids = await this.getFavoriteIds();
+      return { isFavorite: ids.has(Number(productId)) };
     } catch (error) {
       console.error("Check favorite error:", error);
       return { isFavorite: false };
@@ -4404,6 +4419,40 @@ export const api = {
   },
 
   /** [{ brand_Id, brand_Name, brand_Slug, logo_Url, header_Image_Url, is_Featured, display_Order, product_Count }] */
+  // Admin: AL/EN translations of the nutrition table labels.
+  // [{ mk, al, en, count, kind: "row" | "column" | "cell" }]
+  async getNutritionLabels() {
+    const data = await this._adminJson("/admin/ProductVariant/nutrition-labels", { method: "GET" }, "Failed to load nutrition labels");
+    return data?.data || [];
+  },
+
+  saveNutritionLabels(items) {
+    return this._adminJson(
+      "/admin/ProductVariant/nutrition-labels",
+      { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items }) },
+      "Failed to save nutrition labels",
+    );
+  },
+
+  async _adminJson(path, options, fallback) {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: { Authorization: `Bearer ${this.getToken()}`, ...(options?.headers || {}) },
+    });
+    const text = await response.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+    if (!response.ok) {
+      const message = typeof data === "string" ? data : data?.error || data?.message;
+      throw new Error(message || fallback);
+    }
+    return data;
+  },
+
   getAdminBrands() {
     return this._brandRequest("", { method: "GET" }, "Failed to load brands");
   },
@@ -4554,6 +4603,16 @@ export const api = {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || "Failed to load registered users");
+    return data;
+  },
+
+  /** Admin "Meta catalog": every catalog row with its feed fields plus brandId, categoryIds, flavor, onSale. */
+  async getAdminMetaCatalog() {
+    const response = await fetch(`${API_BASE_URL}/admin/meta-catalog`, {
+      headers: { Authorization: `Bearer ${this.getToken()}` },
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.error || data?.message || "Failed to load the catalog");
     return data;
   },
 

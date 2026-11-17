@@ -31,6 +31,7 @@ For an existing base schema missing these features, the documented order is:
 25. `migrations/0025_add-category-pairings.sql` (`CategoryPairings`: categories that go together, seeded with Creatine <-> Pre-Workout; used by `Products/usp_Product_GetRelated.sql` and `Products/usp_Product_GetForCustomer.sql`)
 26. `migrations/0026_create-discounts.sql` (`Discounts`, `DiscountTargets` and the `DiscountApplied*` bookkeeping for automatic discounts with no code on products, brands or categories; deploy `Discounts/fn_Discount_Products.sql` before the `usp_Discount_*` procedures. `usp_Discount_Sync` writes running discounts into the existing sale fields and puts the previous values back; the API runs it after every admin change and every 10 minutes)
 29. `migrations/0029_pair-proteins-creatine-pre-workout.sql` (adds Proteins <-> Creatine and Proteins <-> Pre-Workout to `CategoryPairings`, so a protein page recommends creatine and pre-workouts)
+32. `migrations/0032_add-product-english-translations.sql` (English `*En` copy on `Products`, next to the Albanian `*Al` columns; run before the `Products/` procedures, then `one-off/translate-products-*-20261116.sql` fill the protein products)
 
 Script 0006 adds `ProductVariants.Option_Type`, marks existing shaker variants as colors and adds the allowed-value constraint. It is required for the current variant code and is newer than the existing 2026-10-14 deployment checklist.
 

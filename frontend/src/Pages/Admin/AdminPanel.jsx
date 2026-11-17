@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
+  FiArrowDown,
+  FiArrowUp,
   FiCheck,
   FiCheckCircle,
   FiCircle,
@@ -88,6 +90,14 @@ const emptyFormData = {
   instructionsForUseAl: "",
   instructionsForUseDescriptionAl: "",
   instructionsOnHowToUseItAl: "",
+  nameEn: "",
+  descriptionEn: "",
+  nutritionValuesIngredientsEn: "",
+  nutritionValuesIngredientsDescriptionEn: "",
+  nutritionInformationEn: "",
+  instructionsForUseEn: "",
+  instructionsForUseDescriptionEn: "",
+  instructionsOnHowToUseItEn: "",
   recommendedForYou: false,
   productsInTheOutlet: false,
   justForMe: false,
@@ -146,6 +156,43 @@ const ERROR_TAB = {
   voucherMaxAmount: "labels",
 };
 
+/** Product list sort options: key → value to compare. */
+const PRODUCT_SORTS = {
+  id: { label: "Date added", value: (p) => Number(p.product_Id) || 0 },
+  name: { label: "Name", value: (p) => String(p.name || "").trim().toLocaleLowerCase("mk") },
+  price: { label: "Price", value: (p) => Number(p.price) || 0 },
+  stock: { label: "Stock", value: (p) => Number(p.quantity) || 0 },
+};
+
+const sortProducts = (list, key, dir) => {
+  const sort = PRODUCT_SORTS[key];
+  if (!sort) return list;
+  const sign = dir === "desc" ? -1 : 1;
+  return [...list].sort((a, b) => {
+    const va = sort.value(a);
+    const vb = sort.value(b);
+    const cmp = typeof va === "string" ? va.localeCompare(vb, "mk") : va - vb;
+    return cmp * sign || (Number(a.product_Id) - Number(b.product_Id)) * sign;
+  });
+};
+
+/** Clickable table header that toggles asc/desc for one sort key. */
+function SortHeader({ label, sortKey, sort, onSort, align = "left" }) {
+  const active = sort.key === sortKey;
+  const Icon = active && sort.dir === "desc" ? FiArrowDown : FiArrowUp;
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      aria-label={`Sort by ${label}${active ? (sort.dir === "asc" ? ", ascending" : ", descending") : ""}`}
+      className={`inline-flex items-center gap-1 uppercase hover:text-gray-900 ${align === "right" ? "flex-row-reverse" : ""} ${active ? "text-gray-900" : ""}`}
+    >
+      {label}
+      <Icon size={12} aria-hidden="true" className={active ? "" : "opacity-0 group-hover/th:opacity-40"} />
+    </button>
+  );
+}
+
 /** Comparable snapshot of the form, used to detect unsaved changes. */
 const snapshotOf = (form, filters) => {
   const { hasVariants, ...rest } = form;
@@ -154,6 +201,7 @@ const snapshotOf = (form, filters) => {
     quantity: hasVariants ? null : String(rest.quantity ?? ""),
     descriptionHtml: descriptionForStorage(rest.descriptionHtml),
     descriptionAl: descriptionForStorage(rest.descriptionAl),
+    descriptionEn: descriptionForStorage(rest.descriptionEn),
     filters,
   });
 };
@@ -183,18 +231,18 @@ function validateProduct(form) {
   return errors;
 }
 
-/** Macedonian and Albanian versions of one text field, side by side on wide screens. */
-function BilingualField({ label, hint, name, nameAl, form, onChange, rows, placeholder }) {
+/** Macedonian, Albanian, and English versions of one text field, side by side on wide screens. */
+function BilingualField({ label, hint, name, nameAl, nameEn, form, onChange, rows, placeholder }) {
   const control = (fieldName, lang) =>
     rows ? (
-      <textarea name={fieldName} rows={rows} value={form[fieldName]} onChange={onChange} className={textareaClass} placeholder={lang === "al" ? "Empty = Macedonian text is shown" : placeholder} />
+      <textarea name={fieldName} rows={rows} value={form[fieldName]} onChange={onChange} className={textareaClass} placeholder={lang !== "mk" ? "Empty = Macedonian text is shown" : placeholder} />
     ) : (
-      <input name={fieldName} value={form[fieldName]} onChange={onChange} className={inputClass} placeholder={lang === "al" ? form[name] || "" : placeholder} />
+      <input name={fieldName} value={form[fieldName]} onChange={onChange} className={inputClass} placeholder={lang !== "mk" ? form[name] || "" : placeholder} />
     );
   return (
     <div>
       <p className="mb-1.5 text-[13px] font-semibold text-gray-800">{label}</p>
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-3">
         <label className="block">
           <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">Macedonian</span>
           {control(name, "mk")}
@@ -202,6 +250,10 @@ function BilingualField({ label, hint, name, nameAl, form, onChange, rows, place
         <label className="block">
           <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">Albanian</span>
           {control(nameAl, "al")}
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">English</span>
+          {control(nameEn, "en")}
         </label>
       </div>
       {hint && <p className="mt-1.5 text-xs leading-snug text-gray-500">{hint}</p>}
@@ -277,6 +329,15 @@ export default function AdminPanel() {
   const [selectedSubcategories, setSelectedSubcategories] = useState([]);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [sort, setSort] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("admin-products-sort") || "null");
+      if (saved && (saved.key === "default" || PRODUCT_SORTS[saved.key]) && (saved.dir === "asc" || saved.dir === "desc")) return saved;
+    } catch {
+      /* storage unavailable */
+    }
+    return { key: "default", dir: "asc" };
+  });
   const [searchLoading, setSearchLoading] = useState(false);
   const productListRequestId = useRef(0);
 
@@ -295,20 +356,25 @@ export default function AdminPanel() {
   const [variantPrices, setVariantPrices] = useState([]);
   const savedSnapshot = useRef(snapshotOf(emptyFormData, emptyFilters));
   const closePromptOpen = useRef(false);
+  // The variant editor (Variants tab) borrows the modal footer for its own Save button.
+  const variantManagerRef = useRef(null);
+  const [variantEditor, setVariantEditor] = useState({ open: false, dirty: false, saving: false, isNew: false });
 
   const isDirty = isModalOpen && (Boolean(imageFile) || snapshotOf(formData, selectedFilters) !== savedSnapshot.current);
+  const variantEditorOpen = isModalOpen && activeTab === "variants" && variantEditor.open;
+  const variantDirty = variantEditorOpen && variantEditor.dirty;
   const errors = showErrors ? validateProduct(formData) : {};
 
   // Warn before a reload or tab close throws away unsaved product edits.
   useEffect(() => {
-    if (!isDirty) return undefined;
+    if (!isDirty && !variantDirty) return undefined;
     const onBeforeUnload = (event) => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [isDirty]);
+  }, [isDirty, variantDirty]);
 
   // Opened from the dashboard's "Add product" shortcut: clear the router state so a refresh doesn't reopen it.
   useEffect(() => {
@@ -374,6 +440,20 @@ export default function AdminPanel() {
   };
 
   /* ---------------------------------------------------------- selection */
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("admin-products-sort", JSON.stringify(sort));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [sort]);
+
+  /** Header click: same column flips direction; a new column starts ascending (date added starts newest first). */
+  const toggleSort = (key) =>
+    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "id" ? "desc" : "asc" }));
+
+  const sortedProducts = sort.key === "default" ? products : sortProducts(products, sort.key, sort.dir);
 
   const allSelected = products.length > 0 && products.every((p) => selectedProducts.has(p.product_Id));
   const someSelected = selectedProducts.size > 0 && !allSelected;
@@ -616,6 +696,14 @@ export default function AdminPanel() {
     instructionsForUseAl: formData.instructionsForUseAl || "",
     instructionsForUseDescriptionAl: formData.instructionsForUseDescriptionAl || "",
     instructionsOnHowToUseItAl: formData.instructionsOnHowToUseItAl || "",
+    nameEn: formData.nameEn || "",
+    descriptionEn: descriptionForStorage(formData.descriptionEn),
+    nutritionValuesIngredientsEn: formData.nutritionValuesIngredientsEn || "",
+    nutritionValuesIngredientsDescriptionEn: formData.nutritionValuesIngredientsDescriptionEn || "",
+    nutritionInformationEn: formData.nutritionInformationEn || "",
+    instructionsForUseEn: formData.instructionsForUseEn || "",
+    instructionsForUseDescriptionEn: formData.instructionsForUseDescriptionEn || "",
+    instructionsOnHowToUseItEn: formData.instructionsOnHowToUseItEn || "",
     recommendedForYou: formData.recommendedForYou || false,
     productsInTheOutlet: formData.productsInTheOutlet || false,
     justForMe: formData.justForMe || false,
@@ -628,7 +716,8 @@ export default function AdminPanel() {
     servings: parseInt(formData.servings) || 0,
     gPerServing: parseFloat(formData.gPerServing) || 0,
     gNutrition: parseFloat(formData.gNutrition) || 0,
-    price: formData.price,
+    // With variants the shop charges the variant price, so the product row mirrors the cheapest variant.
+    price: variantPrices.length > 0 && !formData.isGiftVoucher ? String(Math.min(...variantPrices)) : formData.price,
     ddvPercentage: parseFloat(formData.ddvPercentage) || 18,
     otherDescriptionTitle: "",
     otherDescriptionText: "",
@@ -686,6 +775,11 @@ export default function AdminPanel() {
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
+    // Enter inside the variant editor saves the variant, not the product.
+    if (variantEditorOpen) {
+      variantManagerRef.current?.save();
+      return;
+    }
     if (saving) return;
     const found = validateProduct(formData);
     const firstError = Object.keys(found)[0];
@@ -821,6 +915,14 @@ export default function AdminPanel() {
         instructionsForUseAl: productData.instructionsForUseAl || "",
         instructionsForUseDescriptionAl: productData.instructionsForUseDescriptionAl || "",
         instructionsOnHowToUseItAl: productData.instructionsOnHowToUseItAl || "",
+        nameEn: productData.nameEn || "",
+        descriptionEn: productData.descriptionEn || "",
+        nutritionValuesIngredientsEn: productData.nutritionValuesIngredientsEn || "",
+        nutritionValuesIngredientsDescriptionEn: productData.nutritionValuesIngredientsDescriptionEn || "",
+        nutritionInformationEn: productData.nutritionInformationEn || "",
+        instructionsForUseEn: productData.instructionsForUseEn || "",
+        instructionsForUseDescriptionEn: productData.instructionsForUseDescriptionEn || "",
+        instructionsOnHowToUseItEn: productData.instructionsOnHowToUseItEn || "",
         recommendedForYou: productData.recommendedForYou || false,
         productsInTheOutlet: productData.productsInTheOutlet || false,
         justForMe: productData.justForMe || false,
@@ -886,13 +988,27 @@ export default function AdminPanel() {
     setIsModalOpen(true);
   };
 
+  /** Switch tabs; leaving the Variants tab with an unsaved variant asks first (the editor is unmounted). */
+  const changeTab = async (tab) => {
+    if (tab === activeTab) return;
+    if (variantEditorOpen) {
+      const closed = await variantManagerRef.current?.requestClose();
+      if (closed === false) return;
+    }
+    setActiveTab(tab);
+  };
+
   const handleCloseModal = async () => {
     if (closePromptOpen.current) return;
-    if (isDirty) {
+    if (isDirty || variantDirty) {
       closePromptOpen.current = true;
       const discard = await confirm({
         title: "Discard unsaved changes?",
-        message: "You changed this product but didn't save. Closing now throws those changes away.",
+        message: variantDirty
+          ? isDirty
+            ? "You changed this product and one of its variants but didn't save. Closing now throws those changes away."
+            : "You changed this variant but didn't save. Closing now throws those changes away."
+          : "You changed this product but didn't save. Closing now throws those changes away.",
         confirmLabel: "Discard changes",
         cancelLabel: "Keep editing",
         tone: "danger",
@@ -946,6 +1062,7 @@ export default function AdminPanel() {
     { key: "category", label: "Category", done: selectedFilters.categoryIds.length > 0, tab: "organise" },
     { key: "description", label: "Description", done: Boolean(descriptionForStorage(formData.descriptionHtml)), tab: "description" },
     { key: "albanian", label: "Albanian name", done: Boolean(formData.nameAl.trim()), tab: "basics" },
+    { key: "english", label: "English name", done: Boolean(formData.nameEn.trim()), tab: "basics" },
   ];
   const doneCount = checklist.filter((item) => item.done).length;
 
@@ -983,6 +1100,33 @@ export default function AdminPanel() {
           </span>
         )}
         {searchLoading && !loading && <span className="text-sm text-gray-500">Searching…</span>}
+        <div className="ml-auto flex items-center gap-1.5">
+          <label htmlFor="product-sort" className="text-sm text-gray-500">
+            Sort
+          </label>
+          <select
+            id="product-sort"
+            value={sort.key}
+            onChange={(e) => {
+              const key = e.target.value;
+              setSort((prev) => ({ key, dir: key === prev.key ? prev.dir : key === "id" ? "desc" : "asc" }));
+            }}
+            className={`${selectClass} w-auto py-2 text-sm`}
+          >
+            <option value="default">Default</option>
+            {Object.entries(PRODUCT_SORTS).map(([key, opt]) => (
+              <option key={key} value={key}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <IconButton
+            icon={sort.dir === "desc" ? FiArrowDown : FiArrowUp}
+            label={sort.dir === "desc" ? "Descending — switch to ascending" : "Ascending — switch to descending"}
+            onClick={() => setSort((prev) => ({ ...prev, dir: prev.dir === "asc" ? "desc" : "asc" }))}
+            disabled={sort.key === "default"}
+          />
+        </div>
       </div>
 
       {selectedProducts.size > 0 && (
@@ -1057,9 +1201,17 @@ export default function AdminPanel() {
                   <th className={`${thClass} w-10`}>
                     <Checkbox checked={allSelected} indeterminate={someSelected} onChange={handleSelectAll} label="Select all products" />
                   </th>
-                  <th className={thClass}>Product</th>
-                  <th className={`${thClass} text-right`}>Price</th>
-                  <th className={`${thClass} text-right`}>Stock</th>
+                  <th className={`${thClass} group/th`}>
+                    <SortHeader label="Product" sortKey="name" sort={sort} onSort={toggleSort} />
+                    <span className="mx-1.5 text-gray-300" aria-hidden="true">·</span>
+                    <SortHeader label="#" sortKey="id" sort={sort} onSort={toggleSort} />
+                  </th>
+                  <th className={`${thClass} group/th text-right`}>
+                    <SortHeader label="Price" sortKey="price" sort={sort} onSort={toggleSort} align="right" />
+                  </th>
+                  <th className={`${thClass} group/th text-right`}>
+                    <SortHeader label="Stock" sortKey="stock" sort={sort} onSort={toggleSort} align="right" />
+                  </th>
                   <th className={thClass}>Labels</th>
                   <th className={`${thClass} w-24`}>
                     <span className="sr-only">Actions</span>
@@ -1067,7 +1219,7 @@ export default function AdminPanel() {
                 </tr>
               </thead>
               <tbody>
-                {products.map((product) => {
+                {sortedProducts.map((product) => {
                   const { base, vat } = priceParts(product.price, product.ddvPercentage || product.ddV_Percentage);
                   const selected = selectedProducts.has(product.product_Id);
                   return (
@@ -1129,7 +1281,7 @@ export default function AdminPanel() {
               Select all
             </label>
             <ul className="divide-y divide-black/[0.06]">
-              {products.map((product) => {
+              {sortedProducts.map((product) => {
                 const selected = selectedProducts.has(product.product_Id);
                 return (
                   <li key={product.product_Id} className={`flex gap-3 px-4 py-3 ${selected ? "bg-[#FDC700]/[0.08]" : ""}`}>
@@ -1186,20 +1338,36 @@ export default function AdminPanel() {
         }
         footer={
           <>
-            <span className="mr-auto hidden text-xs text-gray-500 sm:block" aria-live="polite">
-              {isDirty ? "Unsaved changes" : editingProduct ? "All changes saved" : ""}
-            </span>
-            <Button variant="secondary" onClick={handleCloseModal}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit} loading={saving}>
-              {editingProduct ? "Save changes" : "Add product & continue"}
-            </Button>
+            {variantEditorOpen ? (
+              <>
+                <span className="mr-auto hidden text-xs text-gray-500 sm:block" aria-live="polite">
+                  {variantEditor.dirty ? "Unsaved variant changes" : variantEditor.isNew ? "New variant" : "No variant changes"}
+                </span>
+                <Button variant="secondary" onClick={() => variantManagerRef.current?.requestClose()}>
+                  Cancel
+                </Button>
+                <Button onClick={() => variantManagerRef.current?.save()} loading={variantEditor.saving}>
+                  {variantEditor.isNew ? "Add variant" : "Save variant"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <span className="mr-auto hidden text-xs text-gray-500 sm:block" aria-live="polite">
+                  {isDirty ? "Unsaved changes" : editingProduct ? "All changes saved" : ""}
+                </span>
+                <Button variant="secondary" onClick={handleCloseModal}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSubmit} loading={saving}>
+                  {editingProduct ? "Save changes" : "Add product & continue"}
+                </Button>
+              </>
+            )}
           </>
         }
       >
         <div className="-mx-1 mb-3 overflow-x-auto px-1 pb-1">
-          <Segmented value={activeTab} onChange={setActiveTab} options={tabs} className="min-w-max" />
+          <Segmented value={activeTab} onChange={changeTab} options={tabs} className="min-w-max" />
         </div>
 
         <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-black/[0.06] pb-4 text-xs">
@@ -1210,7 +1378,7 @@ export default function AdminPanel() {
             <button
               key={item.key}
               type="button"
-              onClick={() => setActiveTab(item.tab)}
+              onClick={() => changeTab(item.tab)}
               className={`inline-flex min-h-[28px] items-center gap-1.5 transition hover:text-gray-900 hover:underline ${item.done ? "text-gray-600" : "font-semibold text-gray-900"}`}
             >
               {item.done ? (
@@ -1228,7 +1396,7 @@ export default function AdminPanel() {
           {activeTab === "basics" && (
             <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
               <div className="space-y-5">
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-3">
                   <Field label="Product name" required error={errors.name}>
                     <input
                       name="name"
@@ -1242,6 +1410,9 @@ export default function AdminPanel() {
                   </Field>
                   <Field label="Name in Albanian" hint="Empty = the Macedonian name is shown.">
                     <input name="nameAl" value={formData.nameAl} onChange={handleInputChange} className={inputClass} placeholder={formData.name} />
+                  </Field>
+                  <Field label="Name in English" hint="Empty = the Macedonian name is shown.">
+                    <input name="nameEn" value={formData.nameEn} onChange={handleInputChange} className={inputClass} placeholder={formData.name} />
                   </Field>
                 </div>
 
@@ -1274,6 +1445,15 @@ export default function AdminPanel() {
                         : "What customers pay. Sale prices are set in Labels."
                   }
                 >
+                  {variantPrices.length > 0 && !formData.isGiftVoucher ? (
+                    <Field label="Price customers pay (incl. VAT)" hint="Set by the variants. Open the Variants tab to change it.">
+                      <p className="flex min-h-[44px] items-center rounded-xl bg-[#f6f5f1] px-3.5 text-base font-semibold tabular-nums text-gray-700 ring-1 ring-black/[0.08]">
+                        {minVariantPrice === maxVariantPrice
+                          ? formatMoney(minVariantPrice)
+                          : `${formatMoney(minVariantPrice)} – ${formatMoney(maxVariantPrice)}`}
+                      </p>
+                    </Field>
+                  ) : (
                   <PriceWithVat
                     key={editingProduct?.product_Id ?? "new"}
                     price={formData.price}
@@ -1283,6 +1463,7 @@ export default function AdminPanel() {
                     error={errors.price}
                     required={!formData.isGiftVoucher && !formData.hasVariants}
                   />
+                  )}
                 </FormSection>
 
                 <FormSection title="Stock & size">
@@ -1419,9 +1600,11 @@ export default function AdminPanel() {
             <div className="space-y-4">
               <Notice>
                 Variants are versions of this product customers choose between, such as sizes or flavours. Each variant has its own price,
-                stock and photos. Changes here are saved immediately.
+                stock and photos. While a variant is open, the button at the bottom saves that variant.
               </Notice>
               <VariantManager
+                ref={variantManagerRef}
+                onEditorChange={setVariantEditor}
                 productId={editingProduct.product_Id}
                 productName={editingProduct.name}
                 onVariantsChange={async () => {
@@ -1606,7 +1789,7 @@ export default function AdminPanel() {
           {activeTab === "description" && (
             <div className="space-y-8">
               <Notice>
-                Albanian text is shown to visitors who switch the site to Albanian. Any Albanian field left empty shows the Macedonian text instead.
+                Albanian and English text is shown to visitors who switch the site to that language. Any empty translation field shows the Macedonian text instead.
               </Notice>
 
               <FormSection title="Description" description="The main text on the product page. Use headings and bullet lists to keep it easy to scan.">
@@ -1621,21 +1804,27 @@ export default function AdminPanel() {
                     onChange={(descriptionAl) => setField("descriptionAl", descriptionAl)}
                     label="Albanian"
                   />
+                  <ProductDescriptionEditor
+                    value={formData.descriptionEn}
+                    onChange={(descriptionEn) => setField("descriptionEn", descriptionEn)}
+                    label="English"
+                  />
                 </div>
               </FormSection>
 
               <FormSection title="Nutrition" description="Shown in the Nutrition tab on the product page. Nutrition tables are set per variant.">
                 <div className="space-y-5">
-                  <BilingualField label="Ingredients" name="nutritionValuesIngredients" nameAl="nutritionValuesIngredientsAl" form={formData} onChange={handleInputChange} rows={3} />
+                  <BilingualField label="Ingredients" name="nutritionValuesIngredients" nameAl="nutritionValuesIngredientsAl" nameEn="nutritionValuesIngredientsEn" form={formData} onChange={handleInputChange} rows={3} />
                   <BilingualField
                     label="Short note"
                     hint="One line under the ingredients, e.g. allergens."
                     name="nutritionValuesIngredientsDescription"
                     nameAl="nutritionValuesIngredientsDescriptionAl"
+                    nameEn="nutritionValuesIngredientsDescriptionEn"
                     form={formData}
                     onChange={handleInputChange}
                   />
-                  <BilingualField label="Nutrition information" name="nutritionInformation" nameAl="nutritionInformationAl" form={formData} onChange={handleInputChange} rows={3} />
+                  <BilingualField label="Nutrition information" name="nutritionInformation" nameAl="nutritionInformationAl" nameEn="nutritionInformationEn" form={formData} onChange={handleInputChange} rows={3} />
                 </div>
               </FormSection>
 
@@ -1645,6 +1834,7 @@ export default function AdminPanel() {
                     label="Title"
                     name="instructionsForUse"
                     nameAl="instructionsForUseAl"
+                    nameEn="instructionsForUseEn"
                     form={formData}
                     onChange={handleInputChange}
                     placeholder="e.g. Recommended use"
@@ -1653,6 +1843,7 @@ export default function AdminPanel() {
                     label="Short description"
                     name="instructionsForUseDescription"
                     nameAl="instructionsForUseDescriptionAl"
+                    nameEn="instructionsForUseDescriptionEn"
                     form={formData}
                     onChange={handleInputChange}
                     rows={2}
@@ -1661,6 +1852,7 @@ export default function AdminPanel() {
                     label="Detailed instructions"
                     name="instructionsOnHowToUseIt"
                     nameAl="instructionsOnHowToUseItAl"
+                    nameEn="instructionsOnHowToUseItEn"
                     form={formData}
                     onChange={handleInputChange}
                     rows={4}

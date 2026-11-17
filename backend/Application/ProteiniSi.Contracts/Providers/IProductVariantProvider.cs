@@ -22,4 +22,7 @@ public interface IProductVariantProvider
     Task DeleteNutritionAsync(int variantId);
     Task<bool> SetNutritionTableAsync(int variantId, string? tableJson, string? columnsJson, string? rowsJson);
     Task<string?> GetNutritionTableJsonAsync(int variantId);
+    Task<List<NutritionLabelTranslation>> GetNutritionLabelTranslationsAsync();
+    Task<List<string>> GetAllNutritionTablesJsonAsync();
+    Task<int> SaveNutritionLabelTranslationsAsync(string itemsJson);
 }

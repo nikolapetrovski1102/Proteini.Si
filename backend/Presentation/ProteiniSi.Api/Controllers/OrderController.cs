@@ -18,6 +18,7 @@ public class OrderController(
     IOrderEmailService orderEmailService,
     ICPayService cpayService,
     IGuestCheckoutVerificationService guestVerification,
+    ITurnstileVerifier turnstile,
     IConfiguration config,
     ILogger<OrderController> logger) : ControllerBase
 {
@@ -53,8 +54,19 @@ public class OrderController(
     [AllowAnonymous]
     [HttpPost("guest-verification/send")]
     [EnableRateLimiting(CheckoutAbuseExtensions.GuestCodePolicy)]
-    public async Task<IActionResult> SendGuestVerificationCode([FromBody] GuestCheckoutCodeRequestDto request) =>
-        Ok(await guestVerification.SendCodeAsync(request));
+    public async Task<IActionResult> SendGuestVerificationCode([FromBody] GuestCheckoutCodeRequestDto request)
+    {
+        if (!await PassesTurnstileAsync(request.TurnstileToken))
+            return TurnstileFailed();
+        return Ok(await guestVerification.SendCodeAsync(request));
+    }
+
+    private Task<bool> PassesTurnstileAsync(string? token) =>
+        turnstile.VerifyAsync(token, HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.RequestAborted);
+
+    // field = "turnstile" tells the checkout page to show its own translated message and refresh the check.
+    private IActionResult TurnstileFailed() =>
+        BadRequest(new { status = false, field = "turnstile", message = "Please confirm you are not a robot." });
 
     /// <summary>Checks the guest's code and returns the token to send with the order.</summary>
     [AllowAnonymous]
@@ -68,6 +80,9 @@ public class OrderController(
     [EnableRateLimiting(CheckoutAbuseExtensions.OrderCreatePolicy)]
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDto orderDto)
     {
+        if (!await PassesTurnstileAsync(orderDto.TurnstileToken))
+            return TurnstileFailed();
+
         var result = await orderService.CreateAsync(orderDto, GetCurrentUserId());
 
         if (result.PaymentFormHtml != null)

@@ -31,6 +31,22 @@ BEGIN
         INNER JOIN dbo.ProductCategories c ON c.Category_Id = pcm.Category_Id
         LEFT JOIN dbo.ProductCategories parent ON parent.Category_Id = c.Parent_Category_Id
     ),
+    -- Every category a product sits in, plus the parents of those categories: ",3,17," (for the admin's category picks).
+    ProductCategoryIds AS (
+        SELECT
+            x.Product_Id,
+            CONCAT(N',', STRING_AGG(CAST(x.Category_Id AS nvarchar(20)), N','), N',') AS CategoryIds
+        FROM (
+            SELECT pcm.Product_Id, pcm.Category_Id
+            FROM dbo.ProductCategoryMapping pcm
+            UNION
+            SELECT pcm.Product_Id, c.Parent_Category_Id
+            FROM dbo.ProductCategoryMapping pcm
+            INNER JOIN dbo.ProductCategories c ON c.Category_Id = pcm.Category_Id
+            WHERE c.Parent_Category_Id IS NOT NULL
+        ) x
+        GROUP BY x.Product_Id
+    ),
     Items AS (
         SELECT
             p.Product_Id,
@@ -76,7 +92,9 @@ BEGIN
         i.Name,
         i.MainDescriptions AS Description,
         i.Img,
+        p.Brand_Id AS BrandId,
         b.Brand_Name AS BrandName,
+        ci.CategoryIds,
         i.PackagingName,
         i.FlavorName,
         i.OptionType,
@@ -98,6 +116,7 @@ BEGIN
     INNER JOIN dbo.Products p ON p.Product_Id = i.Product_Id
     LEFT JOIN dbo.Brands b ON b.Brand_Id = p.Brand_Id
     LEFT JOIN ApparelProducts ap ON ap.Product_Id = i.Product_Id
+    LEFT JOIN ProductCategoryIds ci ON ci.Product_Id = i.Product_Id
     LEFT JOIN ProductCategoryPath cp ON cp.Product_Id = i.Product_Id AND cp.RowNumber = 1
     WHERE ISNULL(p.IsGiftVoucher, 0) = 0
       AND i.Price > 0

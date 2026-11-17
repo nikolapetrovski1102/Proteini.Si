@@ -32,6 +32,8 @@ BEGIN
             SET IsDefault = 1
             WHERE Product_Id = @ProductId AND IsActive = 1 AND Variant_Id != @Id;
 
+        EXEC dbo.usp_Product_SyncPriceFromVariants @ProductId = @ProductId;
+
     COMMIT TRANSACTION;
 
     SELECT @ImagePath AS ImagePath;

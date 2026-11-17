@@ -98,7 +98,10 @@ export default function BecauseYouOrdered() {
   };
 
   const { anchor, anchorDate, reorder, similar } = rows;
-  const nameOf = (p) => (language === "al" && p.nameAl ? p.nameAl : p.name);
+  const nameOf = (p) =>
+    (language === "al" && p.nameAl) ||
+    (language === "en" && p.nameEn) ||
+    p.name;
   const cards = [
     ...reorder.map((p) => ({ p, tag: translate("orderAgain") })),
     ...similar.map((p) => ({ p, tag: null })),

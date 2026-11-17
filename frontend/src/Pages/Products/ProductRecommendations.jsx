@@ -116,7 +116,7 @@ export default function ProductRecommendations({ productId }) {
                 showStock
                 showSaleEnd
                 language={language}
-                saleEndLocale={language === "al" ? "sq-AL" : "mk-MK"}
+                saleEndLocale={language === "al" ? "sq-AL" : language === "en" ? "en-GB" : "mk-MK"}
                 onQuickPurchase={() => quickPurchase(product)}
                 onQuickPurchaseIntent={() => prefetchQuickPurchase(product)}
                 onToggleFavorite={handleToggleFavorite}

@@ -19,6 +19,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 const FLAG_ISO = {
   al: "AL",
   mk: "MK",
+  en: "GB",
   sl: "SI",
   hr: "HR",
   rs: "RS",

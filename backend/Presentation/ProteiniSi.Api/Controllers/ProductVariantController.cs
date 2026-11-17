@@ -147,6 +147,25 @@ public class ProductVariantController(IProductVariantService service) : Controll
         return Ok(new { status = true, message = "Nutrition table saved successfully", data = tableData });
     }
 
+    [HttpGet("nutrition-labels")]
+    public async Task<IActionResult> GetNutritionLabels()
+    {
+        if (!IsAdmin())
+            return AdminRequired();
+
+        return Ok(new { status = true, data = await service.GetNutritionLabelsAsync() });
+    }
+
+    [HttpPut("nutrition-labels")]
+    public async Task<IActionResult> SaveNutritionLabels([FromBody] SaveNutritionLabelsDto dto)
+    {
+        if (!IsAdmin())
+            return AdminRequired();
+
+        var saved = await service.SaveNutritionLabelsAsync(dto);
+        return Ok(new { status = true, message = "Nutrition labels saved", saved });
+    }
+
     [AllowAnonymous]
     [HttpGet("{variantId}/nutrition-table")]
     public async Task<IActionResult> GetNutritionTable(int variantId) =>

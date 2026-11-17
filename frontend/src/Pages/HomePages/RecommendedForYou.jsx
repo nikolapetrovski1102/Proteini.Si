@@ -3,6 +3,7 @@ import { IoIosStarOutline } from "react-icons/io";
 import { FiHeart } from "react-icons/fi";
 import { FaHeart } from "react-icons/fa";
 import { api } from "../../services/api";
+import { fetchRecommendedCards } from "../../utils/salePricing";
 import { useLanguage } from "../translation/LanguageContext";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuickPurchase } from "../Hooks/useQuickPurchase";
@@ -29,10 +30,8 @@ export default function RecommendedForYou() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const data = await api.getProducts();
-      const filteredProducts = data.filter(
-        (product) => product.recommendedForYou === true,
-      );
+      // Only the recommended products, through the shop filter so each card carries its packaging's own sale price.
+      const filteredProducts = await fetchRecommendedCards(api);
       setProducts(filteredProducts);
       setError(null);
 

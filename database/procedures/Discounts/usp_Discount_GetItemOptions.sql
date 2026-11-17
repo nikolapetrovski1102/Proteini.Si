@@ -4,13 +4,17 @@ GO
 
 -- Everything a product discount can pick, one row per sellable item: each active variant with its
 -- flavor and weight, or the product itself when it has no variants (Variant_Id 0). Gift vouchers excluded.
+-- Variant flavors/sizes are stored as text on ProductVariants (Flavor_Id/Packaging_Id are usually NULL),
+-- so the text columns come first and the lookup tables are only a fallback.
 CREATE OR ALTER PROCEDURE dbo.usp_Discount_GetItemOptions
 AS
 BEGIN
     SET NOCOUNT ON;
 
     SELECT p.Product_Id, pv.Variant_Id, p.Name AS Product_Name, b.Brand_Name,
-           f.Flavor_Name, pkg.Packaging_Name, pkg.Weight_Grams, pv.Price,
+           COALESCE(NULLIF(LTRIM(RTRIM(pv.Flavor_Name)), N''), f.Flavor_Name, NULLIF(LTRIM(RTRIM(pv.Variant_Name)), N'')) AS Flavor_Name,
+           COALESCE(NULLIF(LTRIM(RTRIM(pv.Packaging_Name)), N''), pkg.Packaging_Name) AS Packaging_Name,
+           pkg.Weight_Grams, pv.Price,
            ISNULL(pv.Display_Order, 0) AS Display_Order
     FROM dbo.Products p
     INNER JOIN dbo.ProductVariants pv ON pv.Product_Id = p.Product_Id AND pv.IsActive = 1

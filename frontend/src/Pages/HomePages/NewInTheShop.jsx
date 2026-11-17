@@ -60,7 +60,10 @@ function FeaturedNewCard({ product, index, visible, translate, language, sticker
   const regularPrice = Number(product.price) || 0;
   const salePrice = saleActive ? Number(product.compare_Price) || 0 : 0;
   const hasDiscount = salePrice > 0 && salePrice < regularPrice;
-  const name = language === "al" && product.nameAl ? product.nameAl : product.name;
+  const name =
+    (language === "al" && product.nameAl) ||
+    (language === "en" && product.nameEn) ||
+    product.name;
   const label = product.brandName || product.category || "Proteini.si";
   // White photo backgrounds are cut away so the product hides the ribbon; until then (or if
   // that fails) the photo keeps multiply, which melts the white into the tile.
@@ -115,11 +118,11 @@ function FeaturedNewCard({ product, index, visible, translate, language, sticker
           <div className="mt-2 flex flex-wrap items-baseline gap-x-2">
             {hasDiscount ? (
               <>
-                <span className="whitespace-nowrap text-[15px] font-extrabold text-[#E3262F] sm:text-lg"><Price value={salePrice} /></span>
-                <span className="whitespace-nowrap text-[11px] text-gray-400 line-through sm:text-xs"><Price value={regularPrice} /></span>
+                <span className="whitespace-nowrap text-[17px] font-extrabold text-[#E3262F] sm:text-xl"><Price value={salePrice} /></span>
+                <span className="whitespace-nowrap text-xs text-gray-400 line-through sm:text-sm"><Price value={regularPrice} /></span>
               </>
             ) : (
-              <span className="whitespace-nowrap text-[15px] font-extrabold text-gray-900 sm:text-lg"><Price value={regularPrice} /></span>
+              <span className="whitespace-nowrap text-[17px] font-extrabold text-gray-900 sm:text-xl"><Price value={regularPrice} /></span>
             )}
           </div>
         </div>
@@ -228,7 +231,7 @@ export default function NewInTheShop() {
   // The admin's own title applies to the source they chose, not to the best-sellers fallback.
   const customTitle =
     settings && mode === (settings.source || "new")
-      ? (language === "al" ? settings.title_Al : settings.title_Mk) || settings.title_Mk
+      ? (language === "al" ? settings.title_Al : language === "en" ? null : settings.title_Mk) || (language === "en" ? null : settings.title_Mk)
       : null;
   const title = customTitle || translate(SOURCES[mode].title);
 

@@ -146,7 +146,11 @@ function SheetBody({ product, language, translate, onClose, addToCart }) {
     }
   };
 
-  const name = (language === "al" && (base?.nameAl || product.nameAl)) || base?.name || product.name;
+  const name =
+    (language === "al" && (base?.nameAl || product.nameAl)) ||
+    (language === "en" && (base?.nameEn || product.nameEn)) ||
+    base?.name ||
+    product.name;
   const image = selected?.variant_Image_Path || base?.img || product.img;
   const unitPrice = selected ? effectivePrice(selected, saleActive) : effectivePrice(base || product, saleActive);
   const regularPrice = Number(selected?.price ?? base?.price ?? product.price) || 0;

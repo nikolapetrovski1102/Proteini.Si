@@ -24,6 +24,8 @@ import {
 } from "../Components/AddressFields";
 import { formatMkd as formatPrice, roundMkd, roundingDifference } from "../../utils/formatPrice";
 import Price from "../Components/Price";
+import TurnstileCheck from "../Components/TurnstileCheck";
+import { TURNSTILE_SITE_KEY } from "../../utils/turnstile";
 
 const SHIPPING_COUNTRY = "North Macedonia";
 const COUNTRIES = [SHIPPING_COUNTRY];
@@ -423,6 +425,7 @@ export default function Checkout() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [termsError, setTermsError] = useState("");
   const [saving, setSaving] = useState(false);
+  const turnstileRef = useRef(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [toast, setToast] = useState(null);
@@ -682,20 +685,24 @@ export default function Checkout() {
   useEffect(() => {
     if (!appliedPromotion?.code) return;
     let cancelled = false;
-    api
-      .validatePromotionCode(appliedPromotion.code, cartTotal, userEmail || null, promotionLines)
-      .then((promotion) => {
-        if (cancelled) return;
-        setAppliedPromotion(promotion);
-        setPromotionError("");
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setAppliedPromotion(null);
-        setPromotionError(translate("promotionNoLongerApplies"));
-      });
+    // Debounced: userEmail changes on every keystroke while the customer types it.
+    const timer = setTimeout(() => {
+      api
+        .validatePromotionCode(appliedPromotion.code, cartTotal, userEmail || null, promotionLines)
+        .then((promotion) => {
+          if (cancelled) return;
+          setAppliedPromotion(promotion);
+          setPromotionError("");
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setAppliedPromotion(null);
+          setPromotionError(translate("promotionNoLongerApplies"));
+        });
+    }, 400);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appliedPromotion?.code, cartTotal, userEmail, promotionLinesKey]);
@@ -746,18 +753,22 @@ export default function Checkout() {
   useEffect(() => {
     if (!appliedGiftVoucher?.code) return;
     let cancelled = false;
-    api
-      .validateGiftVoucher(appliedGiftVoucher.code, voucherOrderAmount())
-      .then((voucher) => {
-        if (!cancelled) setAppliedGiftVoucher(voucher);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setAppliedGiftVoucher(null);
-        setGiftVoucherError(translate("voucherNoLongerApplies"));
-      });
+    // Debounced: the amount moves with points/quantity changes in quick succession.
+    const timer = setTimeout(() => {
+      api
+        .validateGiftVoucher(appliedGiftVoucher.code, voucherOrderAmount())
+        .then((voucher) => {
+          if (!cancelled) setAppliedGiftVoucher(voucher);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setAppliedGiftVoucher(null);
+          setGiftVoucherError(translate("voucherNoLongerApplies"));
+        });
+    }, 400);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -1014,11 +1025,24 @@ export default function Checkout() {
     await placeOrder(null);
   };
 
+  // A fresh "not a robot" token for one request; null when the check is off.
+  const takeTurnstileToken = async () => {
+    if (!TURNSTILE_SITE_KEY) return { ok: true, token: null };
+    const token = await turnstileRef.current?.takeToken();
+    if (!token) setError(translate("robotCheckRequired"));
+    return { ok: !!token, token };
+  };
+
   const needsGuestVerification = () =>
     !api.isAuthenticated() && paymentMethod === "home_delivery";
 
   const requestGuestCode = async () => {
     const email = userEmail.trim();
+    const turnstileCheck = await takeTurnstileToken();
+    if (!turnstileCheck.ok) {
+      setGuestCode(null);
+      return;
+    }
     setGuestCode((current) => ({
       code: "",
       error: "",
@@ -1034,6 +1058,7 @@ export default function Checkout() {
         name,
         language,
         marketingConsent: hasMarketingConsent(),
+        turnstileToken: turnstileCheck.token,
       });
       setGuestCode((current) => ({
         ...current,
@@ -1043,7 +1068,11 @@ export default function Checkout() {
       }));
     } catch (sendError) {
       setGuestCode(null);
-      setError(sendError.message || translate("guestCodeSendFailed"));
+      setError(
+        sendError.data?.field === "turnstile"
+          ? translate("robotCheckRequired")
+          : sendError.message || translate("guestCodeSendFailed"),
+      );
     }
   };
 
@@ -1089,6 +1118,9 @@ export default function Checkout() {
   const placeOrder = async (guestVerificationToken) => {
     setSaving(true);
     try {
+      const turnstileCheck = await takeTurnstileToken();
+      if (!turnstileCheck.ok) return;
+
       const isCompany = accountType === "company";
       const rawBillingPhone = isCompany ? billingForm.Company_Phone : billingForm.User_Phone;
       const normalizedBillingPhone =
@@ -1128,6 +1160,7 @@ export default function Checkout() {
         createAccount,
         password: createAccount ? password : null,
         guest_Verification_Token: guestVerificationToken,
+        turnstileToken: turnstileCheck.token,
         marketingConsent: hasMarketingConsent(),
         marketingConsentGivenAt: readCookieConsent()?.savedAt || null,
         cartItems: cartItems.map((item) => ({
@@ -1152,6 +1185,11 @@ export default function Checkout() {
       if (response?.giftVoucherCardOnly) {
         setPaymentMethod("credit_card");
         setError(translate("giftVoucherCardOnlyNotice"));
+        return;
+      }
+
+      if (response?.status === false && response.field === "turnstile") {
+        setError(translate("robotCheckRequired"));
         return;
       }
 
@@ -2169,6 +2207,8 @@ export default function Checkout() {
                 </label>
                 {termsError && <p className="mt-1.5 text-xs text-red-600">{termsError}</p>}
               </div>
+
+              <TurnstileCheck ref={turnstileRef} language={language} />
 
               <button
                 type="button"

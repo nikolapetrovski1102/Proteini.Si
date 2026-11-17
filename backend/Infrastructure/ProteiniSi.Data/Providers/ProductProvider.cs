@@ -92,7 +92,8 @@ public class ProductProvider(ISqlHelper sql) : IProductProvider
             ProductIds = TableParameters.IntList(query.ProductIds),
             PinCategoryIds = TableParameters.IntList(query.PinCategoryIds),
             PinBrandIds = TableParameters.IntList(query.PinBrandIds),
-            query.PinAll
+            query.PinAll,
+            query.RecommendedForYou
         }, async grid =>
         {
             var totalCount = await grid.ReadSingleAsync<int>();
@@ -217,6 +218,14 @@ public class ProductProvider(ISqlHelper sql) : IProductProvider
             product.InstructionsForUseAl,
             product.InstructionsForUseDescriptionAl,
             product.InstructionsOnHowToUseItAl,
+            product.NameEn,
+            product.DescriptionEn,
+            product.NutritionValuesIngredientsEn,
+            product.NutritionValuesIngredientsDescriptionEn,
+            product.NutritionInformationEn,
+            product.InstructionsForUseEn,
+            product.InstructionsForUseDescriptionEn,
+            product.InstructionsOnHowToUseItEn,
             product.RecommendedForYou,
             product.ProductsInTheOutlet,
             product.JustForMe,

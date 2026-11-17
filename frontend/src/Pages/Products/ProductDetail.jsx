@@ -1,5 +1,5 @@
 // ProductDetail.jsx - Complete version with ALL sections including nutrition details
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "../../services/api";
 import { IoIosStarOutline } from "react-icons/io";
@@ -14,7 +14,7 @@ import { FaHeart } from "react-icons/fa";
 import { useCart } from "../Hooks/useCart";
 import { useLanguage } from "../translation/LanguageContext";
 import { descriptionFromLegacy } from "./productDescription";
-import { formatSaleEndDate, isSaleActive } from "../../utils/salePricing";
+import { discountPercent, formatSaleEndDate, isSaleActive } from "../../utils/salePricing";
 import { applySeoMetadata } from "../../utils/seo";
 import {
   getCartWeightGrams,
@@ -150,11 +150,12 @@ export default function ProductDetail() {
   const tabsRef = useRef(null);
 
   // NEW: Function to check if the ID is a variant and redirect to parent
+  // Returns the loaded product data, or true when it redirected to the parent.
   const checkAndRedirectVariant = async (productId) => {
     try {
       const data = await api.getProductById(productId);
       if (data && data.product) {
-        return false;
+        return data;
       }
     } catch (err) {
       try {
@@ -224,6 +225,8 @@ export default function ProductDetail() {
   // Fetch variant gallery images
   const fetchVariantGallery = async (variantId) => {
     if (!variantId) return;
+    // Already loaded (switching back to a flavour/size seen before): no request.
+    if (variantGalleryImages[variantId]) return;
     setLoadingGallery(true);
     try {
       const data = await api.getVariantGallery(variantId);
@@ -457,12 +460,39 @@ export default function ProductDetail() {
   );
   // While the next variant's table loads, keep showing the previous one so the
   // page height doesn't collapse and jump (the "scroll stutter").
-  const variantNutritionData = nutritionMatchesSelection
+  const rawNutritionData = nutritionMatchesSelection
     ? nutritionResult.data
     : nutritionPending && nutritionResult
       ? nutritionResult.data
       : EMPTY_NUTRITION;
+  // The API sends AL/EN copies of the table labels (Macedonian where no
+  // translation exists yet); pick the ones for the current language.
+  const variantNutritionData = useMemo(() => {
+    const suffix = language === "al" ? "Al" : language === "en" ? "En" : null;
+    if (!suffix || !rawNutritionData?.rows) return rawNutritionData;
+    const columns = rawNutritionData[`columns${suffix}`];
+    return {
+      ...rawNutritionData,
+      columns:
+        Array.isArray(columns) && columns.length === (rawNutritionData.columns || []).length
+          ? columns
+          : rawNutritionData.columns,
+      rows: rawNutritionData.rows.map((row) => {
+        const cells = row[`cells${suffix}`];
+        return {
+          ...row,
+          rowLabel: row[`rowLabel${suffix}`] || row.rowLabel,
+          cells: Array.isArray(cells) && cells.length === (row.cells || []).length ? cells : row.cells,
+        };
+      }),
+    };
+  }, [rawNutritionData, language]);
   const loadingNutrition = nutritionPending && !nutritionResult;
+  const localizedVariantIngredients =
+    (language === "al" && nutritionVariant?.ingredientsAl?.trim()) ||
+    (language === "en" && nutritionVariant?.ingredientsEn?.trim()) ||
+    nutritionVariant?.ingredients ||
+    "";
 
   useEffect(() => {
     if (!nutritionVariantId) return;
@@ -500,10 +530,11 @@ export default function ProductDetail() {
       try {
         if (isVariantRedirect) return;
 
-        const isRedirecting = await checkAndRedirectVariant(id);
-        if (isRedirecting) return;
+        // One request: the lookup that detects variant ids already returns the product.
+        const loaded = await checkAndRedirectVariant(id);
+        if (loaded === true) return;
 
-        const data = await api.getProductById(id);
+        const data = loaded || (await api.getProductById(id));
         setProductData(data);
         if (data.product?.img) {
           setMainImage(data.product.img);
@@ -536,6 +567,17 @@ export default function ProductDetail() {
             );
           }
 
+          // Prefer a discounted variant (e.g. only "2kg · Chocolate" is on sale)
+          // so the shopper lands on the price they clicked through for.
+          if (!targetVariant) {
+            const isDiscounted = (v) =>
+              v.compare_Price > 0 && v.compare_Price < v.price;
+            const available = (v) => v.isActive && v.quantity > 0;
+            targetVariant =
+              data.variants.find((v) => isDiscounted(v) && available(v) && v.isDefault) ||
+              data.variants.find((v) => isDiscounted(v) && available(v));
+          }
+
           if (!targetVariant) {
             targetVariant =
               data.variants.find((v) => v.isDefault && v.isActive && v.quantity > 0) ||
@@ -565,7 +607,7 @@ export default function ProductDetail() {
         setError(null);
       } catch (err) {
         console.error("Error fetching product:", err);
-        setError("Product not found");
+        setError(translate("productNotFound"));
       } finally {
         setLoading(false);
       }
@@ -588,11 +630,21 @@ export default function ProductDetail() {
     if (!product) return undefined;
 
     const name =
-      language === "al" && product.nameAl ? product.nameAl : product.name;
+      language === "al" && product.nameAl
+        ? product.nameAl
+        : language === "en" && product.nameEn
+          ? product.nameEn
+          : product.name;
     const rawDescription =
+      (language === "al" && product.descriptionAl) ||
+      (language === "en" && product.descriptionEn) ||
       product.otherDescriptionText ||
       product.mainDescriptions ||
-      `${name} – sportска исхрана и суплементи од Proteini.si.`;
+      (language === "al"
+        ? `${name} – ushqim sportiv dhe suplemente nga Proteini.si.`
+        : language === "en"
+          ? `${name} – sports nutrition and supplements from Proteini.si.`
+          : `${name} – спортска исхрана и суплементи од Proteini.si.`);
     const description = String(rawDescription)
       .replace(/<[^>]*>/g, " ")
       .replaceAll("[", " ")
@@ -652,7 +704,7 @@ export default function ProductDetail() {
   const saleActive = isSaleActive(productData?.product);
   const saleEndDate = formatSaleEndDate(
     productData?.product,
-    language === "al" ? "sq-AL" : "mk-MK",
+    language === "al" ? "sq-AL" : language === "en" ? "en-GB" : "mk-MK",
   );
 
   if (selectedVariant) {
@@ -732,12 +784,15 @@ export default function ProductDetail() {
     setAdding(true);
     const productIdToAdd = productData?.product?.product_Id;
 
-    let productDisplayName =
+    const localizedBaseName =
       language === "al" && productData?.product?.nameAl
         ? productData.product.nameAl
-        : productData?.product?.name;
+        : language === "en" && productData?.product?.nameEn
+          ? productData.product.nameEn
+          : productData?.product?.name;
+    let productDisplayName = localizedBaseName;
     if (selectedVariant) {
-      productDisplayName = `${productData?.product?.name}`;
+      productDisplayName = `${localizedBaseName}`;
       if (selectedVariant.flavor_Name) {
         productDisplayName += ` - ${selectedVariant.flavor_Name}`;
       }
@@ -783,12 +838,12 @@ export default function ProductDetail() {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
         <div className="text-center">
-          <p className="text-red-500 text-xl">{error || "Product not found"}</p>
+          <p className="text-red-500 text-xl">{error || translate("productNotFound")}</p>
           <button
             onClick={() => navigate("/")}
             className="mt-4 rounded-lg bg-[#141409] px-6 py-2.5 font-semibold text-white"
           >
-            Go Back Home
+            {translate("goBackHome")}
           </button>
         </div>
       </div>
@@ -797,48 +852,59 @@ export default function ProductDetail() {
 
   const { product } = productData;
   const mainDescriptions = getMainDescriptions();
-  const useAlbanianContent = language === "al";
-  const displayName =
-    useAlbanianContent && product.nameAl ? product.nameAl : product.name;
+  const pickLocalized = (mkValue, alValue, enValue) => {
+    if (language === "al" && alValue) return alValue;
+    if (language === "en" && enValue) return enValue;
+    return mkValue;
+  };
+  const displayName = pickLocalized(product.name, product.nameAl, product.nameEn);
   const descriptionHtml =
-    useAlbanianContent && product.descriptionAl
+    language === "al" && product.descriptionAl
       ? descriptionFromLegacy([product.descriptionAl], "", "")
-      : descriptionFromLegacy(
-          mainDescriptions,
-          product.otherDescriptionTitle,
-          product.otherDescriptionText,
-        );
-  const localizedNutritionIngredients =
-    useAlbanianContent && product.nutritionValuesIngredientsAl
-      ? product.nutritionValuesIngredientsAl
-      : product.nutritionValuesIngredients;
-  const localizedNutritionDescription =
-    useAlbanianContent && product.nutritionValuesIngredientsDescriptionAl
-      ? product.nutritionValuesIngredientsDescriptionAl
-      : product.nutritionValuesIngredientsDescription;
-  const localizedNutritionInformation =
-    useAlbanianContent && product.nutritionInformationAl
-      ? product.nutritionInformationAl
-      : product.nutritionInformation;
-  const localizedInstructionsTitle =
-    useAlbanianContent && product.instructionsForUseAl
-      ? product.instructionsForUseAl
-      : product.instructionsForUse;
-  const localizedInstructionsDescription =
-    useAlbanianContent && product.instructionsForUseDescriptionAl
-      ? product.instructionsForUseDescriptionAl
-      : product.instructionsForUseDescription;
-  const localizedDetailedInstructions =
-    useAlbanianContent && product.instructionsOnHowToUseItAl
-      ? product.instructionsOnHowToUseItAl
-      : product.instructionsOnHowToUseIt;
+      : language === "en" && product.descriptionEn
+        ? descriptionFromLegacy([product.descriptionEn], "", "")
+        : descriptionFromLegacy(
+            mainDescriptions,
+            product.otherDescriptionTitle,
+            product.otherDescriptionText,
+          );
+  const localizedNutritionIngredients = pickLocalized(
+    product.nutritionValuesIngredients,
+    product.nutritionValuesIngredientsAl,
+    product.nutritionValuesIngredientsEn,
+  );
+  const localizedNutritionDescription = pickLocalized(
+    product.nutritionValuesIngredientsDescription,
+    product.nutritionValuesIngredientsDescriptionAl,
+    product.nutritionValuesIngredientsDescriptionEn,
+  );
+  const localizedNutritionInformation = pickLocalized(
+    product.nutritionInformation,
+    product.nutritionInformationAl,
+    product.nutritionInformationEn,
+  );
+  const localizedInstructionsTitle = pickLocalized(
+    product.instructionsForUse,
+    product.instructionsForUseAl,
+    product.instructionsForUseEn,
+  );
+  const localizedInstructionsDescription = pickLocalized(
+    product.instructionsForUseDescription,
+    product.instructionsForUseDescriptionAl,
+    product.instructionsForUseDescriptionEn,
+  );
+  const localizedDetailedInstructions = pickLocalized(
+    product.instructionsOnHowToUseIt,
+    product.instructionsOnHowToUseItAl,
+    product.instructionsOnHowToUseItEn,
+  );
   const hasVariants = variants.length > 0;
   const hasDescription = descriptionHtml.replace(/<[^>]*>/g, "").trim().length > 0;
   const hasNutrition = !isApparel && Boolean(
     localizedNutritionIngredients ||
       localizedNutritionDescription ||
       localizedNutritionInformation ||
-      nutritionVariant?.ingredients ||
+      localizedVariantIngredients ||
       nutritionVariant?.nutrition_Info ||
       loadingNutrition ||
       variantNutritionData.columns?.length ||
@@ -966,10 +1032,7 @@ export default function ProductDetail() {
       : offerAppliesTo(referralOffer, productData?.product?.product_Id));
 
   const hasDiscount = originalPrice > 0 && originalPrice !== currentPrice;
-  const badgePercent =
-    originalPrice > 0 && displayPrice < originalPrice
-      ? Math.round(((originalPrice - displayPrice) / originalPrice) * 100)
-      : 0;
+  const badgePercent = discountPercent(originalPrice, displayPrice);
   const isOutOfStock = currentStock === 0;
   const sortedPackagings = [...availablePackagings].sort(
     isApparel ? sortClothingSizes : sortPackagingsByWeight,
@@ -1119,7 +1182,7 @@ export default function ProductDetail() {
                 onClick={handleToggleFavorite}
                 disabled={favoriteLoading}
                 aria-pressed={isFavorite}
-                aria-label="Favorite"
+                aria-label={translate("favorite")}
                 className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition hover:scale-105 disabled:opacity-50"
               >
                 {isFavorite ? (
@@ -1134,7 +1197,7 @@ export default function ProductDetail() {
                   <button
                     type="button"
                     onClick={() => stepImage(-1)}
-                    aria-label="Previous image"
+                    aria-label={translate("previousImage")}
                     className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition hover:scale-105"
                   >
                     <FiChevronLeft size={20} />
@@ -1142,7 +1205,7 @@ export default function ProductDetail() {
                   <button
                     type="button"
                     onClick={() => stepImage(1)}
-                    aria-label="Next image"
+                    aria-label={translate("nextImage")}
                     className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition hover:scale-105"
                   >
                     <FiChevronRight size={20} />
@@ -1201,7 +1264,7 @@ export default function ProductDetail() {
                 <IoIosStarOutline />
                 <IoIosStarOutline />
               </span>
-              <span className="text-xs text-gray-500">(0 reviews)</span>
+              <span className="text-xs text-gray-500">{translate("zeroReviews")}</span>
             </div>
 
             {descriptionExcerpt && (
@@ -1391,11 +1454,11 @@ export default function ProductDetail() {
 
             {/* Price */}
             <div className="mb-4 flex flex-wrap items-end gap-x-3 gap-y-1">
-              <p className={`text-3xl font-bold ${codePrice != null ? "text-[#E3262F]" : "text-[var(--ink)]"}`}>
+              <p className={`text-4xl font-bold md:text-[34px] ${codePrice != null ? "text-[#E3262F]" : "text-[var(--ink)]"}`}>
                 <Price value={displayPrice} />
               </p>
               {(hasDiscount || codePrice != null) && (
-                <p className="pb-1 text-base text-gray-400 line-through">
+                <p className="pb-1 text-lg text-gray-400 line-through">
                   <Price value={originalPrice} />
                 </p>
               )}
@@ -1530,20 +1593,20 @@ export default function ProductDetail() {
                       </div>
                     )}
 
-                    {nutritionVariant?.ingredients && (
+                    {localizedVariantIngredients && (
                       <div className="mb-6">
                         <h4 className="font-semibold mb-3">
                           {translate("ingredients1")}
                         </h4>
                         <p className="whitespace-pre-line">
-                          {nutritionVariant.ingredients}
+                          {localizedVariantIngredients}
                         </p>
                       </div>
                     )}
 
                     {loadingNutrition ? (
                       <div className="text-center py-8 text-gray-500">
-                        Loading nutrition data...
+                        {translate("loadingNutritionData")}
                       </div>
                     ) : variantNutritionData.columns &&
                       variantNutritionData.columns.length > 0 ? (
@@ -1618,7 +1681,7 @@ export default function ProductDetail() {
                     {nutritionVariant?.nutrition_Info && (
                       <div className="mt-6 pt-4 border-t">
                         <h4 className="font-semibold mb-3">
-                          Additional Nutrition Information
+                          {translate("additionalNutritionInfo")}
                         </h4>
                         <p className="whitespace-pre-line">
                           {nutritionVariant.nutrition_Info}
@@ -1737,7 +1800,7 @@ export default function ProductDetail() {
 
           <div className="flex w-full items-center gap-3 md:w-auto">
             <div className="min-w-0 flex-1 md:flex-none md:text-right">
-              <p className="text-lg font-bold leading-tight text-[var(--ink)]">
+              <p className="text-xl font-bold leading-tight text-[var(--ink)]">
                 <Price value={displayPrice * quantity} />
               </p>
               {quantity > 1 && (
@@ -1901,11 +1964,11 @@ function ProductQuestionForm({ productName }) {
   const handleSubmit = (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const subject = `Прашање за производ: ${productName}`;
+    const subject = `${translate("productQuestionMailSubject")} ${productName}`;
     const body = [
-      `Производ: ${productName}`,
-      `Име: ${form.get("name")}`,
-      `Е-пошта: ${form.get("email")}`,
+      `${translate("productQuestionMailProduct")} ${productName}`,
+      `${translate("productQuestionMailName")} ${form.get("name")}`,
+      `${translate("productQuestionMailEmail")} ${form.get("email")}`,
       "",
       String(form.get("question") || ""),
     ].join("\n");
@@ -1970,11 +2033,12 @@ function ProductQuestionForm({ productName }) {
 }
 
 function ProductDetailSkeleton() {
+  const { translate } = useLanguage();
   return (
     <div
       className="w-full bg-[#f6f5f1]"
       aria-busy="true"
-      aria-label="Loading product"
+      aria-label={translate("loadingProduct")}
     >
       <BrandLoader size={0} className="hidden" />
       <div className="mx-auto w-full max-w-[1240px] px-4 pt-5 pb-12 opacity-60 lg:pt-8">
