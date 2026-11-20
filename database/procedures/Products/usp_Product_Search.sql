@@ -84,15 +84,15 @@ BEGIN
     LEFT JOIN dbo.ProductVariants pv ON p.Product_Id = pv.Product_Id AND pv.IsActive = 1
     WHERE (@SearchTerm IS NULL OR (
             p.Product_Id = TRY_CONVERT(int, @SearchTermExact)
-            OR p.Name LIKE @SearchTerm
-            OR p.NameAl LIKE @SearchTerm
-            OR p.NameEn LIKE @SearchTerm
-            OR b.Brand_Name LIKE @SearchTerm
-            OR COALESCE(f.Flavor_Name, pv.Flavor_Name) LIKE @SearchTerm
+            OR p.Name LIKE @SearchTerm COLLATE Latin1_General_100_CI_AI
+            OR p.NameAl LIKE @SearchTerm COLLATE Latin1_General_100_CI_AI
+            OR p.NameEn LIKE @SearchTerm COLLATE Latin1_General_100_CI_AI
+            OR b.Brand_Name LIKE @SearchTerm COLLATE Latin1_General_100_CI_AI
+            OR COALESCE(f.Flavor_Name, pv.Flavor_Name) LIKE @SearchTerm COLLATE Latin1_General_100_CI_AI
             OR EXISTS (SELECT 1 FROM dbo.ProductVariants pv2
                        WHERE pv2.Product_Id = p.Product_Id
                          AND pv2.IsActive = 1
-                         AND pv2.Flavor_Name LIKE @SearchTerm)))
+                         AND pv2.Flavor_Name LIKE @SearchTerm COLLATE Latin1_General_100_CI_AI)))
       AND (@BrandId IS NULL OR p.Brand_Id = @BrandId)
       AND (@FlavorId IS NULL OR (
             p.Flavor_Id = @FlavorId

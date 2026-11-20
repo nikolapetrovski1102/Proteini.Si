@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { FiX } from "react-icons/fi";
+import { searchText } from "../../utils/searchText";
 import { Badge, SearchInput, Segmented } from "./AdminKit";
 import { categoryName, productName, scopeFromCode, scopeSummary } from "./promoScope";
 
@@ -54,8 +55,8 @@ export default function PromoScopeFields({ value, onChange, products = [], categ
   const set = (patch) => onChange({ ...scope, ...patch });
 
   const matchingProducts = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    const rows = term ? products.filter((p) => (p.name || "").toLowerCase().includes(term) || String(p.product_Id) === term) : products;
+    const term = searchText(search.trim());
+    const rows = term ? products.filter((p) => searchText(p.name).includes(term) || String(p.product_Id) === term) : products;
     return rows.slice(0, 200);
   }, [products, search]);
 

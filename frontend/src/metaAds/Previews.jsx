@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ctaLabel } from "./copy";
+import { META_FORMATS } from "./metaFormats";
 
 const Avatar = ({ size = 36, ring = false }) => (
   <div
@@ -136,21 +137,64 @@ function InstagramMock({ handle, primaryText, cta, cards }) {
   );
 }
 
+/** Instant, approximate Stories / Reels look: 9:16, the square card in the middle, CTA at the bottom. */
+function StoryMock({ handle, primaryText, cta, cards }) {
+  const [index, setIndex] = useState(0);
+  const count = cards.length;
+  const current = Math.min(index, Math.max(0, count - 1));
+  const card = cards[current];
+
+  return (
+    <div className="relative w-full max-w-[300px] aspect-[9/16] rounded-2xl overflow-hidden bg-[#141409] text-white shadow-sm select-none">
+      {card?.thumb && <img src={card.thumb} alt="" className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-50 scale-110" />}
+      <div className="absolute top-2 inset-x-2 flex gap-1">
+        {(count ? cards : [null]).map((c, i) => (
+          <span key={c?.key || i} className={`h-0.5 flex-1 rounded-full ${i <= current ? "bg-white" : "bg-white/35"}`} />
+        ))}
+      </div>
+      <div className="absolute top-5 inset-x-3 flex items-center gap-2 text-[12px]">
+        <Avatar size={28} />
+        <span className="font-semibold truncate">{handle}</span>
+        <span className="text-white/70">Sponsored</span>
+      </div>
+      <div className="absolute inset-x-0 top-[18%] px-3">
+        {card?.thumb ? <img src={card.thumb} alt="" className="w-full aspect-square rounded-lg" /> : <div className="aspect-square rounded-lg bg-white/10 grid place-items-center text-white/60 text-sm">No cards yet</div>}
+        <p className="mt-3 text-[12px] leading-snug line-clamp-3 drop-shadow">{primaryText}</p>
+      </div>
+      <div className="absolute bottom-4 inset-x-0 flex flex-col items-center gap-1">
+        <span className="text-lg leading-none">⌃</span>
+        <span className="rounded-full bg-white text-[#141409] px-4 py-1.5 text-[13px] font-semibold">{ctaLabel(cta)}</span>
+      </div>
+      {count > 1 && (
+        <>
+          <button type="button" aria-label="Previous card" className="absolute left-0 top-0 h-full w-1/3" onClick={() => setIndex(Math.max(0, current - 1))} />
+          <button type="button" aria-label="Next card" className="absolute right-0 top-0 h-full w-1/3" onClick={() => setIndex(Math.min(count - 1, current + 1))} />
+        </>
+      )}
+    </div>
+  );
+}
+
 const MOCKS = [
-  ["facebook", "Facebook"],
-  ["instagram", "Instagram"],
+  ["facebook", "Facebook feed"],
+  ["instagram", "Instagram feed"],
+  ["story", "Stories & Reels"],
 ];
 
-/** Quick preview with a Facebook / Instagram switch. Pure front-end, so it is instant and always works. */
+const mocksFor = (placements) =>
+  placements === "facebook" ? ["facebook", "story"] : placements === "instagram" ? ["instagram", "story"] : placements === "feeds" ? ["facebook", "instagram"] : placements === "stories" ? ["story"] : ["facebook", "instagram", "story"];
+
+/** Quick preview with a Facebook / Instagram / Stories switch. Pure front-end, so it is instant and always works. */
 export function MockPreview({ pageName, instagramHandle, placements, ...ad }) {
-  const [choice, setChoice] = useState(placements === "instagram" ? "instagram" : "facebook");
-  const which = placements === "facebook" ? "facebook" : placements === "instagram" ? "instagram" : choice;
+  const allowed = mocksFor(placements);
+  const [choice, setChoice] = useState(allowed[0]);
+  const which = allowed.includes(choice) ? choice : allowed[0];
 
   return (
     <div>
-      {placements === "auto" || !placements ? (
+      {allowed.length > 1 && (
         <div className="flex gap-4 mb-3 text-sm border-b border-[#e7e4da]">
-          {MOCKS.map(([id, label]) => (
+          {MOCKS.filter(([id]) => allowed.includes(id)).map(([id, label]) => (
             <button
               key={id}
               type="button"
@@ -161,36 +205,38 @@ export function MockPreview({ pageName, instagramHandle, placements, ...ad }) {
             </button>
           ))}
         </div>
-      ) : null}
-      {which === "instagram" ? <InstagramMock handle={instagramHandle} {...ad} /> : <FacebookMock pageName={pageName} {...ad} />}
+      )}
+      {which === "instagram" ? (
+        <InstagramMock handle={instagramHandle} {...ad} />
+      ) : which === "story" ? (
+        <StoryMock handle={instagramHandle} {...ad} />
+      ) : (
+        <FacebookMock pageName={pageName} {...ad} />
+      )}
     </div>
   );
 }
 
-const FORMATS = {
-  MOBILE_FEED_STANDARD: { label: "Facebook feed", height: 560 },
-  INSTAGRAM_STANDARD: { label: "Instagram feed", height: 620 },
-};
 
 /** Meta's own rendering (generatepreviews). The iframe src is checked server-side to be https://*.facebook.com. */
 export function MetaPreview({ previews }) {
   return (
-    <div className="flex flex-wrap gap-4 mb-3">
+    <div className="flex flex-wrap gap-4">
       {previews.map((p) => {
-        const format = FORMATS[p.format] || { label: p.format, height: 600 };
+        const format = META_FORMATS.find((f) => f.id === p.format) || { label: p.format, height: 600, width: 340 };
         return (
           <div key={p.format}>
-            <div className="flex items-baseline justify-between gap-3 text-xs text-[#6b6b63] mb-1">
-              <span>{format.label}</span>
-              <a href={p.src} target="_blank" rel="noreferrer" className="underline hover:text-[#141409]">
+            <div className="flex items-baseline justify-between gap-3 text-sm mb-1">
+              <span className="font-semibold">{format.label}</span>
+              <a href={p.src} target="_blank" rel="noreferrer" className="text-xs text-[#6b6b63] underline hover:text-[#141409]">
                 Open in a new tab
               </a>
             </div>
             <iframe
               title={format.label}
               src={p.src}
-              className="w-[340px] rounded-xl border border-[#e7e4da] bg-white"
-              style={{ height: format.height }}
+              className="rounded-xl border border-[#e7e4da] bg-white max-w-full"
+              style={{ height: format.height, width: format.width }}
               sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
               allow="autoplay"
               referrerPolicy="strict-origin-when-cross-origin"

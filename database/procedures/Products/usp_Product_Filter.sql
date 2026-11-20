@@ -56,12 +56,39 @@ BEGIN
 
     -- Clothing (mapped to an apparel category or its subcategory) is listed once per product: its packagings are
     -- sizes, not different products like the weights of a protein tub.
-    WITH ApparelProducts AS (
-        SELECT DISTINCT pcm.Product_Id
+    -- Category facts per product in one pass: clothing (apparel category or subcategory) and the whey / bar
+    -- categories used by the default ("priority") order.
+    WITH ProductCategoryFlags AS (
+        SELECT
+            pcm.Product_Id,
+            MAX(CASE WHEN c.Is_Apparel = 1 OR parent.Is_Apparel = 1 THEN 1 ELSE 0 END) AS IsApparel,
+            MAX(CASE WHEN LOWER(c.Category_Name) LIKE '%whey%' OR LOWER(c.Category_Name) LIKE '%protein powder%'
+                     THEN 1 ELSE 0 END) AS IsWhey,
+            MAX(CASE WHEN LOWER(c.Category_Name) LIKE '%bar%' THEN 1 ELSE 0 END) AS IsBar
         FROM dbo.ProductCategoryMapping pcm
         INNER JOIN dbo.ProductCategories c ON c.Category_Id = pcm.Category_Id
         LEFT JOIN dbo.ProductCategories parent ON parent.Category_Id = c.Parent_Category_Id
-        WHERE c.Is_Apparel = 1 OR parent.Is_Apparel = 1
+        GROUP BY pcm.Product_Id
+    ),
+    ApparelProducts AS (
+        SELECT Product_Id FROM ProductCategoryFlags WHERE IsApparel = 1
+    ),
+    -- Packaging and flavour counts per product (active variants only) in one pass.
+    VariantCounts AS (
+        SELECT
+            Product_Id,
+            COUNT(DISTINCT COALESCE(
+                CONVERT(nvarchar(50), Packaging_Id),
+                NULLIF(LOWER(LTRIM(RTRIM(Packaging_Name))), ''),
+                CONCAT('variant-', Variant_Id)
+            )) AS PackagingCount,
+            COUNT(DISTINCT COALESCE(
+                CONVERT(nvarchar(50), Flavor_Id),
+                NULLIF(LOWER(LTRIM(RTRIM(Flavor_Name))), '')
+            )) AS FlavorCount
+        FROM dbo.ProductVariants
+        WHERE IsActive = 1
+        GROUP BY Product_Id
     ),
     VariantGroups AS (
         SELECT
@@ -143,32 +170,15 @@ BEGIN
         v.Packaging_Name AS VariantPackagingName,
         v.Flavor_Name AS VariantFlavorName,
         CAST(CASE WHEN ap.Product_Id IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS IsApparel,
-        CASE WHEN p.HasVariants = 1 THEN (
-            SELECT COUNT(*)
-            FROM (
-                SELECT DISTINCT COALESCE(
-                    CONVERT(nvarchar(50), packaging.Packaging_Id),
-                    NULLIF(LOWER(LTRIM(RTRIM(packaging.Packaging_Name))), ''),
-                    CONCAT('variant-', packaging.Variant_Id)
-                ) AS PackagingKey
-                FROM dbo.ProductVariants packaging
-                WHERE packaging.Product_Id = p.Product_Id AND packaging.IsActive = 1
-            ) packagingGroups
-        ) ELSE 1 END AS PackagingCount,
-        CASE WHEN p.HasVariants = 1 THEN (
-            SELECT COUNT(DISTINCT COALESCE(
-                CONVERT(nvarchar(50), taste.Flavor_Id),
-                NULLIF(LOWER(LTRIM(RTRIM(taste.Flavor_Name))), '')
-            ))
-            FROM dbo.ProductVariants taste
-            WHERE taste.Product_Id = p.Product_Id AND taste.IsActive = 1
-        ) ELSE CASE WHEN p.Flavor_Id IS NULL THEN 0 ELSE 1 END END AS FlavorCount,
+        CASE WHEN p.HasVariants = 1 THEN COALESCE(vc.PackagingCount, 0) ELSE 1 END AS PackagingCount,
+        CASE WHEN p.HasVariants = 1 THEN COALESCE(vc.FlavorCount, 0)
+             ELSE CASE WHEN p.Flavor_Id IS NULL THEN 0 ELSE 1 END END AS FlavorCount,
         CASE WHEN @HasSearch = 1 THEN
             CASE
-                WHEN p.Name = @SearchExact OR p.NameAl = @SearchExact OR p.NameEn = @SearchExact THEN 0
-                WHEN p.Name LIKE @SearchPrefix OR p.NameAl LIKE @SearchPrefix OR p.NameEn LIKE @SearchPrefix THEN 1
-                WHEN p.Name LIKE @SearchContains OR p.NameAl LIKE @SearchContains OR p.NameEn LIKE @SearchContains THEN 2
-                WHEN b.Brand_Name LIKE @SearchContains THEN 3
+                WHEN p.Name = @SearchExact COLLATE Latin1_General_100_CI_AI OR p.NameAl = @SearchExact COLLATE Latin1_General_100_CI_AI OR p.NameEn = @SearchExact COLLATE Latin1_General_100_CI_AI THEN 0
+                WHEN p.Name LIKE @SearchPrefix COLLATE Latin1_General_100_CI_AI OR p.NameAl LIKE @SearchPrefix COLLATE Latin1_General_100_CI_AI OR p.NameEn LIKE @SearchPrefix COLLATE Latin1_General_100_CI_AI THEN 1
+                WHEN p.Name LIKE @SearchContains COLLATE Latin1_General_100_CI_AI OR p.NameAl LIKE @SearchContains COLLATE Latin1_General_100_CI_AI OR p.NameEn LIKE @SearchContains COLLATE Latin1_General_100_CI_AI THEN 2
+                WHEN b.Brand_Name LIKE @SearchContains COLLATE Latin1_General_100_CI_AI THEN 3
                 ELSE 4
             END
         ELSE 99 END AS SearchRank,
@@ -180,21 +190,8 @@ BEGIN
               OR LOWER(COALESCE(b.Brand_Name, '')) LIKE '%proteini si%' THEN 1
             WHEN LOWER(COALESCE(b.Brand_Name, '')) = 'usn' THEN 2
             WHEN LOWER(COALESCE(b.Brand_Name, '')) LIKE '%olimp%' THEN 3
-            WHEN EXISTS (
-                SELECT 1 FROM dbo.ProductCategoryMapping priorityPcm
-                INNER JOIN dbo.ProductCategories priorityCategory
-                    ON priorityCategory.Category_Id = priorityPcm.Category_Id
-                WHERE priorityPcm.Product_Id = p.Product_Id
-                  AND (LOWER(priorityCategory.Category_Name) LIKE '%whey%'
-                       OR LOWER(priorityCategory.Category_Name) LIKE '%protein powder%')
-            ) THEN 4
-            WHEN EXISTS (
-                SELECT 1 FROM dbo.ProductCategoryMapping priorityPcm
-                INNER JOIN dbo.ProductCategories priorityCategory
-                    ON priorityCategory.Category_Id = priorityPcm.Category_Id
-                WHERE priorityPcm.Product_Id = p.Product_Id
-                  AND LOWER(priorityCategory.Category_Name) LIKE '%bar%'
-            ) THEN 5
+            WHEN pcf.IsWhey = 1 THEN 4
+            WHEN pcf.IsBar = 1 THEN 5
             ELSE 6
         END AS PriorityRank,
         CASE WHEN @SortBy = 'priority' THEN COALESCE((
@@ -213,6 +210,8 @@ BEGIN
     LEFT JOIN dbo.Flavors f ON p.Flavor_Id = f.Flavor_Id
     LEFT JOIN ProductSales ps ON ps.Product_Id = p.Product_Id
     LEFT JOIN ApparelProducts ap ON ap.Product_Id = p.Product_Id
+    LEFT JOIN ProductCategoryFlags pcf ON pcf.Product_Id = p.Product_Id
+    LEFT JOIN VariantCounts vc ON vc.Product_Id = p.Product_Id
     WHERE (ISNULL(p.HasVariants, 0) = 0 OR v.Variant_Id IS NOT NULL)
       AND (@FilterCategories = 0 OR EXISTS (
             SELECT 1 FROM dbo.ProductCategoryMapping pcm
@@ -253,35 +252,37 @@ BEGIN
       AND (@GiftVouchers = 0 OR p.IsGiftVoucher = 1)
       AND (@JustForMe = 0 OR (p.JustForMe = 1
             AND ((ISNULL(p.HasVariants, 0) = 1 AND v.PackagingQuantity > 0) OR (ISNULL(p.HasVariants, 0) = 0 AND p.Quantity > 0))))
+      -- Search is accent-insensitive (NÄNO matches "nano"); the API already strips accents from the typed term.
       AND (@HasSearch = 0 OR EXISTS (
             SELECT 1
             FROM @SearchTerms term
-            WHERE p.Name LIKE term.Value
-               OR p.NameAl LIKE term.Value
-               OR p.NameEn LIKE term.Value
-               OR b.Brand_Name LIKE term.Value
-               OR f.Flavor_Name LIKE term.Value
-               OR v.Flavor_Name LIKE term.Value
-               OR v.Packaging_Name LIKE term.Value
-               OR v.Variant_Name LIKE term.Value
+            WHERE p.Name LIKE term.Value COLLATE Latin1_General_100_CI_AI
+               OR p.NameAl LIKE term.Value COLLATE Latin1_General_100_CI_AI
+               OR p.NameEn LIKE term.Value COLLATE Latin1_General_100_CI_AI
+               OR b.Brand_Name LIKE term.Value COLLATE Latin1_General_100_CI_AI
+               OR f.Flavor_Name LIKE term.Value COLLATE Latin1_General_100_CI_AI
+               OR v.Flavor_Name LIKE term.Value COLLATE Latin1_General_100_CI_AI
+               OR v.Packaging_Name LIKE term.Value COLLATE Latin1_General_100_CI_AI
+               OR v.Variant_Name LIKE term.Value COLLATE Latin1_General_100_CI_AI
                OR EXISTS (
                     SELECT 1
                     FROM dbo.ProductVariants searchVariant
                     WHERE searchVariant.Product_Id = p.Product_Id
                       AND searchVariant.IsActive = 1
-                      AND (searchVariant.Flavor_Name LIKE term.Value
-                           OR searchVariant.Packaging_Name LIKE term.Value
-                           OR searchVariant.Variant_Name LIKE term.Value
-                           OR searchVariant.SKU LIKE term.Value))
+                      AND (searchVariant.Flavor_Name LIKE term.Value COLLATE Latin1_General_100_CI_AI
+                           OR searchVariant.Packaging_Name LIKE term.Value COLLATE Latin1_General_100_CI_AI
+                           OR searchVariant.Variant_Name LIKE term.Value COLLATE Latin1_General_100_CI_AI
+                           OR searchVariant.SKU LIKE term.Value COLLATE Latin1_General_100_CI_AI))
                OR EXISTS (
                     SELECT 1
                     FROM dbo.ProductCategoryMapping searchPcm
                     INNER JOIN dbo.ProductCategories searchCategory
                         ON searchCategory.Category_Id = searchPcm.Category_Id
                     WHERE searchPcm.Product_Id = p.Product_Id
-                      AND (searchCategory.Category_Name LIKE term.Value
-                           OR searchCategory.Category_Slug LIKE term.Value))))
-    OPTION (RECOMPILE);
+                      AND (searchCategory.Category_Name LIKE term.Value COLLATE Latin1_General_100_CI_AI
+                           OR searchCategory.Category_Slug LIKE term.Value COLLATE Latin1_General_100_CI_AI))));
+    -- No OPTION (RECOMPILE): compiling this statement cost ~220 ms per call, about 3x running it. The catalogue is
+    -- small (hundreds of rows), so one cached plan serves every filter combination well.
 
     SELECT COUNT(*) FROM #Filtered;
 

@@ -363,6 +363,10 @@ function LoginForm({
             className={inputClass}
             placeholder="name@email.com"
           />
+          <EmailTypoHint
+            email={form.User_Email}
+            onAcceptSuggestion={(fixed) => setForm((f) => ({ ...f, User_Email: fixed }))}
+          />
         </Field>
 
         <Field label={translate("password")} htmlFor="login-password">
@@ -727,6 +731,7 @@ function ForgotForm({ translate, language, forgotPassword, onBack }) {
             <Alert>{error}</Alert>
             <Field label={translate("eMail")} htmlFor="forgot-email">
               <input id="forgot-email" type="email" required autoComplete="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="name@email.com" />
+              <EmailTypoHint email={email} onAcceptSuggestion={setEmail} />
             </Field>
           </div>
           <button type="submit" disabled={loading} className={`${primaryButtonClass} mt-6`}>
@@ -1012,6 +1017,7 @@ function EmailCodeForm({
           <Alert>{error}</Alert>
           <Field label={translate("eMail")} htmlFor="code-email">
             <input id="code-email" type="email" required autoComplete="email" autoFocus maxLength={45} value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="name@email.com" />
+            <EmailTypoHint email={email} onAcceptSuggestion={setEmail} />
           </Field>
         </div>
         <button type="submit" disabled={sending} className={`${primaryButtonClass} mt-6`}>

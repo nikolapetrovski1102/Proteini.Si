@@ -268,7 +268,13 @@ namespace ProteiniSi.Services
             {
                 try
                 {
-                    await marketing.SetGuestOrderConsentAsync(userEmail, orderDto.MarketingConsentGivenAt);
+                    // The order still goes through, but a domain without a mail server (hotmal.com)
+                    // must not join the marketing list.
+                    var domainError = await CheckoutFieldValidator.ValidateEmailDomainAsync(userEmail, requireMailServer: true);
+                    if (domainError == null)
+                        await marketing.SetGuestOrderConsentAsync(userEmail, orderDto.MarketingConsentGivenAt);
+                    else
+                        logger.LogInformation("Skipped marketing consent of guest order {OrderId}: {Reason}", orderId, domainError);
                 }
                 catch (Exception ex)
                 {

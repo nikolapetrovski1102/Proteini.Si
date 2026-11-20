@@ -10,6 +10,8 @@ public static class CheckoutAbuseExtensions
     public const string OrderCreatePolicy = "order-create";
     public const string GuestCodePolicy = "guest-checkout-code";
     public const string SignInPolicy = "sign-in";
+    /// <summary>Password login, registration, email verification and password reset (own bucket, so shared mobile IPs are not starved by sign-in codes).</summary>
+    public const string AccountPolicy = "account";
     public const string AnalyticsPolicy = "analytics";
 
     public static IServiceCollection AddCheckoutAbuseProtection(this IServiceCollection services)
@@ -35,6 +37,7 @@ public static class CheckoutAbuseExtensions
             options.AddPolicy(OrderCreatePolicy, context => PerIp(context, permits: 10, window: TimeSpan.FromHours(1)));
             options.AddPolicy(GuestCodePolicy, context => PerIp(context, permits: 10, window: TimeSpan.FromMinutes(15)));
             options.AddPolicy(SignInPolicy, context => PerIp(context, permits: 30, window: TimeSpan.FromMinutes(15)));
+            options.AddPolicy(AccountPolicy, context => PerIp(context, permits: 60, window: TimeSpan.FromMinutes(15)));
             options.AddPolicy(AnalyticsPolicy, context => PerIp(context, permits: 120, window: TimeSpan.FromMinutes(1)));
         });
 

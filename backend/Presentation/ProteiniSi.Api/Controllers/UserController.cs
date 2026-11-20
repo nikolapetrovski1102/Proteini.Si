@@ -13,21 +13,25 @@ public class UserController(IUserService service) : ControllerBase
 {
     [AllowAnonymous]
     [HttpPost("Register")]
+    [EnableRateLimiting(CheckoutAbuseExtensions.AccountPolicy)]
     public async Task<IActionResult> Register([FromBody] UserForRegistrationDto userForRegistration) =>
         Ok(await service.RegisterAsync(userForRegistration));
 
     [AllowAnonymous]
     [HttpPost("Login")]
+    [EnableRateLimiting(CheckoutAbuseExtensions.AccountPolicy)]
     public async Task<IActionResult> Login([FromBody] UserForLoginDto userForLogin) =>
         Ok(await service.LoginAsync(userForLogin));
 
     [AllowAnonymous]
     [HttpPost("VerifyEmail")]
+    [EnableRateLimiting(CheckoutAbuseExtensions.AccountPolicy)]
     public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailDto verifyEmailDto) =>
         Ok(await service.VerifyEmailAsync(verifyEmailDto));
 
     [AllowAnonymous]
     [HttpPost("ResendVerificationCode")]
+    [EnableRateLimiting(CheckoutAbuseExtensions.AccountPolicy)]
     public async Task<IActionResult> ResendVerificationCode([FromBody] ResendVerificationCodeDto resendDto) =>
         Ok(await service.ResendVerificationCodeAsync(resendDto));
 
@@ -53,11 +57,13 @@ public class UserController(IUserService service) : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("ForgotPassword")]
+    [EnableRateLimiting(CheckoutAbuseExtensions.AccountPolicy)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto forgotPasswordDto) =>
         Ok(await service.ForgotPasswordAsync(forgotPasswordDto));
 
     [AllowAnonymous]
     [HttpPost("ResetPassword")]
+    [EnableRateLimiting(CheckoutAbuseExtensions.AccountPolicy)]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto resetPasswordDto) =>
         Ok(await service.ResetPasswordAsync(resetPasswordDto));
 

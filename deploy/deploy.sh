@@ -14,6 +14,8 @@
 #     dotnet ProteiniSi.Reports.dll --dry-run /tmp/report
 # The same job sends the automatic marketing emails ("ProteiniSi.Reports.dll marketing"),
 # every 15 minutes via proteinisi-marketing.timer, also enabled on prod only.
+# And the instant alerts ("ProteiniSi.Reports.dll alerts") every 5 minutes via
+# proteinisi-alerts.timer (prod only; it watches the whole server, stage included).
 #
 # Server secrets (appsettings.Production.json, /etc/proteinisi/*.env) stay on the
 # server and are never overwritten. User uploads in wwwroot and App_Data (the
@@ -28,6 +30,11 @@ case "$ENVIRONMENT" in
   prod)  SITE=https://proteini.mk;       API=https://proteini.mk;           SERVICE=proteinisi-api-prod;  PORT=6800 ;;
   stage) SITE=https://stage.proteini.mk; API=https://stage.proteini.mk; SERVICE=proteinisi-api-stage; PORT=6801 ;;
   *) echo "usage: $0 prod|stage [all|api|web|reports|meta-ads]" >&2; exit 1 ;;
+esac
+
+case "$PART" in
+  all|api|web|reports|meta-ads) ;;
+  *) echo "unknown part '$PART'; usage: $0 prod|stage [all|api|web|reports|meta-ads]" >&2; exit 1 ;;
 esac
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -88,12 +95,13 @@ if [[ "$PART" == all || "$PART" == reports ]]; then
   rsync -az --delete "$OUT/reports/" "$HOST:$REMOTE/reports/"
   rsync -az "$ROOT/deploy/systemd/proteinisi-daily-report@.service" "$ROOT/deploy/systemd/proteinisi-daily-report.timer" \
     "$ROOT/deploy/systemd/proteinisi-marketing@.service" "$ROOT/deploy/systemd/proteinisi-marketing.timer" \
+    "$ROOT/deploy/systemd/proteinisi-alerts@.service" "$ROOT/deploy/systemd/proteinisi-alerts.timer" \
     "$HOST:/etc/systemd/system/"
   ssh "$HOST" "systemctl daemon-reload"
   if [[ "$ENVIRONMENT" == prod ]]; then
-    ssh "$HOST" "systemctl enable --now proteinisi-daily-report.timer proteinisi-marketing.timer"
+    ssh "$HOST" "systemctl enable --now proteinisi-daily-report.timer proteinisi-marketing.timer proteinisi-alerts.timer"
   fi
-  [[ "$PART" == reports ]] && { echo "Daily report and marketing email job deployed."; exit 0; }
+  [[ "$PART" == reports ]] && { echo "Daily report, marketing email and alert job deployed."; exit 0; }
 fi
 
 echo "==> Health check"

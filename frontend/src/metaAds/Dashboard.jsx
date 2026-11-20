@@ -73,7 +73,7 @@ export default function Dashboard({ user, onLogout }) {
         {status?.configured && status.error && <Notice tone="error">{status.error}</Notice>}
 
         <div className={tab === "create" ? "" : "hidden"}>
-          <Composer status={status} onPublished={() => setRefreshKey((k) => k + 1)} />
+          <Composer status={status} onPublished={() => setRefreshKey((k) => k + 1)} onShowAds={() => setTab("ads")} />
         </div>
         {tab === "ads" && <AdsList currency={status?.currency} refreshKey={refreshKey} />}
       </main>

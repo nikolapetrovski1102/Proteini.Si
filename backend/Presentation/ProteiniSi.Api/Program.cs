@@ -7,7 +7,9 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((context, configuration) => configuration.ReadFrom.Configuration(context.Configuration));
-builder.WebHost.ConfigureKestrel(options => options.ListenAnyIP(builder.Configuration.GetValue("ApiPort", 6800)));
+// Loopback only: nginx on the same host is the sole client, so the API is never reachable from outside
+// even if the firewall is off.
+builder.WebHost.ConfigureKestrel(options => options.ListenLocalhost(builder.Configuration.GetValue("ApiPort", 6800)));
 
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();

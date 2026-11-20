@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLanguage } from "./translation/LanguageContext";
 import { api } from "../services/api";
+import EmailTypoHint from "./Components/EmailTypoHint";
 
 const SOCIALS = [
   { name: "YouTube", href: "https://www.youtube.com/c/proteinisi", icon: "/logos/youtubewhite.svg" },
@@ -54,6 +55,7 @@ export default function Subscribe() {
             {translate("subscribe")}
           </button>
         </form>
+        <EmailTypoHint email={email} tone="dark" onAcceptSuggestion={setEmail} />
         {status === "success" && <p className="mt-2 text-sm text-green-400">Subscription saved.</p>}
         {status && status !== "success" && <p className="mt-2 text-sm text-red-400">{status}</p>}
       </div>

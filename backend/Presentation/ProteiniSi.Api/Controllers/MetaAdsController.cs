@@ -41,6 +41,9 @@ public class MetaAdsController(IMetaAdsService service) : ControllerBase
     [HttpPost("publish")]
     public async Task<IActionResult> Publish([FromBody] MetaAdPublishDto request) => Ok(await service.PublishAsync(request, CurrentUser));
 
+    [HttpPost("estimate")]
+    public async Task<IActionResult> Estimate([FromBody] MetaAdDeliveryDto delivery) => Ok(await service.EstimateAsync(delivery));
+
     [HttpGet("adsets")]
     public async Task<IActionResult> AdSets() => Ok(await service.GetAdSetsAsync());
 

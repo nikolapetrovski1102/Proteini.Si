@@ -20,7 +20,13 @@ public class ServerStatusCollector(IConfiguration config, IHttpClientFactory htt
 
     private IConfigurationSection Server => config.GetSection("DailyReport:Server");
 
-    public async Task<ServerStatusReport> CollectAsync(DateTimeOffset from, DateTimeOffset to)
+    public Task<ServerStatusReport> CollectAsync(DateTimeOffset from, DateTimeOffset to) => CollectAsync(from, to, includeTraffic: true);
+
+    /// <summary>
+    /// includeTraffic: false skips parsing the nginx access logs (the frequent alert check only
+    /// needs errors and health, not the day's request counts).
+    /// </summary>
+    public async Task<ServerStatusReport> CollectAsync(DateTimeOffset from, DateTimeOffset to, bool includeTraffic)
     {
         var report = new ServerStatusReport
         {
@@ -36,7 +42,7 @@ public class ServerStatusCollector(IConfiguration config, IHttpClientFactory htt
         await RunAsync(report, "health checks", () => CheckEndpointsAsync(report));
         Run(report, "certificates", () => ReadCertificates(report));
         Run(report, "API logs", () => ReadApiLogs(report, from, to));
-        Run(report, "nginx", () => ReadNginx(report, from, to));
+        Run(report, "nginx", () => ReadNginx(report, from, to, includeTraffic));
         await RunAsync(report, "journal", () => ReadJournalAsync(report, from, to));
 
         report.Errors = report.Errors
@@ -167,16 +173,33 @@ public class ServerStatusCollector(IConfiguration config, IHttpClientFactory htt
 
     private async Task CheckEndpointsAsync(ServerStatusReport report)
     {
-        var client = httpClientFactory.CreateClient(HttpClientName);
-        var checks = Server.GetSection("Endpoints").GetChildren()
+        var targets = Server.GetSection("Endpoints").GetChildren()
             .Where(c => !string.IsNullOrWhiteSpace(c.Value))
+            .Select(c => (c.Key, c.Value!));
+        report.Endpoints.AddRange(await CheckAsync(targets));
+    }
+
+    /// <summary>Checks the failing endpoints again and replaces their results (filters out one-off blips).</summary>
+    public async Task RecheckFailedEndpointsAsync(ServerStatusReport report)
+    {
+        var failed = report.Endpoints.Where(e => !e.Ok).ToList();
+        if (failed.Count == 0) return;
+        var again = await CheckAsync(failed.Select(e => (e.Name, e.Url)));
+        foreach (var (old, fresh) in failed.Zip(again))
+            report.Endpoints[report.Endpoints.IndexOf(old)] = fresh;
+    }
+
+    private async Task<EndpointStatus[]> CheckAsync(IEnumerable<(string Name, string Url)> targets)
+    {
+        var client = httpClientFactory.CreateClient(HttpClientName);
+        var checks = targets
             .Select(async c =>
             {
-                var status = new EndpointStatus { Name = c.Key, Url = c.Value! };
+                var status = new EndpointStatus { Name = c.Name, Url = c.Url };
                 var watch = Stopwatch.StartNew();
                 try
                 {
-                    using var response = await client.GetAsync(c.Value, HttpCompletionOption.ResponseHeadersRead);
+                    using var response = await client.GetAsync(c.Url, HttpCompletionOption.ResponseHeadersRead);
                     status.StatusCode = (int)response.StatusCode;
                 }
                 catch (Exception ex)
@@ -186,7 +209,7 @@ public class ServerStatusCollector(IConfiguration config, IHttpClientFactory htt
                 status.ElapsedMs = watch.ElapsedMilliseconds;
                 return status;
             });
-        report.Endpoints.AddRange(await Task.WhenAll(checks));
+        return await Task.WhenAll(checks);
     }
 
     // Reads the origin certificates Let's Encrypt issued (Cloudflare serves its own to visitors,
@@ -235,9 +258,11 @@ public class ServerStatusCollector(IConfiguration config, IHttpClientFactory htt
         }
     }
 
-    private void ReadNginx(ServerStatusReport report, DateTimeOffset from, DateTimeOffset to)
+    private void ReadNginx(ServerStatusReport report, DateTimeOffset from, DateTimeOffset to, bool includeTraffic)
     {
-        var accessLogs = (Server.GetSection("NginxAccessLogs").Get<string[]>() ?? Array.Empty<string>()).Where(File.Exists).ToList();
+        var accessLogs = includeTraffic
+            ? (Server.GetSection("NginxAccessLogs").Get<string[]>() ?? Array.Empty<string>()).Where(File.Exists).ToList()
+            : new List<string>();
         if (accessLogs.Count > 0)
             report.Traffic = ServerLogParser.SummarizeNginx(accessLogs.SelectMany(ReadSharedLines), from, to);
 

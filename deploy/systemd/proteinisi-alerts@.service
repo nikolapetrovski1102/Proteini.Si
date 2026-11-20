@@ -1,0 +1,24 @@
+[Unit]
+Description=Proteini.mk instant alerts (%i): services, health checks, database, disk, memory, certificates, new errors
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Root so it can read nginx logs, the journal, docker and the Let's Encrypt certificates.
+User=root
+WorkingDirectory=/srv/proteinisi/%i/reports
+ExecStart=/usr/bin/dotnet /srv/proteinisi/%i/reports/ProteiniSi.Reports.dll alerts
+# Connection string and mail settings from the API's environment file;
+# DailyReport__DeveloperRecipients (and Alerts__* overrides) from reports.env.
+EnvironmentFile=/etc/proteinisi/%i.env
+EnvironmentFile=-/etc/proteinisi/reports.env
+Environment=DOTNET_NOLOGO=1
+# What was already reported: /var/lib/proteinisi/alerts-state.json
+StateDirectory=proteinisi
+TimeoutStartSec=4min
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true

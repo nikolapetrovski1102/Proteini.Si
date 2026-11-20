@@ -33,6 +33,7 @@ import {
 } from "../../utils/referralOffer";
 import { notify } from "../Components/Feedback/siteFeedback";
 import Price from "../Components/Price";
+import EmailTypoHint from "../Components/EmailTypoHint";
 import { Starburst } from "../HomePages/sections/Decor";
 import { metaViewContent } from "../../services/metaPixel";
 
@@ -1960,6 +1961,7 @@ function roundMacro(value) {
 function ProductQuestionForm({ productName }) {
   const { translate } = useLanguage();
   const [submitted, setSubmitted] = useState(false);
+  const [email, setEmail] = useState("");
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -2000,8 +2002,11 @@ function ProductQuestionForm({ productName }) {
             type="email"
             required
             autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
             className="border border-gray-300 px-3 py-2 outline-none focus:border-[#141409] rounded-xl"
           />
+          <EmailTypoHint email={email} onAcceptSuggestion={setEmail} className="mt-1 font-normal" />
         </label>
         <label className="grid gap-1 text-sm font-medium">
           {translate("productQuestionAbout").replace("{product}", productName)}

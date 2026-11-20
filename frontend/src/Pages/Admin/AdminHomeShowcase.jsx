@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { FiArrowDown, FiArrowUp, FiImage, FiPlus, FiSave, FiX } from "react-icons/fi";
+import { searchText } from "../../utils/searchText";
 import { api } from "../../services/api";
 import {
   AdminPage,
@@ -83,11 +84,11 @@ export default function AdminHomeShowcase() {
   const picked = form.productIds.map((id) => byId.get(id) || { product_Id: id, name: `#${id}` });
 
   const matches = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = searchText(search.trim());
     if (!term) return [];
     return products
       .filter((p) => !form.productIds.includes(p.product_Id))
-      .filter((p) => (p.name || "").toLowerCase().includes(term) || String(p.product_Id) === term)
+      .filter((p) => searchText(p.name).includes(term) || String(p.product_Id) === term)
       .slice(0, 20);
   }, [products, search, form.productIds]);
 

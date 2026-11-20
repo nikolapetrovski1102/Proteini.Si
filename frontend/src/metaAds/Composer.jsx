@@ -1,28 +1,45 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatMkd } from "../utils/formatPrice";
 import { api } from "./api";
-import { TEMPLATES, canvasToBlob, renderCard } from "./cardRender";
-import { CTAS, DESCRIPTION_MAX, HEADLINE_MAX, PRIMARY_MAX, PRIMARY_TEXT_PRESETS } from "./copy";
+import { canvasToBlob, defaultStyle, renderCard } from "./cardRender";
+import { HEADLINE_MAX, PRIMARY_TEXT_PRESETS } from "./copy";
 import Delivery from "./Delivery";
 import { defaultDelivery, toDeliveryPayload } from "./deliveryOptions";
-import ProductPicker from "./ProductPicker";
-import { MetaPreview, MockPreview } from "./Previews";
-import { Button, Field, Notice, Section } from "./ui";
-import { dot, inputClass } from "./format";
+import ProductPicker, { MAX_CARDS } from "./ProductPicker";
+import { MockPreview } from "./Previews";
+import StepCards from "./StepCards";
+import useCardDrag from "./useCardDrag";
+import StepReview from "./StepReview";
+import StepText from "./StepText";
+import { Button } from "./ui";
+import { dot } from "./format";
 
-const DRAFT_KEY = "pm-meta-ads-draft-v1";
+const DRAFT_KEY = "pm-meta-ads-draft-v2";
 const today = () => new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
+const STEPS = [
+  ["Products", "Pick what to advertise"],
+  ["Cards", "Design the images"],
+  ["Text", "Words and button"],
+  ["Delivery", "Budget and audience"],
+  ["Review", "Preview and publish"],
+];
+
 const newDraft = () => ({
+  step: 0,
   format: "carousel",
   template: "price",
+  style: defaultStyle(),
   cards: [],
   primaryText: PRIMARY_TEXT_PRESETS[0].text,
   cta: "SHOP_NOW",
   name: "",
+  mainLink: "first",
+  customLink: "",
   addUtm: true,
   optimizeCardOrder: true,
   status: "PAUSED",
+  previewFormats: ["MOBILE_FEED_STANDARD", "INSTAGRAM_STANDARD"],
   delivery: defaultDelivery(),
   hashes: {}, // render signature -> Meta image hash, so unchanged cards are not uploaded twice
 });
@@ -33,7 +50,7 @@ const readDraft = () => {
     if (!saved) return newDraft();
     // Uploaded own images (blob: URLs) do not survive a reload; fall back to the product photo.
     saved.cards = (saved.cards || []).map((c) => (c.customImage ? { ...c, customImage: null } : c));
-    return { ...newDraft(), ...saved, delivery: { ...defaultDelivery(), ...saved.delivery } };
+    return { ...newDraft(), ...saved, style: { ...defaultStyle(), ...saved.style }, delivery: { ...defaultDelivery(), ...saved.delivery } };
   } catch {
     return newDraft();
   }
@@ -42,7 +59,7 @@ const readDraft = () => {
 const cardFromProduct = (p) => {
   const onSale = p.salePrice && p.salePrice < p.price;
   return {
-    key: `${p.id}-${Date.now().toString(36)}`,
+    key: `${p.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
     productId: p.id,
     image: p.image,
     customImage: null,
@@ -51,6 +68,8 @@ const cardFromProduct = (p) => {
     price: p.price,
     salePrice: onSale ? p.salePrice : null,
     overlay: onSale ? `-${Math.floor((1 - p.salePrice / p.price) * 100)}% ${p.brand || ""}`.trim() : p.brand || p.title,
+    tag: "",
+    zoom: 1,
     headline: p.title.slice(0, HEADLINE_MAX),
     description: formatMkd(onSale ? p.salePrice : p.price),
     link: p.link,
@@ -64,8 +83,10 @@ const renderInput = (card) => ({
   price: card.price,
   salePrice: card.salePrice,
   overlay: card.overlay,
+  tag: card.tag,
+  zoom: card.zoom,
 });
-const signature = (card, template) => JSON.stringify([template, renderInput(card)]);
+const signature = (card, template, style) => JSON.stringify([template, style, renderInput(card)]);
 
 // The token cannot read the @name (no instagram_basic), so the status may carry the numeric ID instead.
 const instagramHandle = (status) => {
@@ -73,21 +94,53 @@ const instagramHandle = (status) => {
   return name && !/^\d+$/.test(name) ? name : "proteini.si_makedonija";
 };
 
-export default function Composer({ status, onPublished }) {
+const shopHome = (link) => {
+  try {
+    return `${new URL(link).origin}/`;
+  } catch {
+    return "https://proteini.mk/";
+  }
+};
+
+function Stepper({ step, done, goTo }) {
+  return (
+    <ol className="grid grid-cols-5 gap-1.5 md:gap-3">
+      {STEPS.map(([title, hint], i) => {
+        const current = i === step;
+        return (
+          <li key={title}>
+            <button type="button" onClick={() => goTo(i)} className="w-full text-left group">
+              <div className={`h-1.5 rounded-full ${current ? "bg-[#141409]" : i < step || done[i] ? "bg-[#FDC700]" : "bg-[#e7e4da]"}`} />
+              <div className="mt-2 flex items-baseline gap-1.5">
+                <span className={`font-display text-lg leading-none ${current ? "" : "text-[#6b6b63]"}`}>{i + 1}</span>
+                <span className={`text-sm font-semibold truncate ${current ? "" : "text-[#6b6b63] group-hover:text-[#141409]"}`}>{title}</span>
+              </div>
+              <div className="hidden md:block text-xs text-[#6b6b63] truncate">{hint}</div>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+export default function Composer({ status, onPublished, onShowAds }) {
   const [draft, setDraft] = useState(readDraft);
   const [products, setProducts] = useState([]);
   const [productsState, setProductsState] = useState({ loading: true, error: "" });
   const [thumbs, setThumbs] = useState({}); // signature -> data URL
   const [adSets, setAdSets] = useState([]);
-  const [work, setWork] = useState({ busy: false, step: "", error: "", result: null });
+  const [work, setWork] = useState({ busy: false, kind: "", step: "", error: "", result: null });
   const [metaPreviews, setMetaPreviews] = useState(null);
+  const [activeCard, setActiveCard] = useState(0);
   const canvases = useRef(new Map()); // signature -> canvas
+  const top = useRef(null);
 
   const update = useCallback((patch) => setDraft((d) => ({ ...d, ...(typeof patch === "function" ? patch(d) : patch) })), []);
-  const updateCard = (key, patch) =>
-    update((d) => ({ cards: d.cards.map((c) => (c.key === key ? { ...c, ...patch } : c)) }));
+  const updateCard = (key, patch) => update((d) => ({ cards: d.cards.map((c) => (c.key === key ? { ...c, ...patch } : c)) }));
+  const step = draft.step;
 
-  // Save the draft (minus thumbnails) on every change.
+  // Save the draft on every change.
   useEffect(() => {
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -107,14 +160,14 @@ export default function Composer({ status, onPublished }) {
     api.adSets().then(setAdSets, () => setAdSets([]));
   }, []);
 
-  // Render card images whenever a card or the template changes.
+  // Render card images whenever a card, the template or the style changes.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       for (const card of draft.cards) {
-        const sig = signature(card, draft.template);
+        const sig = signature(card, draft.template, draft.style);
         if (canvases.current.has(sig)) continue;
-        const canvas = await renderCard(renderInput(card), draft.template);
+        const canvas = await renderCard(renderInput(card), draft.template, draft.style);
         if (cancelled) return;
         canvases.current.set(sig, canvas);
         setThumbs((t) => ({ ...t, [sig]: canvas.toDataURL("image/jpeg", 0.8) }));
@@ -123,7 +176,12 @@ export default function Composer({ status, onPublished }) {
     return () => {
       cancelled = true;
     };
-  }, [draft.cards, draft.template]);
+  }, [draft.cards, draft.template, draft.style]);
+
+  // Anything that changes the ad makes an old Meta preview stale.
+  useEffect(() => {
+    setMetaPreviews(null);
+  }, [draft.cards, draft.template, draft.style, draft.primaryText, draft.cta, draft.format]);
 
   const selectedIds = draft.cards.map((c) => c.productId);
   const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
@@ -132,13 +190,13 @@ export default function Composer({ status, onPublished }) {
     update((d) => {
       if (d.cards.some((c) => c.productId === id)) return { cards: d.cards.filter((c) => c.productId !== id) };
       const p = byId.get(id);
-      return p && d.cards.length < 10 ? { cards: [...d.cards, cardFromProduct(p)] } : {};
+      return p && d.cards.length < MAX_CARDS ? { cards: [...d.cards, cardFromProduct(p)] } : {};
     });
 
   const addMany = (ids) =>
     update((d) => {
       const have = new Set(d.cards.map((c) => c.productId));
-      const extra = ids.filter((id) => !have.has(id) && byId.has(id)).slice(0, 10 - d.cards.length);
+      const extra = ids.filter((id) => !have.has(id) && byId.has(id)).slice(0, MAX_CARDS - d.cards.length);
       return { cards: [...d.cards, ...extra.map((id) => cardFromProduct(byId.get(id)))] };
     });
 
@@ -151,26 +209,58 @@ export default function Composer({ status, onPublished }) {
       return { cards };
     });
 
+  /** Drag and drop: take the card at `from` and put it at `to`. */
+  const reorder = (from, to) =>
+    update((d) => {
+      if (from === to || from < 0 || to < 0 || from >= d.cards.length || to >= d.cards.length) return {};
+      const cards = [...d.cards];
+      const [card] = cards.splice(from, 1);
+      cards.splice(to, 0, card);
+      return { cards };
+    });
+
+  const removeCard = (key) => update((d) => ({ cards: d.cards.filter((c) => c.key !== key) }));
+
   const setOwnImage = (key, file) => {
     if (!file) return;
     if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
-      setWork((w) => ({ ...w, error: "Use a JPG, PNG or WebP image." }));
+      window.alert("Use a JPG, PNG or WebP image.");
       return;
     }
     updateCard(key, { customImage: URL.createObjectURL(file) });
   };
 
+  const [drag, dragProps] = useCardDrag(reorder);
   const cardsForAd = draft.format === "single" ? draft.cards.slice(0, 1) : draft.cards;
+  const thumbFor = (card) => (card ? thumbs[signature(card, draft.template, draft.style)] : undefined);
+
+  // Every problem points at the step that fixes it.
+  const d = draft.delivery;
   const problems = [];
-  if (!status?.configured) problems.push("Meta API is not connected yet (see the note at the top).");
-  if (draft.format === "carousel" && cardsForAd.length < 2) problems.push("Pick at least 2 products for a carousel.");
-  if (draft.format === "single" && cardsForAd.length < 1) problems.push("Pick a product.");
-  if (!draft.primaryText.trim()) problems.push("Write the primary text.");
-  if (draft.delivery.mode === "new" && !draft.delivery.countries.length) problems.push("Pick at least one country.");
-  if (draft.delivery.mode === "new" && !(Number(draft.delivery.dailyBudget) > 0)) problems.push("Set a daily budget.");
-  if (draft.delivery.mode === "existing" && !draft.delivery.adSetId) problems.push("Choose the ad set to add the ad to.");
-  if (draft.delivery.mode === "new" && draft.delivery.goal === "SALES" && !status?.pixelConfigured)
-    problems.push("The Sales goal needs the Meta Pixel ID on the server; use Traffic for now.");
+  if (!status?.configured) problems.push({ step: null, text: "Meta API is not connected yet (see the note at the top)." });
+  if (draft.format === "carousel" && cardsForAd.length < 2) problems.push({ step: 0, text: "Pick at least 2 products for a carousel." });
+  if (draft.format === "single" && cardsForAd.length < 1) problems.push({ step: 0, text: "Pick a product." });
+  if (cardsForAd.some((c) => !c.headline.trim())) problems.push({ step: 2, text: "Every card needs a headline." });
+  if (!draft.primaryText.trim()) problems.push({ step: 2, text: "Write the primary text." });
+  if (draft.format === "carousel" && draft.mainLink === "custom" && !/^https:\/\/\S+$/.test(draft.customLink.trim()))
+    problems.push({ step: 2, text: "The custom \"See more\" link must start with https://." });
+  if (d.mode === "new") {
+    if (!d.countries.length) problems.push({ step: 3, text: "Pick at least one country." });
+    if (d.budgetType === "daily" && !(Number(d.dailyBudget) > 0)) problems.push({ step: 3, text: "Set a daily budget." });
+    if (d.budgetType === "lifetime" && !(Number(d.lifetimeBudget) > 0)) problems.push({ step: 3, text: "Set the total budget." });
+    if (d.budgetType === "lifetime" && !d.endTime) problems.push({ step: 3, text: "A total budget needs an end date." });
+    if (d.endTime && new Date(d.endTime) <= (d.startTime ? new Date(d.startTime) : new Date())) problems.push({ step: 3, text: "The end date must be after the start." });
+    if (d.goal === "SALES" && !status?.pixelConfigured) problems.push({ step: 3, text: "The Sales goal needs the Meta Pixel; use Traffic." });
+  }
+  if (d.mode === "existing" && !d.adSetId) problems.push({ step: 3, text: "Choose the ad set to add the ad to." });
+
+  const stepProblems = (i) => problems.filter((p) => p.step === i);
+  const done = STEPS.map((_, i) => i < 4 && stepProblems(i).length === 0 && (i !== 0 || draft.cards.length > 0));
+
+  const goTo = (i) => {
+    update({ step: Math.max(0, Math.min(STEPS.length - 1, i)) });
+    requestAnimationFrame(() => top.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
 
   /** Renders (if needed) and uploads every card image, reusing hashes of images Meta already has. */
   const uploadImages = async () => {
@@ -178,12 +268,12 @@ export default function Composer({ status, onPublished }) {
     let i = 0;
     for (const card of cardsForAd) {
       i++;
-      const sig = signature(card, draft.template);
+      const sig = signature(card, draft.template, draft.style);
       if (hashes[sig]) continue;
       setWork((w) => ({ ...w, step: `Uploading image ${i} of ${cardsForAd.length}…` }));
       let canvas = canvases.current.get(sig);
       if (!canvas) {
-        canvas = await renderCard(renderInput(card), draft.template);
+        canvas = await renderCard(renderInput(card), draft.template, draft.style);
         canvases.current.set(sig, canvas);
       }
       const blob = await canvasToBlob(canvas);
@@ -191,22 +281,34 @@ export default function Composer({ status, onPublished }) {
       hashes[sig] = hash;
     }
     // Keep the hash map small: only what the current cards use.
-    const used = Object.fromEntries(draft.cards.map((c) => signature(c, draft.template)).filter((s) => hashes[s]).map((s) => [s, hashes[s]]));
+    const used = Object.fromEntries(
+      draft.cards
+        .map((c) => signature(c, draft.template, draft.style))
+        .filter((s) => hashes[s])
+        .map((s) => [s, hashes[s]]),
+    );
     update({ hashes: used });
     return hashes;
   };
 
-  const buildPayload = (hashes, status) => ({
+  const mainLink = () => {
+    if (draft.format === "single" || draft.mainLink === "first") return cardsForAd[0]?.link;
+    if (draft.mainLink === "shop") return shopHome(cardsForAd[0]?.link);
+    return draft.customLink.trim();
+  };
+
+  const buildPayload = (hashes, adStatus, previewFormats) => ({
     format: draft.format,
     name: draft.name.trim() || `${draft.format === "single" ? "Single" : "Carousel"} · ${today()}`,
     primaryText: draft.primaryText.trim(),
     callToAction: draft.cta,
-    link: cardsForAd[0]?.link,
+    link: mainLink(),
     optimizeCardOrder: draft.optimizeCardOrder,
     addUtm: draft.addUtm,
-    status,
+    status: adStatus,
+    previewFormats,
     cards: cardsForAd.map((c) => ({
-      imageHash: hashes[signature(c, draft.template)],
+      imageHash: hashes[signature(c, draft.template, draft.style)],
       headline: c.headline.trim(),
       description: c.description.trim(),
       link: c.link,
@@ -214,278 +316,203 @@ export default function Composer({ status, onPublished }) {
     delivery: toDeliveryPayload(draft.delivery, draft.name),
   });
 
-  const runWork = async (fn) => {
-    setWork({ busy: true, step: "Preparing images…", error: "", result: null });
+  const runWork = async (kind, fn) => {
+    setWork({ busy: true, kind, step: "Preparing images…", error: "", result: null });
     try {
       await fn();
     } catch (e) {
-      const d = e.data || {};
-      const made = dot(d.campaignId && `campaign ${d.campaignId}`, d.adSetId && `ad set ${d.adSetId}`);
-      const extra = made ? ` Already created: ${made}. ${d.note || ""}` : "";
-      setWork({ busy: false, step: "", error: `${e.message}${extra}`, result: null });
+      const data = e.data || {};
+      const made = dot(data.campaignId && `campaign ${data.campaignId}`, data.adSetId && `ad set ${data.adSetId}`);
+      const extra = made ? ` Already created: ${made}. ${data.note || ""}` : "";
+      setWork({ busy: false, kind: "", step: "", error: `${e.message}${extra}`, result: null });
     }
   };
 
   const loadMetaPreview = () =>
-    runWork(async () => {
+    runWork("preview", async () => {
       const hashes = await uploadImages();
       setWork((w) => ({ ...w, step: "Asking Meta for a preview…" }));
-      setMetaPreviews(await api.preview(buildPayload(hashes, "PAUSED")));
-      setWork({ busy: false, step: "", error: "", result: null });
+      setMetaPreviews(await api.preview(buildPayload(hashes, "PAUSED", draft.previewFormats)));
+      setWork({ busy: false, kind: "", step: "", error: "", result: null });
     });
 
   const publish = () => {
-    const live = draft.status === "ACTIVE";
-    if (live && !window.confirm("Publish as ACTIVE? The ad starts spending as soon as Meta approves it.")) return;
-    runWork(async () => {
+    if (draft.status === "ACTIVE" && !window.confirm("Publish as ACTIVE? The ad starts spending as soon as Meta approves it.")) return;
+    runWork("publish", async () => {
       const hashes = await uploadImages();
       setWork((w) => ({ ...w, step: "Creating the ad on Meta…" }));
       const result = await api.publish(buildPayload(hashes, draft.status));
-      setWork({ busy: false, step: "", error: "", result });
+      setWork({ busy: false, kind: "", step: "", error: "", result });
       onPublished?.();
       api.adSets().then(setAdSets, () => {});
     });
   };
 
-  const startOver = () => {
-    if (draft.cards.length && !window.confirm("Clear this draft and start a new ad?")) return;
+  const startOver = (force = false) => {
+    if (!force && draft.cards.length && !window.confirm("Clear this draft and start a new ad?")) return;
     setDraft(newDraft());
     setMetaPreviews(null);
-    setWork({ busy: false, step: "", error: "", result: null });
+    setActiveCard(0);
+    setWork({ busy: false, kind: "", step: "", error: "", result: null });
   };
 
-  const thumbFor = (card) => thumbs[signature(card, draft.template)];
+  const next = () => {
+    if (step === 0 && !draft.cards.length) return;
+    goTo(step + 1);
+  };
+
+  const mock = (
+    <MockPreview
+      pageName={status?.pageName || "Proteini.mk"}
+      instagramHandle={instagramHandle(status)}
+      placements={d.mode === "existing" ? "auto" : d.placements}
+      primaryText={draft.primaryText}
+      cta={draft.cta}
+      cards={cardsForAd.map((c) => ({ ...c, thumb: thumbFor(c) }))}
+    />
+  );
+
+  const current = stepProblems(step);
+  const finished = Boolean(work.result);
 
   return (
-    <div className="space-y-5">
-      <Section
-        step="1"
-        title="Products"
-        aside={
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1.5">
-              <input type="radio" checked={draft.format === "carousel"} onChange={() => update({ format: "carousel" })} />
-              Carousel
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input type="radio" checked={draft.format === "single"} onChange={() => update({ format: "single" })} />
-              Single image
-            </label>
-          </div>
-        }
-      >
-        <ProductPicker
-          products={products}
-          loading={productsState.loading}
-          error={productsState.error}
-          selectedIds={selectedIds}
-          onToggle={toggleProduct}
-          onAddMany={addMany}
-          onClear={() => update({ cards: [] })}
-        />
-      </Section>
-
-      <Section step="2" title="Cards" aside={draft.cards.length ? "Edit text right on the card" : null}>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {TEMPLATES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => update({ template: t.id })}
-              title={t.hint}
-              className={`rounded-lg border px-3 py-2 text-left text-sm ${
-                draft.template === t.id ? "border-[#141409] bg-[#141409] text-white" : "border-[#e7e4da] bg-white hover:border-[#141409]"
-              }`}
-            >
-              <span className="font-semibold">{t.label}</span>
-              <span className={`block text-xs ${draft.template === t.id ? "text-white/70" : "text-[#6b6b63]"}`}>{t.hint}</span>
-            </button>
-          ))}
-        </div>
-
-        {!draft.cards.length && <p className="text-sm text-[#6b6b63]">Pick products above; each one becomes a card.</p>}
-
-        <div className="flex gap-4 overflow-x-auto pb-2 scroll-x">
-          {draft.cards.map((card, index) => {
-            const unused = draft.format === "single" && index > 0;
-            return (
-              <div key={card.key} className={`w-[250px] shrink-0 space-y-2 ${unused ? "opacity-40" : ""}`}>
-                <div className="relative aspect-square rounded-xl overflow-hidden border border-[#e7e4da] bg-[#f6f5f1]">
-                  {thumbFor(card) ? (
-                    <img src={thumbFor(card)} alt="" className="w-full h-full" />
-                  ) : (
-                    <div className="w-full h-full grid place-items-center text-xs text-[#6b6b63]">Rendering…</div>
-                  )}
-                  <span className="absolute top-2 left-2 rounded-md bg-[#141409] text-white text-xs font-bold px-2 py-0.5">{index + 1}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex gap-1">
-                    <Button variant="ghost" className="!px-2 !py-1" disabled={index === 0} onClick={() => move(index, -1)} aria-label="Move left">
-                      ←
-                    </Button>
-                    <Button variant="ghost" className="!px-2 !py-1" disabled={index === draft.cards.length - 1} onClick={() => move(index, 1)} aria-label="Move right">
-                      →
-                    </Button>
-                  </div>
-                  <label className="cursor-pointer underline underline-offset-2">
-                    {card.customImage ? "Change image" : "Own image"}
-                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => setOwnImage(card.key, e.target.files?.[0])} />
-                  </label>
-                  {card.customImage && (
-                    <button type="button" className="underline underline-offset-2" onClick={() => updateCard(card.key, { customImage: null })}>
-                      Product photo
-                    </button>
-                  )}
-                  <button type="button" className="text-red-700 underline underline-offset-2" onClick={() => update((d) => ({ cards: d.cards.filter((c) => c.key !== card.key) }))}>
-                    Remove
-                  </button>
-                </div>
-                {draft.template === "bold" && (
-                  <input
-                    className={`${inputClass} !py-1.5`}
-                    value={card.overlay}
-                    maxLength={40}
-                    onChange={(e) => updateCard(card.key, { overlay: e.target.value })}
-                    placeholder="Big text on the image"
-                    aria-label="Text on the image"
-                  />
-                )}
-                <input
-                  className={`${inputClass} !py-1.5 font-semibold`}
-                  value={card.headline}
-                  maxLength={HEADLINE_MAX}
-                  onChange={(e) => updateCard(card.key, { headline: e.target.value })}
-                  placeholder="Headline"
-                  aria-label="Headline"
-                />
-                <input
-                  className={`${inputClass} !py-1.5`}
-                  value={card.description}
-                  maxLength={DESCRIPTION_MAX}
-                  onChange={(e) => updateCard(card.key, { description: e.target.value })}
-                  placeholder="Description (optional)"
-                  aria-label="Description"
-                />
-              </div>
-            );
-          })}
-        </div>
-      </Section>
-
-      <Section step="3" title="Text">
-        <div className="grid md:grid-cols-[1fr_260px] gap-4">
-          <div>
-            <Field label="Primary text" hint={`${draft.primaryText.length}/${PRIMARY_MAX} · shown above the cards`}>
-              <textarea
-                className={`${inputClass} min-h-[110px]`}
-                maxLength={PRIMARY_MAX}
-                value={draft.primaryText}
-                onChange={(e) => update({ primaryText: e.target.value })}
-              />
-            </Field>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm">
-              <span className="text-[#6b6b63]">Use:</span>
-              {PRIMARY_TEXT_PRESETS.map((p) => (
-                <button key={p.label} type="button" className="underline underline-offset-2 hover:no-underline" onClick={() => update({ primaryText: p.text })}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-4">
-            <Field label="Button">
-              <select className={inputClass} value={draft.cta} onChange={(e) => update({ cta: e.target.value })}>
-                {CTAS.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Ad name" hint="Only you see this in Ads Manager">
-              <input className={inputClass} value={draft.name} placeholder={`Carousel · ${today()}`} onChange={(e) => update({ name: e.target.value })} />
-            </Field>
-            <label className="flex items-start gap-2 text-sm">
-              <input type="checkbox" className="mt-0.5" checked={draft.addUtm} onChange={(e) => update({ addUtm: e.target.checked })} />
-              <span>Tag links for Google Analytics (UTM)</span>
-            </label>
-            {draft.format === "carousel" && (
-              <label className="flex items-start gap-2 text-sm">
-                <input type="checkbox" className="mt-0.5" checked={draft.optimizeCardOrder} onChange={(e) => update({ optimizeCardOrder: e.target.checked })} />
-                <span>Let Meta show the best cards first</span>
-              </label>
+    <div ref={top} className="bg-white border border-[#e7e4da] rounded-2xl scroll-mt-4">
+      <div className="p-5 md:p-6 border-b border-[#e7e4da] space-y-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="font-display text-2xl uppercase tracking-wide">New ad</h2>
+          <div className="text-sm text-[#6b6b63] flex items-center gap-4">
+            <span>{dot(draft.format === "single" ? "Single image" : "Carousel", draft.cards.length ? `${cardsForAd.length} card${cardsForAd.length === 1 ? "" : "s"}` : null, "draft saved")}</span>
+            {!finished && (
+              <Button variant="link" onClick={() => startOver()}>
+                Start over
+              </Button>
             )}
           </div>
         </div>
-      </Section>
+        {!finished && <Stepper step={step} done={done} goTo={goTo} />}
+      </div>
 
-      <Section step="4" title="Delivery">
-        <Delivery value={draft.delivery} onChange={(delivery) => update({ delivery })} adSets={adSets} status={status} />
-      </Section>
-
-      <Section step="5" title="Preview & publish" aside={<Button variant="link" onClick={startOver}>Start a new ad</Button>}>
-        <div className="grid lg:grid-cols-2 gap-6">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-[#6b6b63] mb-2">Quick preview</div>
-            <MockPreview
-              pageName={status?.pageName || "Proteini.mk"}
-              instagramHandle={instagramHandle(status)}
-              placements={draft.delivery?.mode === "existing" ? "auto" : draft.delivery?.placements}
-              primaryText={draft.primaryText}
-              cta={draft.cta}
-              cards={cardsForAd.map((c) => ({ ...c, thumb: thumbFor(c) }))}
+      <div className="p-5 md:p-6 min-h-[50vh]">
+        {step === 0 && (
+          <div className="space-y-5">
+            <div className="grid sm:grid-cols-2 gap-3 max-w-2xl">
+              {[
+                ["carousel", "Carousel", "2–10 products people swipe through"],
+                ["single", "Single image", "One product, one big image"],
+              ].map(([value, title, hint]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => update({ format: value })}
+                  className={`rounded-xl border p-3 text-left ${draft.format === value ? "border-[#141409] ring-2 ring-[#FDC700]" : "border-[#e7e4da] hover:border-[#141409]"}`}
+                >
+                  <div className="font-semibold">{title}</div>
+                  <div className="text-sm text-[#6b6b63]">{hint}</div>
+                </button>
+              ))}
+            </div>
+            {draft.cards.length > 0 && (
+              <div className="flex items-center gap-2 overflow-x-auto scroll-x pb-1">
+                <span className="text-sm text-[#6b6b63] shrink-0 mr-1">Picked (drag to reorder):</span>
+                {draft.cards.map((c, i) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    {...dragProps(i)}
+                    onClick={() => removeCard(c.key)}
+                    title={`${c.title} · drag to reorder, click to remove`}
+                    className={`relative w-12 h-12 shrink-0 rounded-lg overflow-hidden border bg-[#f6f5f1] hover:border-red-600 cursor-grab active:cursor-grabbing ${
+                      drag.over === i && drag.from !== i ? "border-[#141409] ring-2 ring-[#FDC700]" : "border-[#e7e4da]"
+                    } ${drag.from === i ? "opacity-30" : draft.format === "single" && i > 0 ? "opacity-40" : ""}`}
+                  >
+                    {thumbFor(c) && <img src={thumbFor(c)} alt="" className="w-full h-full" />}
+                    <span className="absolute bottom-0 left-0 bg-[#141409] text-white text-[10px] font-bold px-1">{i + 1}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <ProductPicker
+              products={products}
+              loading={productsState.loading}
+              error={productsState.error}
+              selectedIds={selectedIds}
+              onToggle={toggleProduct}
+              onAddMany={addMany}
+              onClear={() => update({ cards: [] })}
             />
           </div>
-          <div className="space-y-4">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-[#6b6b63] mb-2">Exact preview from Meta</div>
-              {metaPreviews?.length ? (
-                <MetaPreview previews={metaPreviews} />
-              ) : (
-                <p className="text-sm text-[#6b6b63] mb-2">Uploads the images and shows how Facebook and Instagram will display the ad. Nothing is published.</p>
-              )}
-              <Button variant="ghost" disabled={work.busy || problems.length > 0} onClick={loadMetaPreview}>
-                {metaPreviews ? "Refresh Meta preview" : "Show Meta preview"}
-              </Button>
-            </div>
+        )}
 
-            <div className="border-t border-[#e7e4da] pt-4 space-y-3">
-              <div className="flex flex-wrap gap-4 text-sm">
-                <label className="flex items-center gap-1.5">
-                  <input type="radio" checked={draft.status === "PAUSED"} onChange={() => update({ status: "PAUSED" })} />
-                  Publish paused (check it in Ads Manager first)
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <input type="radio" checked={draft.status === "ACTIVE"} onChange={() => update({ status: "ACTIVE" })} />
-                  Publish active
-                </label>
+        {step === 1 && (
+          <StepCards
+            draft={draft}
+            update={update}
+            updateCard={updateCard}
+            move={move}
+            reorder={reorder}
+            removeCard={removeCard}
+            setOwnImage={setOwnImage}
+            thumbFor={thumbFor}
+            active={activeCard}
+            setActive={setActiveCard}
+          />
+        )}
+
+        {step === 2 && (
+          <div className="grid xl:grid-cols-[minmax(0,1fr)_360px] gap-8">
+            <StepText draft={draft} update={update} updateCard={updateCard} thumbFor={thumbFor} cardsForAd={cardsForAd} />
+            <div className="hidden xl:block">
+              <div className="sticky top-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#6b6b63] mb-2">Live preview</div>
+                {mock}
               </div>
-              {problems.length > 0 && (
-                <ul className="text-sm text-[#6b6b63] list-disc pl-5">
-                  {problems.map((p) => (
-                    <li key={p}>{p}</li>
-                  ))}
-                </ul>
-              )}
-              <Button variant="yellow" className="w-full !py-3.5 text-base" disabled={work.busy || problems.length > 0} onClick={publish}>
-                {work.busy ? work.step : draft.status === "ACTIVE" ? "Publish ad (active)" : "Publish ad (paused)"}
-              </Button>
-              {work.error && <Notice tone="error">{work.error}</Notice>}
-              {work.result && (
-                <Notice tone="success">
-                  <div className="font-semibold">{work.result.message || "The ad is on Meta."}</div>
-                  <div className="mt-1">{dot(work.result.campaignId && `Campaign ${work.result.campaignId}`, `Ad set ${work.result.adSetId}`, `Ad ${work.result.adId}`)}</div>
-                  {work.result.adsManagerUrl && (
-                    <a className="inline-block mt-2 underline font-semibold" href={work.result.adsManagerUrl} target="_blank" rel="noreferrer">
-                      Open in Ads Manager
-                    </a>
-                  )}
-                </Notice>
-              )}
             </div>
           </div>
+        )}
+
+        {step === 3 && <Delivery value={d} onChange={(delivery) => update({ delivery })} adSets={adSets} status={status} />}
+
+        {step === 4 && (
+          <StepReview
+            draft={draft}
+            update={update}
+            status={status}
+            problems={problems}
+            cardsForAd={cardsForAd}
+            thumbFor={thumbFor}
+            pageName={status?.pageName || "Proteini.mk"}
+            instagramHandle={instagramHandle(status)}
+            metaPreviews={metaPreviews}
+            loadMetaPreview={loadMetaPreview}
+            publish={publish}
+            work={work}
+            goTo={goTo}
+            startOver={startOver}
+            onShowAds={onShowAds}
+          />
+        )}
+      </div>
+
+      {!finished && step < 4 && (
+        <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 rounded-b-2xl border-t border-[#e7e4da] bg-white/95 backdrop-blur px-5 md:px-6 py-3">
+          <Button variant="ghost" disabled={step === 0} onClick={() => goTo(step - 1)}>
+            ← Back
+          </Button>
+          <span className="flex-1 min-w-0 text-sm text-[#6b6b63] truncate">
+            {current.length ? <span className="text-[#8a6d00]">{current[0].text}</span> : step === 0 ? dot(`${draft.cards.length} of ${MAX_CARDS} picked`) : null}
+          </span>
+          <Button variant="yellow" disabled={step === 0 && !draft.cards.length} onClick={next}>
+            Next: {STEPS[step + 1][0]} →
+          </Button>
         </div>
-      </Section>
+      )}
+      {!finished && step === 4 && (
+        <div className="flex border-t border-[#e7e4da] px-5 md:px-6 py-3">
+          <Button variant="ghost" onClick={() => goTo(3)}>
+            ← Back
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

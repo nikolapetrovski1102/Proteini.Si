@@ -12,6 +12,10 @@ import {
 import { api } from "../../services/api";
 import { t, getCurrentLanguage } from "../translation/translation";
 import Scribble from "./Scribble";
+import { getEmailTypoSuggestion, isKnownEmailTypo } from "../../utils/emailSuggestions";
+
+export { getEmailTypoSuggestion };
+export { default as EmailTypoHint } from "./EmailTypoHint";
 
 const FLAG_FILE_MAP = {
   MK: "/logos/flags/mk.svg",
@@ -161,28 +165,6 @@ export const DEFAULT_CITIES = [
   { cityId: 30, nameLatin: "Demir Hisar", nameMk: "Демир Хисар", isTown: true, deliver: true, postCodes: [{ postCode: "7240", postOffice: "Demir Hisar" }] },
 ];
 
-const EMAIL_DOMAIN_TYPOS = {
-  "gmial.com": "gmail.com",
-  "gamil.com": "gmail.com",
-  "gmai.com": "gmail.com",
-  "gmail.co": "gmail.com",
-  "gmail.con": "gmail.com",
-  "gnail.com": "gmail.com",
-  "gmal.com": "gmail.com",
-  "yaho.com": "yahoo.com",
-  "yahooo.com": "yahoo.com",
-  "yahoo.co": "yahoo.com",
-  "yahoo.con": "yahoo.com",
-  "hotmial.com": "hotmail.com",
-  "hotmal.com": "hotmail.com",
-  "hotmail.co": "hotmail.com",
-  "hotmail.con": "hotmail.com",
-  "outlok.com": "outlook.com",
-  "outllok.com": "outlook.com",
-  "outlook.co": "outlook.com",
-  "iclod.com": "icloud.com",
-  "icoud.com": "icloud.com",
-};
 
 /**
  * Merges all 16 Skopje postal codes if the API returned an older 6-postcode seed for Skopje.
@@ -269,18 +251,6 @@ export function useCheckoutLocations() {
   return { phoneCountries, cities, loading };
 }
 
-export function getEmailTypoSuggestion(email) {
-  const trimmed = (email || "").trim().toLowerCase();
-  const atIndex = trimmed.indexOf("@");
-  if (atIndex <= 0 || atIndex !== trimmed.lastIndexOf("@")) return null;
-  const local = trimmed.slice(0, atIndex);
-  const domain = trimmed.slice(atIndex + 1);
-  if (EMAIL_DOMAIN_TYPOS[domain]) {
-    return `${local}@${EMAIL_DOMAIN_TYPOS[domain]}`;
-  }
-  return null;
-}
-
 export function validateEmailAddressClient(email) {
   const trimmed = (email || "").trim().toLowerCase();
   if (!trimmed) return { valid: false, reason: "required" };
@@ -288,9 +258,9 @@ export function validateEmailAddressClient(email) {
   if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,15}$/.test(trimmed) || trimmed.includes("..")) {
     return { valid: false, reason: "invalid" };
   }
-  const suggestion = getEmailTypoSuggestion(trimmed);
-  if (suggestion) {
-    return { valid: false, reason: "typo", suggestion };
+  // Block only on certain typos; anything else close to a known provider is just a hint.
+  if (isKnownEmailTypo(trimmed)) {
+    return { valid: false, reason: "typo", suggestion: getEmailTypoSuggestion(trimmed) };
   }
   return { valid: true, normalized: trimmed };
 }
@@ -413,25 +383,6 @@ export function findMatchingCity(cityInput, postCodeInput, cities = DEFAULT_CITI
   }
 
   return null;
-}
-
-export function EmailTypoHint({ email, onAcceptSuggestion }) {
-  const suggestion = getEmailTypoSuggestion(email);
-  if (!suggestion) return null;
-
-  return (
-    <p className="mt-2 text-xs text-gray-600">
-      {t("emailDidYouMean") || "Дали мислевте на"}{" "}
-      <button
-        type="button"
-        onClick={() => onAcceptSuggestion(suggestion)}
-        className="font-bold text-gray-900 cursor-pointer"
-      >
-        <Scribble active>{suggestion}</Scribble>
-      </button>
-      ?
-    </p>
-  );
 }
 
 /**

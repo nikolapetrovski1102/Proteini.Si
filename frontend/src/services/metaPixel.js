@@ -6,7 +6,8 @@
 
 import { hasMarketingConsent } from "./analytics";
 
-const PIXEL_ID = import.meta.env.VITE_META_PIXEL_ID;
+// Production only: stage is built the same way, and its test orders must not reach the Pixel.
+const PIXEL_ID = /^(www\.)?proteini\.mk$/.test(window.location.hostname) ? import.meta.env.VITE_META_PIXEL_ID : null;
 const CURRENCY = "MKD";
 
 let loaded = false;

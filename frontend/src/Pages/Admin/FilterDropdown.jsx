@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react";
+import { searchText } from "../../utils/searchText";
 import { FiCheck, FiChevronDown } from "react-icons/fi";
 
 const getItemId = (item) =>
@@ -35,7 +36,7 @@ const FilterDropdown = memo(({ title, items, selectedIds, onCheckboxChange }) =>
   if (!items || items.length === 0) return null;
 
   const selectedNames = items.filter((item) => selectedIds.includes(getItemId(item))).map(getItemName);
-  const filtered = query ? items.filter((item) => getItemName(item)?.toLowerCase().includes(query.toLowerCase())) : items;
+  const filtered = query ? items.filter((item) => searchText(getItemName(item)).includes(searchText(query))) : items;
 
   return (
     <div className="relative" ref={dropdownRef}>

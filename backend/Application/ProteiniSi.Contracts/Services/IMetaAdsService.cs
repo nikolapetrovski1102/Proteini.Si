@@ -18,6 +18,9 @@ public interface IMetaAdsService
     /// <summary>Creates the creative, then (for a new delivery) the campaign and ad set, then the ad.</summary>
     Task<MetaAdPublishResultDto> PublishAsync(MetaAdPublishDto request, string publishedBy);
 
+    /// <summary>Audience size and estimated daily reach for a new ad set's targeting and budget.</summary>
+    Task<MetaAdEstimateDto> EstimateAsync(MetaAdDeliveryDto delivery);
+
     Task<List<MetaAdSetSummaryDto>> GetAdSetsAsync();
 
     Task<List<MetaAdSummaryDto>> GetAdsAsync(int limit);

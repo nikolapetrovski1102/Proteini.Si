@@ -58,6 +58,7 @@ export const api = {
   status: () => request("/status"),
   products: () => request("/products"),
   adSets: () => request("/adsets"),
+  estimate: (delivery) => request("/estimate", { method: "POST", body: delivery }),
   ads: (limit = 25) => request(`/ads?limit=${limit}`),
   setAdStatus: (id, status) => request(`/ads/${encodeURIComponent(id)}/status`, { method: "POST", body: { status } }),
   uploadImage: (blob, name) => {

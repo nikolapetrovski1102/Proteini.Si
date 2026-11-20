@@ -63,7 +63,7 @@ public class UserService(
         if (!emailValid)
             throw Error("Invalid email address", emailError!);
 
-        var domainError = await CheckoutFieldValidator.ValidateEmailDomainAsync(normalizedEmail!);
+        var domainError = await CheckoutFieldValidator.ValidateEmailDomainAsync(normalizedEmail!, requireMailServer: true);
         if (domainError != null)
             throw Error("Invalid email address", domainError);
 

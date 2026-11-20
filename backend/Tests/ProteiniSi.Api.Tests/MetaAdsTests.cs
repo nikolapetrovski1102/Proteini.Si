@@ -270,6 +270,51 @@ public class MetaAdsServiceTests
     }
 
     [Fact]
+    public async Task Gender_placements_and_lifetime_budget_reach_the_ad_set()
+    {
+        var (service, graph) = Create();
+        var request = Carousel();
+        request.Delivery = new()
+        {
+            BudgetType = "lifetime", LifetimeBudget = 70, DailyBudget = 0, Gender = "women", Placements = "stories",
+            StartTime = DateTime.UtcNow.AddDays(1), EndTime = DateTime.UtcNow.AddDays(8),
+        };
+        await service.PublishAsync(request, "boss@proteini.mk");
+
+        var adSet = graph.Calls.Single(c => c.Url.EndsWith("/adsets")).Form;
+        Assert.Equal("7000", adSet["lifetime_budget"]);
+        Assert.False(adSet.ContainsKey("daily_budget"));
+        Assert.True(adSet.ContainsKey("end_time"));
+        using var targeting = JsonDocument.Parse(adSet["targeting"]);
+        var t = targeting.RootElement;
+        Assert.Equal([2], t.GetProperty("genders").EnumerateArray().Select(e => e.GetInt32()));
+        Assert.Equal(["story", "reels"], t.GetProperty("instagram_positions").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal(["story", "facebook_reels"], t.GetProperty("facebook_positions").EnumerateArray().Select(e => e.GetString()));
+    }
+
+    [Fact]
+    public async Task Lifetime_budget_needs_an_end_date()
+    {
+        var (service, _) = Create();
+        var request = Carousel();
+        request.Delivery = new() { BudgetType = "lifetime", LifetimeBudget = 50 };
+        await Assert.ThrowsAsync<BadRequestException>(() => service.PublishAsync(request, "boss@proteini.mk"));
+    }
+
+    [Fact]
+    public async Task Preview_formats_are_whitelisted()
+    {
+        var (service, graph) = Create();
+        var request = Carousel();
+        request.PreviewFormats = ["instagram_story", "EVIL_FORMAT", "MOBILE_FEED_STANDARD"];
+        await service.PreviewAsync(request);
+
+        var formats = graph.Calls.Where(c => c.Url.Contains("/generatepreviews"))
+            .Select(c => Regex.Match(c.Url, "ad_format=([A-Z_]+)").Groups[1].Value).ToList();
+        Assert.Equal(["INSTAGRAM_STORY", "MOBILE_FEED_STANDARD"], formats);
+    }
+
+    [Fact]
     public async Task Existing_ad_set_skips_campaign_creation()
     {
         var (service, graph) = Create();

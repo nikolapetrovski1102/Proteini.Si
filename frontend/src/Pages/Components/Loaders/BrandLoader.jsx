@@ -14,6 +14,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
  *  - appears only after a short delay, so fast loads don't flash it
  *  - once shown, stays until one full shake / pour has played, then fades out smoothly
  *  - several loaders at once (e.g. the home page sections) share the same overlay
+ *  - once the first page has loaded ("warm"), later loads wait a little longer before showing (quick
+ *    in-app navigations skip it entirely), play the animation faster and leave sooner
  */
 
 // minVisibleMs: long enough for the key moment of each animation to play once
@@ -26,8 +28,22 @@ const SOURCES = {
 };
 const VARIANTS = Object.keys(SOURCES);
 
-const SHOW_DELAY_MS = 120; // don't show at all for loads faster than this
+const SHOW_DELAY_MS = 120; // don't show at all for loads faster than this (first page load)
+const WARM_SHOW_DELAY_MS = 220; // same, once the site is already loaded
+const WARM_SPEED = 1.7; // animation speed-up once the site is already loaded
+const WARM_AFTER_LOAD_MS = 1500; // no loader this long after window load also counts as loaded
 const FADE_MS = 150; // keep in sync with .brand-overlay transition in index.css
+
+// True once the first page has finished loading: the first overlay has faded out, or the window
+// loaded and no loader showed up shortly after.
+let warm = false;
+if (typeof window !== "undefined") {
+  const markWarmSoon = () => setTimeout(() => {
+    if (activeCount === 0) warm = true;
+  }, WARM_AFTER_LOAD_MS);
+  if (document.readyState === "complete") markWarmSoon();
+  else window.addEventListener("load", markWarmSoon, { once: true });
+}
 
 // Preload both as text. Each time the overlay appears it gets a fresh blob URL, so the SVG is a
 // new image and its animation starts from frame 0 (a cached <img> can resume mid-cycle).
@@ -43,10 +59,20 @@ if (typeof window !== "undefined" && typeof fetch === "function") {
   });
 }
 
-function freshSrc(variant) {
+// Divide every time value ("2.6s", "0.13s") inside the SVG's <style> by `speed`.
+function speedUp(text, speed) {
+  if (speed === 1) return text;
+  return text.replace(/<style[\s\S]*?<\/style>/g, (style) =>
+    style.replace(/(\d*\.?\d+)s\b/g, (_, seconds) => `${+(Number(seconds) / speed).toFixed(3)}s`),
+  );
+}
+
+// Returns { src, speed }: speed is 1 when the SVG text isn't preloaded yet (plain cached file).
+function freshSrc(variant, speed) {
   const text = svgText[variant];
-  if (!text || typeof URL === "undefined" || !URL.createObjectURL) return SOURCES[variant].src;
-  return URL.createObjectURL(new Blob([text], { type: "image/svg+xml" }));
+  if (!text || typeof URL === "undefined" || !URL.createObjectURL) return { src: SOURCES[variant].src, speed: 1 };
+  const blob = new Blob([speedUp(text, speed)], { type: "image/svg+xml" });
+  return { src: URL.createObjectURL(blob), speed };
 }
 
 // ── tiny global store: number of active loaders ──
@@ -83,6 +109,7 @@ export function BrandLoaderOverlay() {
   const [variant, setVariant] = useState(() => pickVariant());
   const [imgSrc, setImgSrc] = useState(null);
   const variantRef = useRef(variant);
+  const speedRef = useRef(1);
   const shownAt = useRef(0);
   const timers = useRef([]);
   const mountedRef = useRef(false);
@@ -102,23 +129,26 @@ export function BrandLoaderOverlay() {
       } else {
         later(() => {
           const next = pickVariant(variantRef.current);
+          const fresh = freshSrc(next, warm ? WARM_SPEED : 1);
           variantRef.current = next;
+          speedRef.current = fresh.speed;
           setVariant(next);
-          setImgSrc(freshSrc(next));
+          setImgSrc(fresh.src);
           mountedRef.current = true;
           setMounted(true);
           shownAt.current = Date.now();
           // Next frame, so the opacity transition starts from 0.
           requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
-        }, SHOW_DELAY_MS);
+        }, warm ? WARM_SHOW_DELAY_MS : SHOW_DELAY_MS);
       }
     } else if (mountedRef.current) {
-      const minVisible = SOURCES[variantRef.current].minVisibleMs;
+      const minVisible = SOURCES[variantRef.current].minVisibleMs / speedRef.current;
       const remaining = Math.max(0, minVisible - (Date.now() - shownAt.current));
       later(() => {
         setVisible(false);
         later(() => {
           mountedRef.current = false;
+          warm = true;
           setMounted(false);
         }, FADE_MS);
       }, remaining);

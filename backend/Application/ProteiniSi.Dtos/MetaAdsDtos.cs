@@ -63,8 +63,22 @@ public class MetaAdDeliveryDto
     public List<string> Countries { get; set; } = ["MK"];
     public int AgeMin { get; set; } = 18;
     public int AgeMax { get; set; } = 65;
-    /// <summary>"auto", "facebook" or "instagram".</summary>
+    /// <summary>"auto", "facebook", "instagram", "feeds" (feeds only) or "stories" (stories + reels only).</summary>
     public string Placements { get; set; } = "auto";
+    /// <summary>"all", "men" or "women".</summary>
+    public string Gender { get; set; } = "all";
+    /// <summary>"daily" (DailyBudget per day) or "lifetime" (LifetimeBudget for the whole run, needs EndTime).</summary>
+    public string BudgetType { get; set; } = "daily";
+    public decimal LifetimeBudget { get; set; }
+}
+
+/// <summary>Meta's audience size and daily reach guess for a targeting + budget.</summary>
+public class MetaAdEstimateDto
+{
+    public long? AudienceLower { get; set; }
+    public long? AudienceUpper { get; set; }
+    public long? DailyReachLower { get; set; }
+    public long? DailyReachUpper { get; set; }
 }
 
 public class MetaAdPublishDto
@@ -85,6 +99,8 @@ public class MetaAdPublishDto
     /// <summary>"PAUSED" (default, review in Ads Manager first) or "ACTIVE".</summary>
     public string Status { get; set; } = "PAUSED";
     public MetaAdDeliveryDto Delivery { get; set; } = new();
+    /// <summary>Preview only: Meta ad_format values to render (whitelisted server-side). Empty = Facebook + Instagram feed.</summary>
+    public List<string>? PreviewFormats { get; set; }
 }
 
 public class MetaAdPublishResultDto

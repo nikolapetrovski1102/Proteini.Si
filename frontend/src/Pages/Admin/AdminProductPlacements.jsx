@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { FiArrowDown, FiArrowUp, FiImage, FiPlus, FiSave, FiX } from "react-icons/fi";
+import { searchText } from "../../utils/searchText";
 import { api } from "../../services/api";
 import {
   AdminPage,
@@ -160,14 +161,14 @@ export default function AdminProductPlacements() {
 
   const candidates = useMemo(() => {
     if (!listingKey) return [];
-    const term = search.trim().toLowerCase();
+    const term = searchText(search.trim());
     return products.filter((p) => {
       if (pinned.includes(p.product_Id)) return false;
       if (scope === "category" && !inCategory(p, targetId)) return false;
       if (scope === "brand" && p.brand_Id !== Number(targetId)) return false;
       if (brandFilter && p.brand_Id !== Number(brandFilter)) return false;
       if (categoryFilter && !inCategory(p, categoryFilter)) return false;
-      if (term && !(p.name || "").toLowerCase().includes(term) && String(p.product_Id) !== term) return false;
+      if (term && !searchText(p.name).includes(term) && String(p.product_Id) !== term) return false;
       return true;
     });
   }, [products, pinned, scope, targetId, brandFilter, categoryFilter, search, listingKey]); // eslint-disable-line react-hooks/exhaustive-deps

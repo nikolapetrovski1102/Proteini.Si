@@ -31,6 +31,12 @@ public partial class MetaAdsService(
     private static readonly HashSet<string> CallToActions =
         ["SHOP_NOW", "BUY_NOW", "ORDER_NOW", "GET_OFFER", "LEARN_MORE", "SIGN_UP", "CONTACT_US"];
 
+    private static readonly HashSet<string> PreviewFormats =
+    [
+        "MOBILE_FEED_STANDARD", "DESKTOP_FEED_STANDARD", "FACEBOOK_STORY_MOBILE", "FACEBOOK_REELS_MOBILE",
+        "INSTAGRAM_STANDARD", "INSTAGRAM_STORY", "INSTAGRAM_REELS", "INSTAGRAM_EXPLORE_GRID_HOME",
+    ];
+
     /// <summary>Currencies Meta counts in whole units; every other currency is sent in cents (offset 100).</summary>
     private static readonly HashSet<string> WholeUnitCurrencies =
         ["CLP", "COP", "CRC", "HUF", "ISK", "IDR", "JPY", "KRW", "PYG", "TWD", "VND"];
@@ -167,9 +173,19 @@ public partial class MetaAdsService(
         var spec = BuildObjectStorySpec(request, options, Slug(request.Name ?? "preview"));
         var creative = new JsonObject { ["object_story_spec"] = spec }.ToJsonString();
 
-        var formats = new List<string> { "MOBILE_FEED_STANDARD" };
-        if (options.InstagramUserId.Length > 0)
-            formats.Add("INSTAGRAM_STANDARD");
+        var formats = (request.PreviewFormats ?? [])
+            .Select(f => f.Trim().ToUpperInvariant())
+            .Where(PreviewFormats.Contains)
+            .Where(f => options.InstagramUserId.Length > 0 || !f.StartsWith("INSTAGRAM_", StringComparison.Ordinal))
+            .Distinct()
+            .Take(4)
+            .ToList();
+        if (formats.Count == 0)
+        {
+            formats.Add("MOBILE_FEED_STANDARD");
+            if (options.InstagramUserId.Length > 0)
+                formats.Add("INSTAGRAM_STANDARD");
+        }
 
         var previews = new List<MetaAdPreviewDto>();
         foreach (var format in formats)
@@ -284,9 +300,47 @@ public partial class MetaAdsService(
     private static Dictionary<string, string?> BuildAdSetForm(MetaAdDeliveryDto delivery, string goal, MetaAdsOptions options, string name,
         string campaignId, string currency, string status)
     {
-        if (delivery.DailyBudget <= 0)
-            throw new BadRequestException("Set a daily budget above zero.");
+        var lifetime = string.Equals(delivery.BudgetType, "lifetime", StringComparison.OrdinalIgnoreCase);
+        if (lifetime ? delivery.LifetimeBudget <= 0 : delivery.DailyBudget <= 0)
+            throw new BadRequestException(lifetime ? "Set a total budget above zero." : "Set a daily budget above zero.");
+        if (lifetime && delivery.EndTime is null)
+            throw new BadRequestException("A total budget needs an end date.");
 
+        var offset = WholeUnitCurrencies.Contains(currency) ? 1 : 100;
+        var start = delivery.StartTime is { } s && s > DateTime.UtcNow ? s.ToUniversalTime() : DateTime.UtcNow.AddMinutes(5);
+        var form = new Dictionary<string, string?>
+        {
+            ["name"] = $"{name} · ad set",
+            ["campaign_id"] = campaignId,
+            ["billing_event"] = "IMPRESSIONS",
+            ["bid_strategy"] = "LOWEST_COST_WITHOUT_CAP",
+            ["optimization_goal"] = OptimizationGoal(goal),
+            ["targeting"] = BuildTargeting(delivery).ToJsonString(),
+            ["start_time"] = start.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
+            ["status"] = status,
+        };
+        var budget = lifetime ? delivery.LifetimeBudget : delivery.DailyBudget;
+        form[lifetime ? "lifetime_budget" : "daily_budget"] = ((long)Math.Round(budget * offset)).ToString(CultureInfo.InvariantCulture);
+        if (goal != "AWARENESS")
+            form["destination_type"] = "WEBSITE";
+        if (goal == "SALES")
+            form["promoted_object"] = new JsonObject { ["pixel_id"] = options.PixelId, ["custom_event_type"] = "PURCHASE" }.ToJsonString();
+        if (delivery.EndTime is { } end)
+        {
+            if (end.ToUniversalTime() <= start.AddHours(lifetime ? 24 : 1))
+                throw new BadRequestException(lifetime ? "A total budget needs at least one day between start and end." : "The end date must be after the start date.");
+            form["end_time"] = end.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
+        }
+
+        return form;
+    }
+
+    private static string OptimizationGoal(string goal) =>
+        goal switch { "AWARENESS" => "REACH", "SALES" => "OFFSITE_CONVERSIONS", _ => "LINK_CLICKS" };
+
+    /// <summary>Countries, age, gender and placements for a new ad set (also used for the audience estimate).</summary>
+    private static JsonObject BuildTargeting(MetaAdDeliveryDto delivery)
+    {
         var countries = (delivery.Countries ?? [])
             .Select(code => code.Trim().ToUpperInvariant())
             .Where(code => code.Length == 2 && code.All(char.IsAsciiLetterUpper))
@@ -302,6 +356,15 @@ public partial class MetaAdsService(
             ["age_max"] = Math.Clamp(Math.Max(delivery.AgeMax, delivery.AgeMin), 18, 65),
             ["targeting_automation"] = new JsonObject { ["advantage_audience"] = 0 },
         };
+        switch ((delivery.Gender ?? "all").ToLowerInvariant())
+        {
+            case "men":
+                targeting["genders"] = new JsonArray(1);
+                break;
+            case "women":
+                targeting["genders"] = new JsonArray(2);
+                break;
+        }
         switch ((delivery.Placements ?? "auto").ToLowerInvariant())
         {
             case "facebook":
@@ -310,35 +373,76 @@ public partial class MetaAdsService(
             case "instagram":
                 targeting["publisher_platforms"] = new JsonArray("instagram");
                 break;
+            case "feeds":
+                targeting["publisher_platforms"] = new JsonArray("facebook", "instagram");
+                targeting["facebook_positions"] = new JsonArray("feed");
+                targeting["instagram_positions"] = new JsonArray("stream");
+                break;
+            case "stories":
+                targeting["publisher_platforms"] = new JsonArray("facebook", "instagram");
+                targeting["facebook_positions"] = new JsonArray("story", "facebook_reels");
+                targeting["instagram_positions"] = new JsonArray("story", "reels");
+                break;
         }
-
-        var offset = WholeUnitCurrencies.Contains(currency) ? 1 : 100;
-        var start = delivery.StartTime is { } s && s > DateTime.UtcNow ? s.ToUniversalTime() : DateTime.UtcNow.AddMinutes(5);
-        var form = new Dictionary<string, string?>
-        {
-            ["name"] = $"{name} · ad set",
-            ["campaign_id"] = campaignId,
-            ["daily_budget"] = ((long)Math.Round(delivery.DailyBudget * offset)).ToString(CultureInfo.InvariantCulture),
-            ["billing_event"] = "IMPRESSIONS",
-            ["bid_strategy"] = "LOWEST_COST_WITHOUT_CAP",
-            ["optimization_goal"] = goal switch { "AWARENESS" => "REACH", "SALES" => "OFFSITE_CONVERSIONS", _ => "LINK_CLICKS" },
-            ["targeting"] = targeting.ToJsonString(),
-            ["start_time"] = start.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
-            ["status"] = status,
-        };
-        if (goal != "AWARENESS")
-            form["destination_type"] = "WEBSITE";
-        if (goal == "SALES")
-            form["promoted_object"] = new JsonObject { ["pixel_id"] = options.PixelId, ["custom_event_type"] = "PURCHASE" }.ToJsonString();
-        if (delivery.EndTime is { } end)
-        {
-            if (end.ToUniversalTime() <= start.AddHours(1))
-                throw new BadRequestException("The end date must be after the start date.");
-            form["end_time"] = end.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
-        }
-
-        return form;
+        return targeting;
     }
+
+    // ---------- Audience estimate ----------
+
+    public async Task<MetaAdEstimateDto> EstimateAsync(MetaAdDeliveryDto delivery)
+    {
+        var options = RequireConfigured();
+        var goal = (delivery.Goal ?? "TRAFFIC").Trim().ToUpperInvariant();
+        var query = new Dictionary<string, string?>
+        {
+            ["targeting_spec"] = BuildTargeting(delivery).ToJsonString(),
+            ["optimization_goal"] = goal == "SALES" && options.PixelId.Length == 0 ? "LINK_CLICKS" : OptimizationGoal(goal),
+        };
+        if (goal == "SALES" && options.PixelId.Length > 0)
+            query["promoted_object"] = new JsonObject { ["pixel_id"] = options.PixelId, ["custom_event_type"] = "PURCHASE" }.ToJsonString();
+
+        var result = await GetAsync(options, $"{options.AdAccountNode}/delivery_estimate", query);
+        var estimate = new MetaAdEstimateDto();
+        if (!result.TryGetProperty("data", out var data) || data.GetArrayLength() == 0)
+            return estimate;
+
+        var row = data[0];
+        estimate.AudienceLower = Long(row, "estimate_mau_lower_bound");
+        estimate.AudienceUpper = Long(row, "estimate_mau_upper_bound");
+
+        // daily_outcomes_curve: [{spend (account minor units), reach, ...}] -> reach at the chosen daily budget.
+        if (row.TryGetProperty("daily_outcomes_curve", out var curve) && curve.ValueKind == JsonValueKind.Array && curve.GetArrayLength() > 0)
+        {
+            var currency = await GetCurrencyAsync(options);
+            var offset = WholeUnitCurrencies.Contains(currency) ? 1 : 100;
+            var daily = string.Equals(delivery.BudgetType, "lifetime", StringComparison.OrdinalIgnoreCase) && delivery.StartTime is { } st && delivery.EndTime is { } en
+                ? delivery.LifetimeBudget / (decimal)Math.Max(1, Math.Ceiling((en - st).TotalDays))
+                : delivery.DailyBudget;
+            var target = (double)(daily * offset);
+            JsonElement? best = null;
+            foreach (var point in curve.EnumerateArray())
+            {
+                var spend = point.TryGetProperty("spend", out var sp) && sp.TryGetDouble(out var v) ? v : 0;
+                if (spend <= target || best is null)
+                    best = point;
+                if (spend > target)
+                    break;
+            }
+            if (best is { } b && Long(b, "reach") is { } reach and > 0)
+            {
+                estimate.DailyReachLower = (long)(reach * 0.8);
+                estimate.DailyReachUpper = (long)(reach * 1.2);
+            }
+        }
+        return estimate;
+    }
+
+    private static long? Long(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value)
+            ? value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var n) ? n
+            : value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var d) ? (long)d
+            : long.TryParse(Str(element, name), out var parsed) ? parsed : null
+            : null;
 
     /// <summary>The Page post behind the ad: one image + link, or a carousel of 2–10 cards.</summary>
     private static JsonObject BuildObjectStorySpec(MetaAdPublishDto request, MetaAdsOptions options, string utmCampaign)
@@ -439,7 +543,7 @@ public partial class MetaAdsService(
         var options = RequireConfigured();
         var result = await GetAsync(options, $"{options.AdAccountNode}/ads", new()
         {
-            ["fields"] = "id,name,status,effective_status,created_time,adset{name},campaign{name},creative{thumbnail_url},insights.date_preset(last_30d){impressions,clicks,spend,ctr}",
+            ["fields"] = "id,name,status,effective_status,created_time,adset{name},campaign{name},creative.thumbnail_width(600).thumbnail_height(600){thumbnail_url},insights.date_preset(last_30d){impressions,clicks,spend,ctr}",
             ["limit"] = Math.Clamp(limit, 1, 100).ToString(CultureInfo.InvariantCulture),
         });
 

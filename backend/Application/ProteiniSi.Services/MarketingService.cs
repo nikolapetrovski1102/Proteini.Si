@@ -6,17 +6,31 @@ using ProteiniSi.Contracts.Providers;
 using ProteiniSi.Contracts.Services;
 using ProteiniSi.Dtos;
 using ProteiniSi.Models;
+using ProteiniSi.Services.Helpers;
 
 namespace ProteiniSi.Services;
 
 public class MarketingService(IMarketingProvider provider) : IMarketingService
 {
-    public Task SubscribeAsync(NewsletterSubscriptionDto subscription)
+    public async Task SubscribeAsync(NewsletterSubscriptionDto subscription)
     {
         var email = NormalizeEmail(subscription.Email);
+
+        // Marketing mail to a typo domain (hotmal.com) bounces forever: refuse it with a suggestion.
+        var (_, _, typoError, _) = CheckoutFieldValidator.ValidateEmail(email, maxLength: 320);
+        if (typoError != null)
+            throw InvalidEmail(typoError);
+
+        var domainError = await CheckoutFieldValidator.ValidateEmailDomainAsync(email, requireMailServer: true);
+        if (domainError != null)
+            throw InvalidEmail(domainError);
+
         var source = string.IsNullOrWhiteSpace(subscription.Source) ? "website" : subscription.Source.Trim();
-        return provider.SubscribeAsync(email, source);
+        await provider.SubscribeAsync(email, source);
     }
+
+    private static BadRequestException InvalidEmail(string message) =>
+        new(message, new { status = false, message });
 
     public Task UnsubscribeAsync(NewsletterSubscriptionDto subscription) =>
         provider.UnsubscribeAsync(NormalizeEmail(subscription.Email));

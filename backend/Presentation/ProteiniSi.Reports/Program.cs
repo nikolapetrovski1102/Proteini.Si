@@ -26,6 +26,15 @@ using ProteiniSi.Services;
 if (args.Length > 0 && args[0] == "marketing")
     return await MarketingCommand.RunAsync(args[1..]);
 
+// Instant alerts, run every 5 minutes by proteinisi-alerts.timer: emails the developer as soon as a
+// service, health check, the database, disk/memory or a certificate goes bad, or new errors are logged.
+//
+//   ProteiniSi.Reports alerts                    check and email what is new
+//   ProteiniSi.Reports alerts --dry-run ./out    write the alert email instead of sending it
+//   ProteiniSi.Reports alerts --test             send a test alert
+if (args.Length > 0 && args[0] == "alerts")
+    return await AlertCommand.RunAsync(args[1..]);
+
 string? dateArg = null, dryRun = null, only = null;
 var force = false;
 for (var i = 0; i < args.Length; i++)

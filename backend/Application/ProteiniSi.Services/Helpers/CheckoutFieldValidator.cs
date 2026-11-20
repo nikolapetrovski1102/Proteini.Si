@@ -20,30 +20,6 @@ public static partial class CheckoutFieldValidator
         "http", "www.", "t.me/", "script", "hack", "crack", "cheat", "telegram"
     ];
 
-    private static readonly Dictionary<string, string> CommonEmailDomainTypos = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["gmial.com"] = "gmail.com",
-        ["gamil.com"] = "gmail.com",
-        ["gmai.com"] = "gmail.com",
-        ["gmail.co"] = "gmail.com",
-        ["gmail.con"] = "gmail.com",
-        ["gnail.com"] = "gmail.com",
-        ["gmal.com"] = "gmail.com",
-        ["yaho.com"] = "yahoo.com",
-        ["yahooo.com"] = "yahoo.com",
-        ["yahoo.co"] = "yahoo.com",
-        ["yahoo.con"] = "yahoo.com",
-        ["hotmial.com"] = "hotmail.com",
-        ["hotmal.com"] = "hotmail.com",
-        ["hotmail.co"] = "hotmail.com",
-        ["hotmail.con"] = "hotmail.com",
-        ["outlok.com"] = "outlook.com",
-        ["outllok.com"] = "outlook.com",
-        ["outlook.co"] = "outlook.com",
-        ["iclod.com"] = "icloud.com",
-        ["icoud.com"] = "icloud.com"
-    };
-
     private static readonly HashSet<string> TrustedEmailDomains = new(StringComparer.OrdinalIgnoreCase)
     {
         "gmail.com", "googlemail.com", "yahoo.com", "yahoo.co.uk", "outlook.com", "hotmail.com",
@@ -312,7 +288,7 @@ public static partial class CheckoutFieldValidator
             return (false, null, "Please provide a valid email address (e.g., name@example.com).", null);
         }
 
-        if (CommonEmailDomainTypos.TryGetValue(domainPart, out var correctedDomain))
+        if (EmailSuggestions.KnownTypos.TryGetValue(domainPart, out var correctedDomain))
         {
             var suggested = $"{localPart}@{correctedDomain}";
             return (false, null, $"Invalid email domain '@{domainPart}'. Did you mean {suggested}?", suggested);
@@ -322,18 +298,34 @@ public static partial class CheckoutFieldValidator
     }
 
     /// <summary>
-    /// Non-blocking DNS check for the email domain. Rejects only when DNS explicitly reports
-    /// HostNotFound (NXDOMAIN). Fails open if DNS times out or is unreachable.
+    /// DNS check for the email domain. Always rejects a domain that does not exist (NXDOMAIN).
+    /// With <paramref name="requireMailServer"/> it also rejects domains without a mail server
+    /// (hotmal.com has a website but no MX). Fails open when DNS times out or is unreachable.
     /// </summary>
-    public static async Task<string?> ValidateEmailDomainAsync(string email, CancellationToken cancellationToken = default)
+    public static async Task<string?> ValidateEmailDomainAsync(
+        string email,
+        bool requireMailServer = false,
+        CancellationToken cancellationToken = default)
     {
         var atIndex = email.LastIndexOf('@');
         if (atIndex < 0 || atIndex == email.Length - 1)
             return "Please provide a valid email address.";
 
         var domain = email[(atIndex + 1)..].Trim().ToLowerInvariant();
-        if (TrustedEmailDomains.Contains(domain))
+        if (TrustedEmailDomains.Contains(domain) || EmailSuggestions.IsKnownDomain(domain))
             return null;
+
+        if (requireMailServer)
+        {
+            var canReceive = await EmailDomainChecker.CanReceiveMailAsync(domain, cancellationToken);
+            if (canReceive != false)
+                return null;
+
+            var suggestion = EmailSuggestions.SuggestEmail(email);
+            return suggestion != null
+                ? $"The email domain '@{domain}' cannot receive emails. Did you mean {suggestion}?"
+                : $"The email domain '@{domain}' cannot receive emails. Please check your email address.";
+        }
 
         try
         {

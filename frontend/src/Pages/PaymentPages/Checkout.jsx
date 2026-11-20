@@ -1808,6 +1808,14 @@ export default function Checkout() {
                       clearFieldError("gift-recipient-email");
                     }}
                   />
+                  <EmailTypoHint
+                    email={giftRecipient.email}
+                    className="-mt-1 sm:col-span-2"
+                    onAcceptSuggestion={(fixed) => {
+                      setGiftRecipient((current) => ({ ...current, email: fixed }));
+                      clearFieldError("gift-recipient-email");
+                    }}
+                  />
                   <Field
                     id="gift-message"
                     label={translate("giftMessage")}
@@ -1872,6 +1880,14 @@ export default function Checkout() {
                     {translate("subscribe")}
                   </button>
                 </div>
+                <EmailTypoHint
+                  email={newsletterEmail}
+                  className="mt-1.5"
+                  onAcceptSuggestion={(fixed) => {
+                    setNewsletterEmail(fixed);
+                    setNewsletterStatus(null);
+                  }}
+                />
                 {newsletterStatus && (
                   <p
                     className={`mt-1.5 text-xs ${

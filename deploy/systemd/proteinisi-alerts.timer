@@ -1,0 +1,11 @@
+[Unit]
+Description=Check the Proteini.mk server every 5 minutes and email the developer when something breaks
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=proteinisi-alerts@prod.service
+
+[Install]
+WantedBy=timers.target
