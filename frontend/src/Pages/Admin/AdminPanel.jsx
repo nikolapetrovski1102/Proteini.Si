@@ -1030,6 +1030,9 @@ export default function AdminPanel() {
     (c) => c.parent_Category_Id && selectedMainCategories.includes(c.parent_Category_Id),
   );
   const categoryName = (id) => filterOptions.categories.find((c) => c.category_Id === id)?.category_Name || `#${id}`;
+  // Protein bars live only under Snacks › Protein Bars; the checkbox adds/removes that subcategory (and Snacks with it).
+  const proteinBarsCategory = filterOptions.categories.find((c) => c.category_Slug === "protein-bars-snacks");
+  const isProteinBar = !!proteinBarsCategory && selectedSubcategories.includes(proteinBarsCategory.category_Id);
   const labelCount = LABELS.filter((l) => formData[l.key]).length;
   const organiseCount =
     selectedFilters.categoryIds.length +
@@ -1624,6 +1627,24 @@ export default function AdminPanel() {
           {activeTab === "organise" && (
             <div className="space-y-8">
               <FormSection title="Categories" description="Where the product appears in the shop menu. Choosing a subcategory adds its main category automatically.">
+                {proteinBarsCategory && (
+                  <label className="mb-4 flex cursor-pointer items-center gap-3 rounded-xl bg-[#f6f5f1] px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={isProteinBar}
+                      onChange={(e) =>
+                        e.target.checked
+                          ? addSubcategory(proteinBarsCategory.category_Id)
+                          : removeCategory(proteinBarsCategory.category_Id)
+                      }
+                      className="h-5 w-5 cursor-pointer rounded border-black/30 accent-[#141409]"
+                    />
+                    <span>
+                      <span className="block text-[15px] font-semibold text-gray-900">Протеински барови</span>
+                      <span className="block text-sm text-gray-500">Shows the product under Ужина › Протеински барови.</span>
+                    </span>
+                  </label>
+                )}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Add a main category">
                     <select className={selectClass} value="" onChange={(e) => addMainCategory(parseInt(e.target.value))}>

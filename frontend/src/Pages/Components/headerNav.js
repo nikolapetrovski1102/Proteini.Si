@@ -201,7 +201,7 @@ export const buildCategoryNav = (translate) => {
           label: translate("readyToDrink"),
           link: "/all-products/ready-to-drink",
         },
-        { label: translate("proteinBars"), link: "/all-products/protein-bars" },
+        { label: translate("proteinBars"), link: "/all-products/protein-bars-snacks" },
         {
           label: translate("proteinSnaks"),
           link: "/all-products/protein-snaks",
@@ -267,7 +267,7 @@ export const buildCategoryNav = (translate) => {
         },
         {
           label: translate("proteinBars"),
-          link: "/all-products/protein-bars-weight",
+          link: "/all-products/protein-bars-snacks",
         },
       ],
     },
@@ -323,6 +323,7 @@ export const buildCategoryNav = (translate) => {
       label: translate("snacksUpper"),
       link: "/all-products/snacks",
       subItems: [
+        { label: translate("proteinBars"), link: "/all-products/protein-bars-snacks" },
         { label: translate("muesli"), link: "/all-products/muesli" },
         { label: translate("snacksUpper"), link: "/all-products/snacks" },
         { label: translate("pancakes"), link: "/all-products/pancakes" },
@@ -331,7 +332,6 @@ export const buildCategoryNav = (translate) => {
         { label: translate("spreads"), link: "/all-products/spreads" },
         { label: translate("oils"), link: "/all-products/oils" },
         { label: translate("energyBars"), link: "/all-products/energy-bars" },
-        { label: translate("proteinBars"), link: "/all-products/protein-bars" },
       ],
     },
     {
@@ -476,6 +476,13 @@ export const buildCategoryNav = (translate) => {
       columns: [preWorkout],
     },
     {
+      key: "snacks",
+      icon: BarIcon,
+      title: translate("snacks"),
+      link: "/all-products/snacks",
+      columns: [snacks.slice(0, 1), snacks.slice(1, 2)],
+    },
+    {
       key: "weightLoss",
       icon: ScaleIcon,
       title: translate("weightLoss"),
@@ -492,13 +499,6 @@ export const buildCategoryNav = (translate) => {
         vitamins.slice(2, 3),
         vitamins.slice(3, 6),
       ],
-    },
-    {
-      key: "snacks",
-      icon: BarIcon,
-      title: translate("snacks"),
-      link: "/all-products/snacks",
-      columns: [snacks.slice(0, 1), snacks.slice(1, 2)],
     },
     {
       key: "accessories",
