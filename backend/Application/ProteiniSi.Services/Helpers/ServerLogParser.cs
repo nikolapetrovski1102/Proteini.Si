@@ -23,6 +23,11 @@ public static partial class ServerLogParser
     [GeneratedRegex(@"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:?\d{2}) \S+ ([^:]+): (.*)$")]
     private static partial Regex JournalLine();
 
+    // Errors a visitor causes on purpose (bots probing /img/, blocked paths): nginx already answered
+    // 403 correctly, so they are warnings, not something the developer has to fix.
+    [GeneratedRegex(@"^directory index of "".*"" is forbidden|^access forbidden by rule")]
+    private static partial Regex NginxVisitorRefusal();
+
     [GeneratedRegex(@"\b\d+\b|\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", RegexOptions.IgnoreCase)]
     private static partial Regex VariablePart();
 
@@ -61,14 +66,16 @@ public static partial class ServerLogParser
             if (!match.Success
                 || !DateTime.TryParseExact(match.Groups[1].Value, "yyyy/MM/dd HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var at))
                 continue;
+            var message = match.Groups[3].Value.Trim();
             var level = match.Groups[2].Value switch
             {
                 "warn" => "WRN",
+                "error" when NginxVisitorRefusal().IsMatch(message) => "WRN",
                 "error" => "ERR",
                 "crit" or "alert" or "emerg" => "FTL",
                 _ => "INF"
             };
-            yield return new SerilogEntry(new DateTimeOffset(at, hostOffset), level, match.Groups[3].Value.Trim(), new List<string>());
+            yield return new SerilogEntry(new DateTimeOffset(at, hostOffset), level, message, new List<string>());
         }
     }
 

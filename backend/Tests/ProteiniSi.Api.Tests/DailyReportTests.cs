@@ -63,9 +63,11 @@ public class DailyReportTests
         {
             "2026/11/10 09:00:00 [error] 1234#1234: *5 connect() failed (111: Connection refused) while connecting to upstream",
             "2026/11/10 09:01:00 [crit] 1234#1234: SSL_do_handshake() failed",
+            "2026/11/21 16:16:00 [error] 1234#1234: *9 directory index of \"/srv/proteinisi/prod/web/img/\" is forbidden, client: 1.2.3.4, server: proteini.mk, request: \"GET /img/ HTTP/1.1\"",
+            "2026/11/21 16:17:00 [error] 1234#1234: *10 access forbidden by rule, client: 1.2.3.4, server: proteini.mk, request: \"GET /.env HTTP/1.1\"",
             "garbage"
         }, TimeSpan.Zero).ToList();
-        Assert.Equal(new[] { "ERR", "FTL" }, nginx.Select(e => e.Level));
+        Assert.Equal(new[] { "ERR", "FTL", "WRN", "WRN" }, nginx.Select(e => e.Level));
         Assert.StartsWith("connect() failed", nginx[0].Message);
 
         var journal = ServerLogParser.ReadJournal(new[]
