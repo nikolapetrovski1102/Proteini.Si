@@ -74,6 +74,8 @@ public class Product
     public int? Default_Variant_Id { get; set; }
 
     public string? VariantPackagingName { get; set; }
+    public int? VariantUnitCount { get; set; }
+    public string? VariantUnitForm { get; set; }
     public string? VariantFlavorName { get; set; }
     public int PackagingCount { get; set; }
     public int FlavorCount { get; set; }

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { formatMkd } from "../utils/formatPrice";
 import { CTAS, DESCRIPTION_MAX, EMOJIS, HEADLINE_MAX, PRIMARY_MAX, PRIMARY_TEXT_PRESETS, PRIMARY_VISIBLE, textInserts } from "./copy";
+import { CollectionFields } from "./Collection";
 import { Field } from "./ui";
 import { dot, inputClass } from "./format";
 
@@ -139,6 +140,9 @@ export default function StepText({ draft, update, updateCard, thumbFor, cardsFor
         </div>
       </div>
 
+      {draft.format === "collection" ? (
+        <CollectionFields draft={draft} update={update} />
+      ) : (
       <div>
         <div className="flex flex-wrap items-baseline justify-between gap-3 mb-3">
           <h3 className="font-display text-lg uppercase tracking-wide">{draft.format === "single" ? "Headline & description" : "Text under each card"}</h3>
@@ -211,11 +215,12 @@ export default function StepText({ draft, update, updateCard, thumbFor, cardsFor
           ))}
         </div>
       </div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="space-y-4">
           <Field label="Ad name" hint="Only you see this in Ads Manager and in Ads history">
-            <input className={inputClass} value={draft.name} placeholder={`${draft.format === "single" ? "Single" : "Carousel"} · today`} onChange={(e) => update({ name: e.target.value })} />
+            <input className={inputClass} value={draft.name} placeholder={`${draft.format === "single" ? "Single" : draft.format === "collection" ? "Collection" : "Carousel"} · today`} onChange={(e) => update({ name: e.target.value })} />
           </Field>
           {draft.format === "carousel" && (
             <div>

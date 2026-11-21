@@ -10,6 +10,7 @@ import {
   getCartWeightGrams,
   getVariantWeightGrams,
 } from "../../../utils/variantWeight";
+import { formatPackagingLabel, movePillCountOutOfFlavor } from "../../../utils/unitCount";
 import Price from "../Price";
 
 const CLOSE_MS = 260; // keep in sync with .qp-sheet transitions in index.css
@@ -112,7 +113,8 @@ function SheetBody({ product, language, translate, onClose, addToCart }) {
   }, [parentId, product.variant_Id]);
 
   const base = details?.product;
-  const variants = useMemo(() => details?.variants || [], [details]);
+  // A flavour that is only "60 капсули" is the pill count, not a flavour.
+  const variants = useMemo(() => (details?.variants || []).map(movePillCountOutOfFlavor), [details]);
   const selected = variants.find((v) => v.variant_Id === selectedId) || null;
   const saleActive = isSaleActive(base || product);
 
@@ -121,6 +123,7 @@ function SheetBody({ product, language, translate, onClose, addToCart }) {
     variants.forEach((v) => {
       const entry = byName.get(v.packaging_Name) || {
         name: v.packaging_Name,
+        sample: v,
         weight: getVariantWeightGrams(v),
         available: false,
       };
@@ -164,7 +167,7 @@ function SheetBody({ product, language, translate, onClose, addToCart }) {
     if (!canAdd) return;
     let cartName = base?.name || product.name;
     if (selected?.flavor_Name) cartName += ` - ${selected.flavor_Name}`;
-    if (selected?.packaging_Name) cartName += ` (${selected.packaging_Name})`;
+    if (selected?.packaging_Name) cartName += ` (${formatPackagingLabel(selected.packaging_Name, selected, translate)})`;
 
     // Close first: the fly-to-cart animation and the toast confirm the add.
     onClose();
@@ -251,7 +254,7 @@ function SheetBody({ product, language, translate, onClose, addToCart }) {
                       onClick={() => choosePackaging(p.name)}
                       className={chip(selected?.packaging_Name === p.name, !p.available)}
                     >
-                      {p.name}
+                      {formatPackagingLabel(p.name, p.sample, translate)}
                     </button>
                   ))}
                 </div>

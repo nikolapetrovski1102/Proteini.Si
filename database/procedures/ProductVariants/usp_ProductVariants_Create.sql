@@ -27,7 +27,9 @@ CREATE OR ALTER PROCEDURE dbo.usp_ProductVariants_Create
     @Description NVARCHAR(MAX),
     @DisplayOrder INT,
     @IsDefault BIT,
-    @LoyaltyPercentage DECIMAL(5, 2)
+    @LoyaltyPercentage DECIMAL(5, 2),
+    @UnitCount INT = NULL,
+    @UnitForm NVARCHAR(20) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -55,13 +57,13 @@ BEGIN
             Price, DDV_Percentage, Compare_Price,
             Quantity, Low_Stock_Threshold, Variant_Name, Option_Type, Variant_Image_Path, Ingredients, IngredientsAl, IngredientsEn,
             Nutrition_Info, Description, Display_Order, IsActive, IsDefault,
-            LoyaltyPercentage, Created_At, Updated_At
+            LoyaltyPercentage, Unit_Count, Unit_Form, Created_At, Updated_At
         ) VALUES (
             @ProductId, @SKU, @FlavorId, @FlavorName, @ResolvedPackagingId, @PackagingName,
             @Price, @DDVPercentage, @ComparePrice,
             @Quantity, @LowStockThreshold, @VariantName, @OptionType, @VariantImagePath, @Ingredients, @IngredientsAl, @IngredientsEn,
             @NutritionInfo, @Description, @DisplayOrder, 1, @IsDefault,
-            @LoyaltyPercentage, GETDATE(), GETDATE()
+            @LoyaltyPercentage, @UnitCount, @UnitForm, GETDATE(), GETDATE()
         );
 
         DECLARE @VariantId INT = CAST(SCOPE_IDENTITY() AS int);

@@ -6,6 +6,7 @@ import { Starburst } from "./sections/Decor";
 import { BoxIcon } from "../Components/ShopIcons";
 import { referralPrice, useReferralOffer } from "../../utils/referralOffer";
 import Price from "../Components/Price";
+import { formatPackagingLabel } from "../../utils/unitCount";
 
 
 // Clothing is listed once per product (sizes are picked on the product page), so it links to the plain product.
@@ -67,9 +68,10 @@ export default function HomeProductCard({
   const soldOut = showStock && isSoldOut(product);
 
   // Same tub listed once per weight: show the weight under the name so the cards can be told apart.
+  // Capsule products show only the pill count ("90 капсули"), not the pack weight.
   const packagingLabel =
-    product.isVariant && !product.isApparel && product.variantPackagingName
-      ? String(product.variantPackagingName).trim()
+    product.isVariant && !product.isApparel && (product.variantPackagingName || product.variantUnitCount)
+      ? formatPackagingLabel(product.variantPackagingName, product, translate)
       : "";
 
   const details = product.isApparel

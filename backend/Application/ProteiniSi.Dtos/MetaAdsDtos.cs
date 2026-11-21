@@ -43,6 +43,8 @@ public class MetaAdsStatusDto
 public class MetaAdCardDto
 {
     public string? ImageHash { get; set; }
+    /// <summary>Optional 1080×1920 version of the same card for Stories and Reels (Meta image hash).</summary>
+    public string? VerticalImageHash { get; set; }
     public string? Headline { get; set; }
     public string? Description { get; set; }
     public string? Link { get; set; }
@@ -83,7 +85,7 @@ public class MetaAdEstimateDto
 
 public class MetaAdPublishDto
 {
-    /// <summary>"carousel" (2–10 cards) or "single" (first card only).</summary>
+    /// <summary>"carousel" (2–10 cards), "single" (first card only) or "collection" (one image of cover + products, linking to a proteini.mk/collection page with the picked products).</summary>
     public string Format { get; set; } = "carousel";
     public string? Name { get; set; }
     public string? PrimaryText { get; set; }
@@ -99,6 +101,11 @@ public class MetaAdPublishDto
     /// <summary>"PAUSED" (default, review in Ads Manager first) or "ACTIVE".</summary>
     public string Status { get; set; } = "PAUSED";
     public MetaAdDeliveryDto Delivery { get; set; } = new();
+    /// <summary>Collection: product feed item IDs ("v12" variant, "p5" product), 4–50, shown on the proteini.mk/collection page.</summary>
+    public List<string>? ProductIds { get; set; }
+    /// <summary>Collection: big title and small line on the proteini.mk/collection page.</summary>
+    public string? StoreTitle { get; set; }
+    public string? StoreSubtitle { get; set; }
     /// <summary>Preview only: Meta ad_format values to render (whitelisted server-side). Empty = Facebook + Instagram feed.</summary>
     public List<string>? PreviewFormats { get; set; }
 }
@@ -110,6 +117,9 @@ public class MetaAdPublishResultDto
     public string? CampaignId { get; set; }
     public string? AdSetId { get; set; }
     public string? AdId { get; set; }
+    /// <summary>Every ad set / ad made (a carousel with Stories &amp; Reels gets a second ad set with one full-screen ad per card).</summary>
+    public List<string> AdSetIds { get; set; } = [];
+    public List<string> AdIds { get; set; } = [];
     public string? AdsManagerUrl { get; set; }
     public string? Message { get; set; }
 }

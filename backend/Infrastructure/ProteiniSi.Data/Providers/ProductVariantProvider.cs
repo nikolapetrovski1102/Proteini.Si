@@ -49,7 +49,9 @@ public class ProductVariantProvider(ISqlHelper sql) : IProductVariantProvider
             variant.Description,
             DisplayOrder = variant.Display_Order,
             variant.IsDefault,
-            values.LoyaltyPercentage
+            values.LoyaltyPercentage,
+            values.UnitCount,
+            values.UnitForm
         });
 
     public async Task<bool> UpdateAsync(UpdateProductVariantDto variant, VariantWriteValues values) =>
@@ -80,7 +82,9 @@ public class ProductVariantProvider(ISqlHelper sql) : IProductVariantProvider
             DisplayOrder = variant.Display_Order,
             variant.IsActive,
             variant.IsDefault,
-            values.LoyaltyPercentage
+            values.LoyaltyPercentage,
+            values.UnitCount,
+            values.UnitForm
         }) > 0;
 
     public Task<DeletedImage?> DeleteAsync(int id) =>

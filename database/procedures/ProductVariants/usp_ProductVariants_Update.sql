@@ -28,7 +28,9 @@ CREATE OR ALTER PROCEDURE dbo.usp_ProductVariants_Update
     @DisplayOrder INT,
     @IsActive BIT,
     @IsDefault BIT,
-    @LoyaltyPercentage DECIMAL(5, 2)
+    @LoyaltyPercentage DECIMAL(5, 2),
+    @UnitCount INT = NULL,
+    @UnitForm NVARCHAR(20) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -67,6 +69,8 @@ BEGIN
             IsActive = @IsActive,
             IsDefault = @IsDefault,
             LoyaltyPercentage = @LoyaltyPercentage,
+            Unit_Count = @UnitCount,
+            Unit_Form = @UnitForm,
             Updated_At = GETDATE()
         WHERE Variant_Id = @VariantId;
 

@@ -99,6 +99,8 @@ public class ProductSearchResultDto
     public decimal? Variant_Compare_Price { get; set; }
     public string VariantFlavorName { get; set; }
     public string VariantPackagingName { get; set; }
+    public int? VariantUnitCount { get; set; }
+    public string? VariantUnitForm { get; set; }
     public bool IsVariant { get; set; }
     public bool HasVariants { get; set; }
 }
@@ -404,3 +406,6 @@ public class CatalogFeedSelection
     private static IEnumerable<string> Split(string? value) =>
         (value ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }
+
+/// <summary>One product on the proteini.mk/collection page (Meta collection ads). Link is a site path.</summary>
+public record CollectionItemDto(string Id, int ProductId, int? VariantId, string Title, string Link, string? Image, decimal Price, decimal? SalePrice, bool InStock);

@@ -41,7 +41,7 @@ const emptyFilters = { query: "", category: "", brand: "", minDiscount: 0, price
 
 const FilterLabel = ({ children }) => <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#6b6b63] mb-1">{children}</span>;
 
-export default function ProductPicker({ products, loading, error, selectedIds, onToggle, onAddMany, onClear }) {
+export default function ProductPicker({ products, loading, error, selectedIds, onToggle, onAddMany, onClear, maxPicked = MAX_CARDS }) {
   const [f, setF] = useState(emptyFilters);
   const [limit, setLimit] = useState(PAGE);
   const set = (patch) => {
@@ -90,7 +90,7 @@ export default function ProductPicker({ products, loading, error, selectedIds, o
   }, [products]);
 
   const shown = matches.slice(0, limit);
-  const full = selectedIds.length >= MAX_CARDS;
+  const full = selectedIds.length >= maxPicked;
   const filtered = JSON.stringify({ ...f, sort: "" }) !== JSON.stringify({ ...emptyFilters, sort: "" });
 
   return (
@@ -144,17 +144,17 @@ export default function ProductPicker({ products, loading, error, selectedIds, o
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-[#e7e4da] py-3 text-sm">
         <Button variant="yellow" disabled={!topDiscountIds.length || full} onClick={() => onAddMany(topDiscountIds)}>
-          Add top {Math.min(MAX_CARDS - selectedIds.length, topDiscountIds.length) || ""} discounts
+          Add top {Math.min(maxPicked - selectedIds.length, topDiscountIds.length) || ""} discounts
         </Button>
         <Button variant="ghost" disabled={!matches.length || full} onClick={() => onAddMany(matches.map((p) => p.id))}>
-          Add first {Math.min(MAX_CARDS - selectedIds.length, matches.length) || ""} shown
+          Add first {Math.min(maxPicked - selectedIds.length, matches.length) || ""} shown
         </Button>
         {selectedIds.length > 0 && (
           <Button variant="link" onClick={onClear}>
             Clear selection
           </Button>
         )}
-        <span className="ml-auto text-[#6b6b63]">{dot(`${matches.length} match`, `${selectedIds.length} of ${MAX_CARDS} picked`)}</span>
+        <span className="ml-auto text-[#6b6b63]">{dot(`${matches.length} match`, `${selectedIds.length} of ${maxPicked} picked`)}</span>
       </div>
 
       {error && <div className="text-sm text-red-700">{error}</div>}

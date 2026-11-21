@@ -47,7 +47,8 @@ const Toggle = ({ checked, onChange, children }) => (
   </label>
 );
 
-export default function StepCards({ draft, update, updateCard, move, reorder, removeCard, setOwnImage, thumbFor, active, setActive }) {
+export default function StepCards({ draft, update, updateCard, move, reorder, removeCard, setOwnImage, thumbFor, vthumbFor, active, setActive }) {
+  const [shape, setShape] = useState("square");
   const { cards, template, style } = draft;
   const options = TEMPLATE_OPTIONS[template] || [];
   const templateThumb = useTemplateThumbs(cards[0], style);
@@ -128,9 +129,34 @@ export default function StepCards({ draft, update, updateCard, move, reorder, re
 
       <div className="grid md:grid-cols-[minmax(0,420px)_1fr] gap-6">
         <div>
-          <div className="relative aspect-square rounded-xl overflow-hidden border border-[#e7e4da] bg-[#f6f5f1]">
-            {thumbFor(card) ? <img src={thumbFor(card)} alt="" className="w-full h-full" /> : <div className="w-full h-full grid place-items-center text-sm text-[#6b6b63]">Rendering…</div>}
+          <div className="flex gap-4 mb-2 text-sm border-b border-[#e7e4da]">
+            {[
+              ["square", "Feeds 1:1"],
+              ["vertical", "Stories & Reels 9:16"],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setShape(id)}
+                className={`-mb-px border-b-2 pb-1.5 font-semibold ${shape === id ? "border-[#141409] text-[#141409]" : "border-transparent text-[#6b6b63] hover:text-[#141409]"}`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
+          {shape === "square" ? (
+            <div className="relative aspect-square rounded-xl overflow-hidden border border-[#e7e4da] bg-[#f6f5f1]">
+              {thumbFor(card) ? <img src={thumbFor(card)} alt="" className="w-full h-full" /> : <div className="w-full h-full grid place-items-center text-sm text-[#6b6b63]">Rendering…</div>}
+            </div>
+          ) : (
+            <div className="relative mx-auto w-full max-w-[280px] aspect-[9/16] rounded-xl overflow-hidden border border-[#e7e4da] bg-[#f6f5f1]">
+              {vthumbFor(card) ? <img src={vthumbFor(card)} alt="" className="w-full h-full" /> : <div className="w-full h-full grid place-items-center text-sm text-[#6b6b63]">Rendering…</div>}
+              {/* Meta's own name bar and button cover these bands, so nothing important is drawn there. */}
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-[14%] border-b border-dashed border-white/70 bg-black/10" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[35%] border-t border-dashed border-white/70 bg-black/10" />
+            </div>
+          )}
+          {shape === "vertical" && <p className="mt-2 text-xs text-[#6b6b63]">Dashed bands: where Meta puts the page name, caption and button.</p>}
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scroll-x">
             {cards.map((c, i) => (
               <button

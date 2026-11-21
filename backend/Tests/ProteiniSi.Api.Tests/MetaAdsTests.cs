@@ -339,6 +339,166 @@ public class MetaAdsServiceTests
         Assert.Contains("\"campaignId\":\"222\"", body);
     }
 
+    private static MetaAdPublishDto Collection(string name) => new()
+    {
+        Format = "collection",
+        Name = name,
+        PrimaryText = "Нови промоции!",
+        Cards = [new() { ImageHash = "sq", VerticalImageHash = "vt", Headline = "Најнови промоции" }],
+        ProductIds = ["v1", "V2", "v3", "v4", "p5", "v1"],
+        StoreTitle = "НАЈНОВИ ПРОМОЦИИ",
+        StoreSubtitle = "Нарачај сега & заштеди!",
+        Link = "https://stage.proteini.mk/whatever",
+        Delivery = new() { DailyBudget = 10 },
+    };
+
+    private static JsonElement CreativeField(FakeGraph graph, string field, int index = 0) =>
+        JsonDocument.Parse(graph.Calls.Where(c => c.Url.EndsWith("/adcreatives")).ElementAt(index).Form[field]).RootElement;
+
+    [Fact]
+    public async Task Collection_is_one_ad_with_square_and_vertical_image_opening_the_collection_page()
+    {
+        var (service, graph) = Create();
+        var result = await service.PublishAsync(Collection("Collection publish"), "boss@proteini.mk");
+
+        Assert.True(result.Status);
+        var posts = graph.Calls.Where(c => c.Method == HttpMethod.Post).Select(c => new Uri(c.Url).AbsolutePath).ToList();
+        Assert.Equal(["/v24.0/act_987/adcreatives", "/v24.0/act_987/campaigns", "/v24.0/act_987/adsets", "/v24.0/act_987/ads"], posts);
+
+        // Nothing in the ad set limits placements: the same ad runs everywhere with the right image per placement.
+        using (var targeting = JsonDocument.Parse(graph.Calls.Single(c => c.Url.EndsWith("/adsets")).Form["targeting"]))
+            Assert.False(targeting.RootElement.TryGetProperty("publisher_platforms", out _));
+
+        var story = CreativeField(graph, "object_story_spec");
+        Assert.Equal("555", story.GetProperty("page_id").GetString());
+        Assert.Equal("777", story.GetProperty("instagram_user_id").GetString());
+        Assert.False(story.TryGetProperty("link_data", out _));
+
+        var feed = CreativeField(graph, "asset_feed_spec");
+        Assert.Equal("PLACEMENT", feed.GetProperty("optimization_type").GetString());
+        Assert.Equal(["sq", "vt"], feed.GetProperty("images").EnumerateArray().Select(i => i.GetProperty("hash").GetString()));
+        var link = feed.GetProperty("link_urls")[0].GetProperty("website_url").GetString()!;
+        Assert.StartsWith("https://stage.proteini.mk/collection?p=v1,v2,v3,v4,p5&t=", link);
+        Assert.Contains("&s=" + Uri.EscapeDataString("Нарачај сега & заштеди!"), link);
+        Assert.Contains("utm_source=meta", link);
+        Assert.Equal("Најнови промоции", feed.GetProperty("titles")[0].GetProperty("text").GetString());
+
+        var rules = feed.GetProperty("asset_customization_rules").EnumerateArray().ToList();
+        var vertical = rules.Single(r => r.GetProperty("image_label").GetProperty("name").GetString() == "pmads_vertical");
+        Assert.Equal(["story", "reels"], vertical.GetProperty("customization_spec").GetProperty("instagram_positions").EnumerateArray().Select(e => e.GetString()));
+        var labels = feed.GetProperty("images").EnumerateArray().Select(i => i.GetProperty("adlabels")[0].GetProperty("name").GetString());
+        Assert.Equal(["pmads_square", "pmads_vertical"], labels);
+    }
+
+    [Fact]
+    public async Task Collection_needs_four_valid_products()
+    {
+        var (service, graph) = Create();
+        var request = Collection("Too few");
+        request.ProductIds = ["v1", "v2", "v2", "v3"];
+        var ex = await Assert.ThrowsAsync<BadRequestException>(() => service.PublishAsync(request, "boss@proteini.mk"));
+        Assert.Contains("at least 4", ex.Message);
+
+        request.ProductIds = ["v1", "v2", "v3", "x9"];
+        ex = await Assert.ThrowsAsync<BadRequestException>(() => service.PublishAsync(request, "boss@proteini.mk"));
+        Assert.Contains("x9", ex.Message);
+        Assert.Empty(graph.Calls);
+    }
+
+    [Fact]
+    public async Task Single_image_without_vertical_stays_a_plain_link_ad()
+    {
+        var (service, graph) = Create();
+        var request = Carousel();
+        request.Format = "single";
+        await service.PublishAsync(request, "boss@proteini.mk");
+
+        Assert.False(graph.Calls.Single(c => c.Url.EndsWith("/adcreatives")).Form.ContainsKey("asset_feed_spec"));
+        Assert.Equal("h1", CreativeField(graph, "object_story_spec").GetProperty("link_data").GetProperty("image_hash").GetString());
+    }
+
+    private static MetaAdPublishDto VerticalCarousel(string placements)
+    {
+        var request = Carousel();
+        request.Cards[0].VerticalImageHash = "v1";
+        request.Cards[1].VerticalImageHash = "v2";
+        request.Delivery.Placements = placements;
+        return request;
+    }
+
+    [Fact]
+    public async Task Carousel_with_stories_gets_a_feeds_ad_set_and_full_screen_ads_on_one_campaign_budget()
+    {
+        var (service, graph) = Create();
+        var result = await service.PublishAsync(VerticalCarousel("auto"), "boss@proteini.mk");
+
+        var posts = graph.Calls.Where(c => c.Method == HttpMethod.Post).Select(c => new Uri(c.Url).AbsolutePath.Replace("/v24.0/act_987/", "")).ToList();
+        Assert.Equal(["adcreatives", "adcreatives", "adcreatives", "campaigns", "adsets", "adsets", "ads", "ads", "ads"], posts);
+        Assert.Equal(3, result.AdIds.Count);
+        Assert.Equal(2, result.AdSetIds.Count);
+
+        // One budget at campaign level (CBO); the ad sets carry none.
+        var campaign = graph.Calls.Single(c => c.Url.EndsWith("/campaigns")).Form;
+        Assert.Equal("1250", campaign["daily_budget"]);
+        Assert.False(campaign.ContainsKey("is_adset_budget_sharing_enabled"));
+        var adSets = graph.Calls.Where(c => c.Url.EndsWith("/adsets")).Select(c => c.Form).ToList();
+        Assert.All(adSets, a => Assert.False(a.ContainsKey("daily_budget")));
+
+        using var feeds = JsonDocument.Parse(adSets[0]["targeting"]);
+        Assert.Equal(["stream"], feeds.RootElement.GetProperty("instagram_positions").EnumerateArray().Select(e => e.GetString()));
+        using var stories = JsonDocument.Parse(adSets[1]["targeting"]);
+        Assert.Equal(["story", "reels"], stories.RootElement.GetProperty("instagram_positions").EnumerateArray().Select(e => e.GetString()));
+        Assert.Contains("stories & reels", adSets[1]["name"]);
+
+        Assert.True(CreativeField(graph, "object_story_spec").GetProperty("link_data").TryGetProperty("child_attachments", out _));
+        var second = CreativeField(graph, "object_story_spec", 2).GetProperty("link_data");
+        Assert.Equal("v2", second.GetProperty("image_hash").GetString());
+        Assert.StartsWith("https://proteini.mk/product/2?variant=5", second.GetProperty("link").GetString());
+    }
+
+    [Fact]
+    public async Task Carousel_only_in_stories_becomes_full_screen_ads_only()
+    {
+        var (service, graph) = Create();
+        var result = await service.PublishAsync(VerticalCarousel("stories"), "boss@proteini.mk");
+
+        var posts = graph.Calls.Where(c => c.Method == HttpMethod.Post).Select(c => new Uri(c.Url).AbsolutePath.Replace("/v24.0/act_987/", "")).ToList();
+        Assert.Equal(["adcreatives", "adcreatives", "campaigns", "adsets", "ads", "ads"], posts);
+        Assert.Equal("1250", graph.Calls.Single(c => c.Url.EndsWith("/adsets")).Form["daily_budget"]);
+        Assert.Equal(2, result.AdIds.Count);
+    }
+
+    [Theory]
+    [InlineData("feeds", "new")]
+    [InlineData("auto", "existing")]
+    public async Task Carousel_stays_one_ad_in_feeds_or_an_existing_ad_set(string placements, string mode)
+    {
+        var (service, graph) = Create();
+        var request = VerticalCarousel(placements);
+        request.Delivery.Mode = mode;
+        request.Delivery.AdSetId = "333";
+        await service.PublishAsync(request, "boss@proteini.mk");
+
+        Assert.Single(graph.Calls, c => c.Url.EndsWith("/adcreatives"));
+        Assert.Single(graph.Calls, c => c.Url.EndsWith("/ads"));
+    }
+
+    [Fact]
+    public async Task Carousel_preview_in_stories_shows_the_full_screen_ad()
+    {
+        var (service, graph) = Create();
+        var request = VerticalCarousel("auto");
+        request.PreviewFormats = ["MOBILE_FEED_STANDARD", "INSTAGRAM_STORY"];
+        await service.PreviewAsync(request);
+
+        var creatives = graph.Calls.Where(c => c.Url.Contains("/generatepreviews"))
+            .Select(c => WebUtility.UrlDecode(Regex.Match(c.Url, "creative=([^&]+)").Groups[1].Value)).ToList();
+        Assert.Contains("child_attachments", creatives[0]);
+        Assert.DoesNotContain("child_attachments", creatives[1]);
+        Assert.Contains("\"image_hash\":\"v1\"", creatives[1]);
+        Assert.DoesNotContain(graph.Calls, c => c.Method == HttpMethod.Post);
+    }
+
     [Theory]
     [InlineData(1, "carousel")]
     [InlineData(11, "carousel")]

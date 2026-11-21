@@ -72,7 +72,7 @@ export const loadImage = (src) => {
 };
 
 let fontsReady;
-const ensureFonts = () => {
+export const ensureFonts = () => {
   fontsReady ??= Promise.all(
     ["700 80px Oswald", "600 40px Montserrat", "800 40px Montserrat"].map((f) => document.fonts.load(f, "АБВ abc 123")),
   ).catch(() => {});
@@ -121,7 +121,7 @@ const productBounds = (img) => {
   return result;
 };
 
-const contain = (ctx, img, x, y, w, h) => {
+export const contain = (ctx, img, x, y, w, h) => {
   const { sx, sy, sw, sh } = productBounds(img);
   const scale = Math.min(w / sw, h / sh);
   const dw = sw * scale;
@@ -162,7 +162,7 @@ const wrap = (ctx, text, width, maxLines) => {
 };
 
 /** Shrinks the font until the text fits in `maxLines`; returns the lines and the size used. */
-const fit = (ctx, text, { family, weight, max, min, width, maxLines }) => {
+export const fit = (ctx, text, { family, weight, max, min, width, maxLines }) => {
   for (let size = max; size >= min; size -= 4) {
     ctx.font = `${weight} ${size}px ${family}`;
     const lines = wrap(ctx, text, width, Infinity);
@@ -184,9 +184,9 @@ const starburst = (ctx, cx, cy, outer, inner, points, color) => {
   ctx.fill();
 };
 
-const discountPercent = (price, sale) => (sale && price > sale ? Math.floor((1 - sale / price) * 100) : 0);
+export const discountPercent = (price, sale) => (sale && price > sale ? Math.floor((1 - sale / price) * 100) : 0);
 
-const drawSaleBadge = (ctx, price, sale, cx, cy, r) => {
+export const drawSaleBadge = (ctx, price, sale, cx, cy, r) => {
   const pct = discountPercent(price, sale);
   if (pct <= 0) return;
   starburst(ctx, cx, cy, r, r * 0.84, 18, RED);
@@ -197,7 +197,7 @@ const drawSaleBadge = (ctx, price, sale, cx, cy, r) => {
   ctx.fillText(`-${pct}%`, cx, cy + 2);
 };
 
-const drawPrice = (ctx, price, sale, x, y, { size, color, oldColor, saleColor = RED, align = "left" }) => {
+export const drawPrice = (ctx, price, sale, x, y, { size, color, oldColor, saleColor = RED, align = "left" }) => {
   ctx.textBaseline = "alphabetic";
   ctx.textAlign = "left";
   const onSale = sale && sale < price;
@@ -229,7 +229,7 @@ const drawPrice = (ctx, price, sale, x, y, { size, color, oldColor, saleColor = 
 const LOGO_RATIO = 172.72 / 45.87;
 const LOGOS = { light: "/logos/proteini.svg", dark: "/logos/proteini-dark.svg" };
 
-const drawLogo = async (ctx, variant, x, y, width, align = "left") => {
+export const drawLogo = async (ctx, variant, x, y, width, align = "left") => {
   const logo = await loadImage(LOGOS[variant]);
   if (!logo) return;
   const height = width / LOGO_RATIO;
@@ -239,7 +239,7 @@ const drawLogo = async (ctx, variant, x, y, width, align = "left") => {
 
 const M = 72; // outer margin used by every template
 
-const text = (ctx, value, x, y, { font, color, align = "left", spacing = "0px" }) => {
+export const text = (ctx, value, x, y, { font, color, align = "left", spacing = "0px" }) => {
   ctx.font = font;
   ctx.fillStyle = color;
   ctx.textAlign = align;
@@ -282,7 +282,7 @@ const drawProduct = (ctx, img, x, y, w, h, zoom, pal) => {
   ctx.restore();
 };
 
-const roundRect = (ctx, x, y, w, h, r) => {
+export const roundRect = (ctx, x, y, w, h, r) => {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
@@ -293,7 +293,7 @@ const roundRect = (ctx, x, y, w, h, r) => {
 };
 
 /** A small tilted sticker, e.g. "НОВО" or "BESTSELLER"; right edge at x. */
-const drawTag = (ctx, value, x, y, pal) => {
+export const drawTag = (ctx, value, x, y, pal) => {
   const label = String(value || "").trim().toUpperCase();
   if (!label) return;
   ctx.save();
@@ -315,10 +315,10 @@ const drawTag = (ctx, value, x, y, pal) => {
 const hasDiscount = (price, sale) => discountPercent(price, sale) > 0;
 
 /** Badge top-right (when on sale and enabled) and the tag under it, or in its place. */
-const drawCorner = (ctx, card, style, pal, price, sale) => {
+const drawCorner = (ctx, card, style, pal, price, sale, top = M) => {
   const badge = style.showBadge && hasDiscount(price, sale);
-  if (badge) drawSaleBadge(ctx, price, sale, SIZE - M - 78, M + 70, 92);
-  if (card.tag) drawTag(ctx, card.tag, SIZE - M, badge ? M + 196 : M - 6, pal);
+  if (badge) drawSaleBadge(ctx, price, sale, SIZE - M - 78, top + 70, 92);
+  if (card.tag) drawTag(ctx, card.tag, SIZE - M, badge ? top + 196 : top - 6, pal);
 };
 
 /**
@@ -464,6 +464,240 @@ export async function renderCard(card, template, style = defaultStyle()) {
   if (style.showPrice)
     drawPrice(ctx, price, sale, M, SIZE - M + 4, {
       size: 70,
+      color: panelText,
+      saleColor: panelText,
+      oldColor: panelText === INK ? "rgba(20,20,9,0.55)" : "rgba(255,255,255,0.6)",
+    });
+  return canvas;
+}
+
+// ---------- Vertical (Stories / Reels) ----------
+
+export const VERTICAL_W = 1080;
+export const VERTICAL_H = 1920;
+/**
+ * Meta's Reels guidance: keep the top 14% (profile name, progress bar) and the bottom 35% (caption, button, icons)
+ * free of text and logos. Product photos may reach a little into the bottom band, text never does.
+ */
+export const SAFE_TOP = 270;
+export const SAFE_BOTTOM = 1250;
+
+const lines = (ctx, block, x, firstBaseline, lineHeight, color, align = "left", upper = false) => {
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = "alphabetic";
+  block.lines.forEach((line, i) => ctx.fillText(upper ? line.toUpperCase() : line, x, firstBaseline + lineHeight * i));
+};
+
+/** The colour of the "floor" band behind Meta's caption and button, so the bottom of the screen is designed, not empty. */
+export const floorColor = (background) => (background === "yellow" ? INK : YELLOW);
+
+/** A slanted band from `top` to the bottom edge. */
+export const drawFloor = (ctx, top, color, W, H) => {
+  ctx.beginPath();
+  ctx.moveTo(0, top + 46);
+  ctx.lineTo(W, top - 46);
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+};
+
+/**
+ * The product standing on the bottom of its box (so it can stand on the floor), with a soft shadow under it.
+ * Dark backgrounds keep the white rounded stage of the square cards.
+ */
+export const drawStanding = (ctx, img, x, y, w, h, zoom, pal) => {
+  if (!img) return;
+  if (pal.stage) return drawProduct(ctx, img, x + 36, y + 36, w - 72, h - 72, zoom, pal);
+  const z = Math.min(1.4, Math.max(0.6, Number(zoom) || 1));
+  const { sx, sy, sw, sh } = productBounds(img);
+  const scale = Math.min((w * z) / sw, (h * z) / sh);
+  const dw = sw * scale;
+  const dh = sh * scale;
+  const dx = x + (w - dw) / 2;
+  const dy = y + h - dh;
+  ctx.save();
+  const shadow = ctx.createRadialGradient(x + w / 2, y + h, 0, x + w / 2, y + h, dw * 0.55);
+  shadow.addColorStop(0, "rgba(20,20,9,0.28)");
+  shadow.addColorStop(1, "rgba(20,20,9,0)");
+  ctx.fillStyle = shadow;
+  ctx.setTransform(1, 0, 0, 0.16, 0, (y + h) * 0.84);
+  ctx.fillRect(x - 40, y + h - dw * 0.6, w + 80, dw * 1.2);
+  ctx.restore();
+  ctx.save();
+  ctx.globalCompositeOperation = "multiply"; // the photo's white must not show where it overlaps the floor
+  ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  ctx.restore();
+};
+
+/** Big discount sticker for the full-screen cards. */
+const drawCornerV = (ctx, card, style, pal, price, sale, W, top) => {
+  const badge = style.showBadge && hasDiscount(price, sale);
+  if (badge) drawSaleBadge(ctx, price, sale, W - M - 104, top + 124, 124);
+  if (card.tag) drawTag(ctx, card.tag, W - M, badge ? top + 278 : top, pal);
+};
+
+/** The square photo looks cropped when stretched to 9:16: blur it as the backdrop and show it full width on top. */
+const drawPhotoBackdrop = (ctx, img, W, H, top) => {
+  ctx.fillStyle = INK;
+  ctx.fillRect(0, 0, W, H);
+  if (!img) return;
+  if (img.height / img.width >= 1.5) return cover(ctx, img, 0, 0, W, H);
+  ctx.save();
+  ctx.filter = "blur(48px)";
+  cover(ctx, img, -80, -80, W + 160, H + 160);
+  ctx.restore();
+  ctx.fillStyle = "rgba(20,20,9,0.35)";
+  ctx.fillRect(0, 0, W, H);
+  const dh = Math.min(1350, (W * img.height) / img.width);
+  cover(ctx, img, 0, top, W, dh);
+};
+
+/**
+ * The same card as renderCard, laid out 1080×1920 for Stories and Reels: same template, colours and texts, the text
+ * between SAFE_TOP and SAFE_BOTTOM, the product big, and a coloured floor behind Meta's caption and button.
+ */
+export async function renderVerticalCard(card, template, style = defaultStyle()) {
+  await ensureFonts();
+  style = { ...defaultStyle(), ...style };
+  const W = VERTICAL_W;
+  const H = VERTICAL_H;
+  const T = SAFE_TOP;
+  const B = SAFE_BOTTOM;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  const img = await loadImage(sameOrigin(card.image));
+  const price = Number(card.price) || 0;
+  const sale = Number(card.salePrice) || 0;
+  const pal = PALETTE[style.background] || PALETTE.white;
+  const headlineText = (card.overlay || card.title || "").toUpperCase();
+  const floorTop = B + 40;
+
+  if (template === "photo" || template === "photoText") {
+    const photoH = img ? Math.min(1350, (W * img.height) / img.width) : W;
+    drawPhotoBackdrop(ctx, img, W, H, Math.max(T - 70, Math.round((T + B) / 2 - photoH / 2)));
+    // A soft shade at the top keeps Meta's white profile name readable on light photos.
+    // With the logo the shade reaches below it so the white logo stays readable too.
+    const shadeH = template === "photoText" && style.showLogo ? T + 220 : T;
+    const shade = ctx.createLinearGradient(0, 0, 0, shadeH);
+    shade.addColorStop(0, "rgba(20,20,9,0.6)");
+    shade.addColorStop(0.6, "rgba(20,20,9,0.35)");
+    shade.addColorStop(1, "rgba(20,20,9,0)");
+    ctx.fillStyle = shade;
+    ctx.fillRect(0, 0, W, shadeH);
+    if (template === "photoText") {
+      const fade = ctx.createLinearGradient(0, B - 560, 0, B + 60);
+      fade.addColorStop(0, "rgba(20,20,9,0)");
+      fade.addColorStop(1, "rgba(20,20,9,0.92)");
+      ctx.fillStyle = fade;
+      ctx.fillRect(0, B - 560, W, 620);
+      ctx.fillStyle = "rgba(20,20,9,0.92)";
+      ctx.fillRect(0, B + 60, W, H - B - 60);
+      if (style.showLogo) await drawLogo(ctx, "dark", M, T, 240);
+      const bottom = style.showPrice ? B - 130 : B;
+      const head = fit(ctx, headlineText, { family: "Oswald", weight: 700, max: 130, min: 70, width: W - 2 * M, maxLines: 3 });
+      lines(ctx, head, M, bottom - head.size * 0.98 * (head.lines.length - 1), head.size * 0.98, "#ffffff");
+      if (style.showPrice) drawPrice(ctx, price, sale, M, B, { size: 104, color: YELLOW, saleColor: YELLOW, oldColor: "rgba(255,255,255,0.6)" });
+    }
+    if (card.tag) drawTag(ctx, card.tag, W - M, T, PALETTE.ink);
+    return canvas;
+  }
+
+  ctx.fillStyle = pal.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  if (template === "clean") {
+    drawFloor(ctx, floorTop, floorColor(style.background), W, H);
+    if (style.showLogo) await drawLogo(ctx, pal.logo, W / 2, T + 10, 280, "center");
+    const top = T + (style.showLogo ? 150 : 40);
+    drawStanding(ctx, img, 80, top, W - 160, floorTop + 40 - top, card.zoom, pal);
+    drawCornerV(ctx, card, style, pal, price, sale, W, T + 110);
+    return canvas;
+  }
+
+  if (template === "price") {
+    drawFloor(ctx, floorTop, floorColor(style.background), W, H);
+    if (style.showLogo) await drawLogo(ctx, pal.logo, M, T, 240);
+    let y = T + (style.showLogo ? 150 : 40);
+    const brand = style.showBrand ? (card.brand || "").toUpperCase() : "";
+    if (brand) {
+      text(ctx, brand, M, y + 30, { font: "700 32px Montserrat", color: pal.muted, spacing: "4px" });
+      y += 48;
+    }
+    const titleWidth = W - 2 * M - (style.showBadge && hasDiscount(price, sale) ? 270 : 0);
+    const title = fit(ctx, card.title, { family: "Montserrat", weight: 800, max: 66, min: 44, width: titleWidth, maxLines: 2 });
+    lines(ctx, title, M, y + title.size, title.size * 1.12, pal.text);
+    y += title.size * 1.12 * title.lines.length + 12;
+    if (style.showPrice) {
+      drawPrice(ctx, price, sale, M, y + 104, { size: 120, color: pal.price, saleColor: pal.sale, oldColor: pal.old });
+      y += 140;
+    }
+    drawStanding(ctx, img, 90, y + 30, W - 180, floorTop + 40 - y - 30, card.zoom, pal);
+    drawCornerV(ctx, card, style, pal, price, sale, W, T + 100);
+    return canvas;
+  }
+
+  if (template === "promo") {
+    drawFloor(ctx, floorTop, floorColor(style.background), W, H);
+    const head = fit(ctx, headlineText, { family: "Oswald", weight: 700, max: 200, min: 90, width: W - 2 * M, maxLines: 3 });
+    lines(ctx, head, W / 2, T + head.size * 0.88, head.size * 0.9, pal.text, "center");
+    let y = T + head.size * 0.9 * head.lines.length + 10;
+    if (style.showPrice) {
+      drawPrice(ctx, price, sale, W / 2, y + 100, { size: 110, color: pal.price, saleColor: pal.sale, oldColor: pal.old, align: "center" });
+      y += 130;
+    }
+    drawStanding(ctx, img, 110, y + 40, W - 220, floorTop + 40 - y - 40, card.zoom, pal);
+    if (card.tag) drawTag(ctx, card.tag, W - M, y + 30, pal);
+    if (style.showLogo) await drawLogo(ctx, floorColor(style.background) === INK ? "dark" : "light", W / 2, floorTop + 110, 220, "center");
+    return canvas;
+  }
+
+  if (template === "split") {
+    // Product on white on top, the coloured side below it (down to the bottom edge) with brand, name and price.
+    const side = style.background === "white" ? PALETTE.ink : pal;
+    const cut = B - 420;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, cut);
+    if (style.showLogo) await drawLogo(ctx, "light", M, T, 240);
+    drawStanding(ctx, img, 90, T + 110, W - 180, cut + 60 - T - 110, card.zoom, PALETTE.white);
+    ctx.fillStyle = side.bg;
+    ctx.fillRect(0, cut + 60, W, H - cut - 60);
+    let y = cut + 140;
+    const brand = style.showBrand ? (card.brand || "").toUpperCase() : "";
+    if (brand) text(ctx, brand, M, y, { font: "700 32px Montserrat", color: side.muted, spacing: "4px" });
+    else y -= 44;
+    const title = fit(ctx, card.overlay || card.title, { family: "Oswald", weight: 700, max: 96, min: 56, width: W - 2 * M, maxLines: 2 });
+    lines(ctx, title, M, y + 16 + title.size, title.size * 1.0, side.text, "left", true);
+    if (style.showPrice) drawPrice(ctx, price, sale, M, B, { size: 104, color: side.price, saleColor: side.sale, oldColor: side.old });
+    drawCornerV(ctx, card, style, PALETTE.white, price, sale, W, T + 100);
+    return canvas;
+  }
+
+  // bold: product above, a coloured panel from the headline down to the bottom edge.
+  const panelTop = style.showPrice ? B - 360 : B - 270;
+  const panelBg = style.background === "white" || style.background === "paper" ? YELLOW : pal.panel;
+  const panelText = panelBg === YELLOW ? INK : pal.panelText;
+  if (style.showLogo) await drawLogo(ctx, pal.logo, M, T, 240);
+  ctx.fillStyle = panelBg;
+  ctx.beginPath();
+  ctx.moveTo(0, panelTop + 40);
+  ctx.lineTo(W, panelTop - 40);
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fill();
+  drawStanding(ctx, img, 90, T + 110, W - 180, panelTop + 30 - T - 110, card.zoom, pal);
+  drawCornerV(ctx, card, style, pal, price, sale, W, T + 100);
+  const head = fit(ctx, headlineText, { family: "Oswald", weight: 700, max: 120, min: 64, width: W - 2 * M, maxLines: style.showPrice ? 2 : 3 });
+  const headBottom = style.showPrice ? B - 140 : B;
+  lines(ctx, head, M, headBottom - head.size * 0.98 * (head.lines.length - 1), head.size * 0.98, panelText);
+  if (style.showPrice)
+    drawPrice(ctx, price, sale, M, B, {
+      size: 104,
       color: panelText,
       saleColor: panelText,
       oldColor: panelText === INK ? "rgba(20,20,9,0.55)" : "rgba(255,255,255,0.6)",

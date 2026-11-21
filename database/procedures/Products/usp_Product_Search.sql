@@ -69,6 +69,8 @@ BEGIN
         END AS Variant_Compare_Price,
         pv.Flavor_Name AS VariantFlavorName,
         pv.Packaging_Name AS VariantPackagingName,
+        pv.Unit_Count AS VariantUnitCount,
+        pv.Unit_Form AS VariantUnitForm,
         CASE WHEN pv.Variant_Id IS NOT NULL THEN 1 ELSE 0 END AS IsVariant,
         STUFF(
             (SELECT ', ' + c.Category_Name

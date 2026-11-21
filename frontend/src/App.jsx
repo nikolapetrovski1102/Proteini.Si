@@ -23,6 +23,7 @@ import Support from "./Pages/Support";
 import Tips from "./Pages/Tips";
 import TipArticle from "./Pages/TipArticle";
 import ProductsPage from "./Pages/Products/ProductsPage";
+import CollectionPage from "./Pages/Products/CollectionPage";
 import Login from "./Pages/LoginPages/Login";
 import Profile from "./Pages/ProfilePages/Profile";
 import ProfileDefault from "./Pages/ProfilePages/ProfileDefault";
@@ -182,6 +183,7 @@ function AppContent() {
         <Route path="/all-products" element={<ProductsPage />} />
         <Route path="/all-products/gift-voucher" element={<ProductsPage />} />
         <Route path="/product/:id" element={<ProductDetail />} />
+        <Route path="/collection" element={<CollectionPage />} />
 
         {/* Category routes - MOVED DOWN so they don't catch everything */}
         <Route path="/:category" element={<ProductsPage />} />

@@ -31,16 +31,22 @@ public class ProductVariantService(IProductVariantProvider provider, IImageStora
     public async Task<int> CreateAsync(CreateProductVariantDto variant)
     {
         var sku = string.IsNullOrEmpty(variant.SKU) ? $"VAR-{variant.Product_Id}-{DateTime.Now.Ticks}" : variant.SKU;
+        (variant.Flavor_Id, variant.Flavor_Name, variant.Unit_Count, variant.Unit_Form) =
+            MovePillCountOutOfFlavor(variant.Flavor_Id, variant.Flavor_Name, variant.Unit_Count, variant.Unit_Form);
         var values = BuildWriteValues(sku, variant.Option_Type, variant.LoyaltyPercentage,
-            variant.Packaging_Name, variant.Weight_Grams);
+            variant.Packaging_Name, variant.Weight_Grams, variant.Unit_Count, variant.Unit_Form);
 
         return await provider.CreateAsync(variant, values)
             ?? throw new BadRequestException("Product not found", new { message = "Product not found" });
     }
 
-    public Task<bool> UpdateAsync(UpdateProductVariantDto variant) =>
-        provider.UpdateAsync(variant, BuildWriteValues(variant.SKU, variant.Option_Type, variant.LoyaltyPercentage,
-            variant.Packaging_Name, variant.Weight_Grams));
+    public Task<bool> UpdateAsync(UpdateProductVariantDto variant)
+    {
+        (variant.Flavor_Id, variant.Flavor_Name, variant.Unit_Count, variant.Unit_Form) =
+            MovePillCountOutOfFlavor(variant.Flavor_Id, variant.Flavor_Name, variant.Unit_Count, variant.Unit_Form);
+        return provider.UpdateAsync(variant, BuildWriteValues(variant.SKU, variant.Option_Type, variant.LoyaltyPercentage,
+            variant.Packaging_Name, variant.Weight_Grams, variant.Unit_Count, variant.Unit_Form));
+    }
 
     public async Task<bool> DeleteAsync(int id)
     {
@@ -315,17 +321,79 @@ public class ProductVariantService(IProductVariantProvider provider, IImageStora
 
     public Task<dynamic?> GetWithParentAsync(int id) => provider.GetWithParentAsync(id);
 
+    /// <summary>Unit forms the shop knows how to translate ("90 капсули" / "90 kapsula" / "90 capsules").</summary>
+    public static readonly string[] UnitForms = ["capsules", "softgels", "tablets", "chewables", "effervescent", "gummies"];
+    private const int MaxUnitCount = 10000;
+
+    /// <summary>
+    /// A count needs a known form and vice versa: a count without a form defaults to capsules, a form without a
+    /// positive count is dropped, and an unknown form is rejected so the shop never shows an untranslated word.
+    /// </summary>
+    public static (int? Count, string? Form) NormalizeUnits(int? count, string? form)
+    {
+        if (count is not > 0)
+            return (null, null);
+        if (count > MaxUnitCount)
+            throw new BadRequestException("Pill count is too large", new { message = $"Pill count must be {MaxUnitCount} or less" });
+
+        var key = string.IsNullOrWhiteSpace(form) ? "capsules" : form.Trim().ToLowerInvariant();
+        if (!UnitForms.Contains(key))
+            throw new BadRequestException("Unknown pill form", new { message = $"Pill form must be one of: {string.Join(", ", UnitForms)}" });
+
+        return (count, key);
+    }
+
+    // "90 капсули", "120 caps", "100 меки капсули": a pill count, not a flavour. Most specific words first.
+    private static readonly (string Pattern, string Form)[] PillWords =
+    [
+        ("меки капсули", "softgels"), ("таблети за џвакање", "chewables"), ("шумливи таблети", "effervescent"),
+        ("гумени бонбони", "gummies"), ("капсули|капсула|kapsula|kapsul[eë]|capsules?|caps", "capsules"),
+        ("softgels?", "softgels"), ("таблети|таблета|tableta|tablets?|tabs", "tablets"), ("gummies", "gummies")
+    ];
+
+    /// <summary>Reads "90 капсули" as (90, "capsules"); null when the text is anything else (a real flavour).</summary>
+    public static (int Count, string Form)? ParsePillCount(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        foreach (var (pattern, form) in PillWords)
+        {
+            var match = Regex.Match(text, $@"^\s*(\d{{1,5}})\s*({pattern})\s*\.?\s*$", RegexOptions.IgnoreCase);
+            if (match.Success && int.TryParse(match.Groups[1].Value, out var count) && count > 0)
+                return (count, form);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// The pill count belongs in Unit_Count, never in the flavour (2026-11-21, user). A flavour like "60 капсули"
+    /// is cleared and fills the count when the count field is empty.
+    /// </summary>
+    public static (int? FlavorId, string? FlavorName, int? UnitCount, string? UnitForm) MovePillCountOutOfFlavor(
+        int? flavorId, string? flavorName, int? unitCount, string? unitForm)
+    {
+        if (ParsePillCount(flavorName) is not { } pills)
+            return (flavorId, flavorName, unitCount, unitForm);
+        return unitCount is > 0
+            ? (null, null, unitCount, unitForm)
+            : (null, null, pills.Count, pills.Form);
+    }
+
     private static VariantWriteValues BuildWriteValues(string? sku, string? optionType, decimal? loyaltyPercentage,
-        string? packagingName, decimal? weightGrams) =>
-        new()
+        string? packagingName, decimal? weightGrams, int? unitCount, string? unitForm)
+    {
+        var (count, form) = NormalizeUnits(unitCount, unitForm);
+        return new()
         {
             Sku = sku,
             OptionType = string.Equals(optionType?.Trim(), "color", StringComparison.OrdinalIgnoreCase) ? "color" : "flavor",
             LoyaltyPercentage = loyaltyPercentage ?? 2.0m,
             PackagingLookupName = string.IsNullOrWhiteSpace(packagingName) ? null : packagingName.Trim(),
             PackagingWeight = weightGrams > 0 ? weightGrams : null,
-            HasPackagingWeight = weightGrams.HasValue
+            HasPackagingWeight = weightGrams.HasValue,
+            UnitCount = count,
+            UnitForm = form
         };
+    }
 
     private static string ToColumnKey(string columnName)
     {

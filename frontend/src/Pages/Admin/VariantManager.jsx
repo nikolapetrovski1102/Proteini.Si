@@ -24,6 +24,7 @@ import {
 import { formatMoney } from "./adminUtils";
 import { PriceWithVat, SalePriceFields } from "./AdminPriceFields";
 import { fieldClass } from "./adminFieldClass";
+import { UNIT_FORMS, formatUnitCountAdmin, getUnitCount, movePillCountOutOfFlavor, parsePillCount } from "../../utils/unitCount";
 import { useConfirm, useToast } from "./adminFeedback";
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
@@ -41,18 +42,40 @@ const galleryImageUrl = (path) => {
 
 const vatRate = (v) => v.ddv_Percentage || v.DDV_Percentage || v.ddV_Percentage || 0;
 
+/** A sale price only counts when it is filled in and below the regular price. */
+const hasSalePrice = (form) => {
+  const sale = Number(form.compare_Price);
+  return form.compare_Price !== "" && form.compare_Price != null && sale > 0 && sale < Number(form.price);
+};
+
+/**
+ * Capsule/tablet products must say how many pieces are in the pack: vitamin categories, or a name or size that
+ * mentions capsules/tablets in any language we sell in.
+ */
+const PILL_WORDS = /caps|capsul|softgel|tablet|tabs\b|капсул|таблет|kapsul|gummies|гумен/i;
+const isPillProduct = (productName, categories, variants) =>
+  (categories || []).some((c) => /vitamin|витамин/i.test(`${c.category_Slug || ""} ${c.category_Name || ""}`)) ||
+  PILL_WORDS.test(productName || "") ||
+  (variants || []).some((v) => getUnitCount(v) || PILL_WORDS.test(`${v.packaging_Name || ""} ${v.flavor_Name || ""}`));
+
 /** Field name → message for everything that blocks saving a variant. */
-const validateVariant = (form) => {
+const validateVariant = (form, needsUnits = false) => {
   const errors = {};
-  const isColor = form.option_Type === "color";
-  if (!String(form.flavor_Name || "").trim()) errors.flavor_Name = isColor ? "Enter the colour." : "Enter the flavour.";
+  // The pill count has its own field; "60 капсули" as a flavour shows up in the shop as a flavour choice.
+  if (parsePillCount(form.flavor_Name))
+    errors.flavor_Name = "This is a capsule/tablet count, not a flavour. Put the number in the count field below and leave the flavour empty.";
   if (!String(form.packaging_Name || "").trim()) errors.packaging_Name = "Enter the size or packaging.";
+  const unitCount = String(form.unit_Count ?? "").trim();
+  if (unitCount !== "" && !(Number.isInteger(Number(unitCount)) && Number(unitCount) > 0 && Number(unitCount) <= 10000))
+    errors.unit_Count = "Enter a whole number between 1 and 10000.";
+  else if (needsUnits && unitCount === "") errors.unit_Count = "Enter how many capsules or tablets are in the pack.";
   const price = Number(form.price);
   if (!(price > 0)) errors.price = "Enter a price above 0.";
   if (form.compare_Price !== "" && form.compare_Price != null) {
     const sale = Number(form.compare_Price);
     if (!(sale > 0)) errors.compare_Price = "Sale price must be above 0.";
-    else if (price > 0 && sale >= price) errors.compare_Price = "Sale price must be lower than the regular price.";
+    // Same as the regular price = no sale (saved as empty); only a higher one is a mistake.
+    else if (price > 0 && sale > price) errors.compare_Price = "Sale price must be lower than the regular price.";
   }
   if (form.quantity !== "" && Number(form.quantity) < 0) errors.quantity = "Stock can't be negative.";
   const loyalty = form.loyaltyPercentage;
@@ -391,6 +414,8 @@ const emptyVariantForm = {
   packaging_Id: "",
   packaging_Name: "",
   weight_Grams: "",
+  unit_Count: "",
+  unit_Form: "capsules",
   price: "",
   ddv_Percentage: 18,
   compare_Price: "",
@@ -419,6 +444,7 @@ const VariantManager = forwardRef(function VariantManager({ productId, productNa
   const [packagingOptions, setPackagingOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [productVat, setProductVat] = useState(18);
+  const [productCategories, setProductCategories] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingVariant, setEditingVariant] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -426,7 +452,8 @@ const VariantManager = forwardRef(function VariantManager({ productId, productNa
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState(emptyVariantForm);
   const [showErrors, setShowErrors] = useState(false);
-  const errors = showErrors ? validateVariant(formData) : {};
+  const needsUnits = isPillProduct(productName, productCategories, variants);
+  const errors = showErrors ? validateVariant(formData, needsUnits) : {};
   const savedSnapshot = useRef(JSON.stringify(emptyVariantForm));
   const closePromptOpen = useRef(false);
   const isDirty = showForm && (Boolean(imageFile) || JSON.stringify(formData) !== savedSnapshot.current);
@@ -461,6 +488,7 @@ const VariantManager = forwardRef(function VariantManager({ productId, productNa
       setVariants(variantsRes.data || []);
       setPackagingOptions(packagingRes.data || []);
       setProductVat(productData?.product?.ddV_Percentage || 18);
+      setProductCategories(productData?.categories || []);
     } catch (error) {
       console.error("Error fetching variant data:", error);
       toast.error("Couldn't load variants.");
@@ -561,13 +589,17 @@ const VariantManager = forwardRef(function VariantManager({ productId, productNa
     setShowForm(true);
   };
 
-  const openEdit = (variant) => {
-    openForm(variant, {
+  const openEdit = (savedVariant) => {
+    // Old data with "60 капсули" as the flavour opens with the flavour empty and the count filled in.
+    const variant = movePillCountOutOfFlavor(savedVariant);
+    openForm(savedVariant, {
       option_Type: variant.option_Type === "color" ? "color" : "flavor",
       flavor_Name: variant.flavor_Name || "",
       packaging_Id: variant.packaging_Id || variant.Packaging_Id || "",
       packaging_Name: variant.packaging_Name || "",
       weight_Grams: variant.weight_Grams || variant.Weight_Grams || variant.weight_grams || "",
+      unit_Count: getUnitCount(variant)?.count ?? "",
+      unit_Form: getUnitCount(variant)?.form ?? "capsules",
       price: variant.price || 0,
       ddv_Percentage: vatRate(variant) || 18,
       compare_Price: variant.compare_Price || "",
@@ -591,13 +623,15 @@ const VariantManager = forwardRef(function VariantManager({ productId, productNa
     const selected = findPackagingOptionByName(formData.packaging_Name);
     return {
       option_Type: formData.option_Type,
-      flavor_Name: formData.flavor_Name,
+      flavor_Name: String(formData.flavor_Name || "").trim() || null,
       packaging_Id: selected?.packaging_Id || selected?.Packaging_Id || formData.packaging_Id || null,
       packaging_Name: formData.packaging_Name,
       weight_Grams: formData.weight_Grams ? parseFloat(formData.weight_Grams) : null,
+      unit_Count: String(formData.unit_Count ?? "").trim() ? parseInt(formData.unit_Count, 10) : null,
+      unit_Form: String(formData.unit_Count ?? "").trim() ? formData.unit_Form || "capsules" : null,
       price: parseFloat(formData.price),
       ddv_Percentage: parseFloat(formData.ddv_Percentage) || 18,
-      compare_Price: formData.compare_Price ? parseFloat(formData.compare_Price) : null,
+      compare_Price: hasSalePrice(formData) ? parseFloat(formData.compare_Price) : null,
       variant_Name: formData.variant_Name || null,
       sku: formData.sku || null,
       isDefault: formData.isDefault,
@@ -612,7 +646,7 @@ const VariantManager = forwardRef(function VariantManager({ productId, productNa
 
   const handleSave = async () => {
     if (saving) return;
-    const found = validateVariant(formData);
+    const found = validateVariant(formData, needsUnits);
     if (Object.keys(found).length > 0) {
       setShowErrors(true);
       toast.error("Please fix the fields marked in red.");
@@ -654,7 +688,7 @@ const VariantManager = forwardRef(function VariantManager({ productId, productNa
 
   const handleDeleteVariant = async (variant) => {
     const ok = await confirm({
-      title: `Delete “${variant.variant_Name || `${variant.flavor_Name} ${variant.packaging_Name}`}”?`,
+      title: `Delete “${variant.variant_Name || [variant.flavor_Name, variant.packaging_Name].filter(Boolean).join(" ")}”?`,
       message: "Customers will no longer be able to choose this option. This can't be undone.",
       confirmLabel: "Delete variant",
       tone: "danger",
@@ -728,7 +762,7 @@ const VariantManager = forwardRef(function VariantManager({ productId, productNa
                   ]}
                 />
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label={isColor ? "Colour" : "Flavour"} required error={errors.flavor_Name}>
+                  <Field label={isColor ? "Colour" : "Flavour"} hint={`Optional. Leave empty if the product has no ${isColor ? "colour" : "flavour"}.`} error={errors.flavor_Name}>
                     <input
                       name="flavor_Name"
                       data-autofocus
@@ -757,6 +791,32 @@ const VariantManager = forwardRef(function VariantManager({ productId, productNa
                   </Field>
                   <Field label="Weight for delivery (g)" hint="Used to calculate the delivery fee.">
                     <input name="weight_Grams" type="number" min="0" step="0.01" value={formData.weight_Grams} onChange={handleInputChange} placeholder="e.g. 2000" className={inputClass} />
+                  </Field>
+                  <Field
+                    label="Capsules / tablets in the pack"
+                    required={needsUnits}
+                    hint={needsUnits ? "Shown to shoppers as e.g. \"90 capsules\" in their language." : "For vitamins and other capsule or tablet products. Leave empty for powders and drinks."}
+                    error={errors.unit_Count}
+                  >
+                    <div className="flex gap-2">
+                      <input
+                        name="unit_Count"
+                        type="number"
+                        min="1"
+                        step="1"
+                        inputMode="numeric"
+                        value={formData.unit_Count}
+                        onChange={handleInputChange}
+                        placeholder="e.g. 90"
+                        aria-invalid={Boolean(errors.unit_Count) || undefined}
+                        className={`${fieldClass(errors.unit_Count)} w-28 shrink-0`}
+                      />
+                      <select name="unit_Form" value={formData.unit_Form} onChange={handleInputChange} aria-label="Capsule or tablet type" className={`${inputClass} min-w-0 flex-1`}>
+                        {UNIT_FORMS.map((form) => (
+                          <option key={form.value} value={form.value}>{form.label}</option>
+                        ))}
+                      </select>
+                    </div>
                   </Field>
                   <Field label="Display name" hint="Optional. Defaults to flavour + size.">
                     <input
@@ -924,6 +984,7 @@ const VariantManager = forwardRef(function VariantManager({ productId, productNa
                 const gross = variant.price || 0;
                 const base = gross / (1 + vatRate(variant) / 100);
                 const weight = formatWeightGrams(getVariantWeight(variant));
+                const units = formatUnitCountAdmin(variant);
                 const loyalty = variant.loyaltyPercentage || variant.LoyaltyPercentage;
                 return (
                   <tr key={variant.variant_Id} className={trClass}>
@@ -940,12 +1001,17 @@ const VariantManager = forwardRef(function VariantManager({ productId, productNa
                           <span className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                             {variant.option_Type === "color" ? "Colour" : "Flavour"}
                           </span>
-                          <span className="block font-semibold text-gray-900 group-hover:underline">{variant.flavor_Name}</span>
+                          <span className="block font-semibold text-gray-900 group-hover:underline">{variant.flavor_Name || "—"}</span>
                         </span>
                       </button>
                     </td>
                     <td className={tdClass}>
                       <span className="block">{variant.packaging_Name}</span>
+                      {units ? (
+                        <span className="block text-xs text-gray-700">{units}</span>
+                      ) : needsUnits ? (
+                        <span className="block text-xs text-[#b3191f]">No capsule count</span>
+                      ) : null}
                       <span className={`block text-xs ${weight ? "text-gray-500" : "text-[#b3191f]"}`}>{weight || "No weight set"}</span>
                     </td>
                     <td className={`${tdClass} whitespace-nowrap text-right`}>
@@ -969,8 +1035,8 @@ const VariantManager = forwardRef(function VariantManager({ productId, productNa
                     </td>
                     <td className={`${tdClass} text-right`}>
                       <div className="flex justify-end">
-                        <IconButton icon={FiEdit2} label={`Edit ${variant.flavor_Name}`} onClick={() => openEdit(variant)} />
-                        <IconButton icon={FiTrash2} tone="danger" label={`Delete ${variant.flavor_Name}`} onClick={() => handleDeleteVariant(variant)} />
+                        <IconButton icon={FiEdit2} label={`Edit ${variant.flavor_Name || variant.packaging_Name}`} onClick={() => openEdit(variant)} />
+                        <IconButton icon={FiTrash2} tone="danger" label={`Delete ${variant.flavor_Name || variant.packaging_Name}`} onClick={() => handleDeleteVariant(variant)} />
                       </div>
                     </td>
                   </tr>

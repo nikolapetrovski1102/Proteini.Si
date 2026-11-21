@@ -36,6 +36,7 @@ import Price from "../Components/Price";
 import EmailTypoHint from "../Components/EmailTypoHint";
 import { Starburst } from "../HomePages/sections/Decor";
 import { metaViewContent } from "../../services/metaPixel";
+import { formatPackagingLabel, withPillCountsOutOfFlavor } from "../../utils/unitCount";
 
 const EMPTY_NUTRITION = { columns: [], rows: [] };
 
@@ -102,6 +103,15 @@ export default function ProductDetail() {
   // Variant states
   const [variants, setVariants] = useState([]);
   const [selectedVariant, setSelectedVariant] = useState(null);
+  // Size label in the shopper's language: capsule products show only the pill count ("90 капсули"), no weight.
+  const packagingLabel = (packagingName) =>
+    formatPackagingLabel(
+      packagingName,
+      selectedVariant?.packaging_Name === packagingName
+        ? selectedVariant
+        : variants.find((v) => v.packaging_Name === packagingName),
+      translate,
+    );
   // Clothing: variants are colours and the "packaging" is the size; no nutrition or instructions.
   const isApparel = Boolean(productData?.product?.isApparel);
   const variantOptionType =
@@ -450,8 +460,9 @@ export default function ProductDetail() {
   };
 
 
+  // Variants without a flavour have null or "" — treat both as the same "no flavour".
   const nutritionVariant = packageVariants.find(
-    (variant) => variant.flavor_Name === selectedFlavorForNutrition,
+    (variant) => (variant.flavor_Name || "") === (selectedFlavorForNutrition || ""),
   );
   const nutritionVariantId = nutritionVariant?.variant_Id;
   const nutritionMatchesSelection =
@@ -535,7 +546,8 @@ export default function ProductDetail() {
         const loaded = await checkAndRedirectVariant(id);
         if (loaded === true) return;
 
-        const data = loaded || (await api.getProductById(id));
+        // A flavour that is only "60 капсули" is the pill count, not a flavour.
+        const data = withPillCountsOutOfFlavor(loaded || (await api.getProductById(id)));
         setProductData(data);
         if (data.product?.img) {
           setMainImage(data.product.img);
@@ -798,7 +810,7 @@ export default function ProductDetail() {
         productDisplayName += ` - ${selectedVariant.flavor_Name}`;
       }
       if (selectedVariant.packaging_Name) {
-        productDisplayName += ` (${selectedVariant.packaging_Name})`;
+        productDisplayName += ` (${formatPackagingLabel(selectedVariant.packaging_Name, selectedVariant, translate)})`;
       }
     }
 
@@ -1062,7 +1074,7 @@ export default function ProductDetail() {
   })();
   const selectionSummary = [
     selectedVariant?.flavor_Name,
-    selectedVariant?.packaging_Name,
+    selectedVariant?.packaging_Name && packagingLabel(selectedVariant.packaging_Name),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -1385,7 +1397,7 @@ export default function ProductDetail() {
                 <p className="mb-3 text-sm font-semibold">
                   {translate(isApparel ? "size" : "packaging")}:{" "}
                   <span className="font-normal text-gray-600">
-                    {selectedPackagingName}
+                    {packagingLabel(selectedPackagingName)}
                   </span>
                 </p>
                 <div className={`grid gap-3 ${isApparel ? "grid-cols-3 sm:grid-cols-4" : "grid-cols-2"}`}>
@@ -1434,7 +1446,7 @@ export default function ProductDetail() {
                               hasStock ? "" : "text-gray-400 line-through"
                             }`}
                           >
-                            {packaging.name}
+                            {packagingLabel(packaging.name)}
                           </span>
                           <span
                             className={`mt-1 block text-sm ${
@@ -1789,7 +1801,7 @@ export default function ProductDetail() {
                     const price = priceForVariant(variant);
                     return {
                       id: packaging.id,
-                      name: packaging.name,
+                      name: packagingLabel(packaging.name),
                       meta: available ? <Price value={withCode(price) ?? price} /> : translate("outOfStock"),
                       disabled: !available,
                     };

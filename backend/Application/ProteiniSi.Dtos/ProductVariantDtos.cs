@@ -33,6 +33,10 @@ public class ProductVariantDto
     public string? Nutrition_Table_Columns { get; set; }
     public string? Nutrition_Table_Rows { get; set; }
     public decimal? LoyaltyPercentage { get; set; }
+    /// <summary>Pieces per pack (capsules, tablets...), e.g. 90.</summary>
+    public int? Unit_Count { get; set; }
+    /// <summary>capsules, softgels, tablets, chewables, effervescent or gummies.</summary>
+    public string? Unit_Form { get; set; }
 }
 
 public class UpdateNutritionTableDto
@@ -76,6 +80,10 @@ public class CreateProductVariantDto
     public bool IsDefault { get; set; }
     public List<string>? GalleryImages { get; set; }
     public decimal? LoyaltyPercentage { get; set; }
+    /// <summary>Pieces per pack (capsules, tablets...), e.g. 90.</summary>
+    public int? Unit_Count { get; set; }
+    /// <summary>capsules, softgels, tablets, chewables, effervescent or gummies.</summary>
+    public string? Unit_Form { get; set; }
 }
 
 public class UpdateProductVariantDto
@@ -109,6 +117,10 @@ public class UpdateProductVariantDto
     public bool IsDefault { get; set; }
     public List<string>? GalleryImages { get; set; }
     public decimal? LoyaltyPercentage { get; set; }
+    /// <summary>Pieces per pack (capsules, tablets...), e.g. 90.</summary>
+    public int? Unit_Count { get; set; }
+    /// <summary>capsules, softgels, tablets, chewables, effervescent or gummies.</summary>
+    public string? Unit_Form { get; set; }
 }
 
 public class BulkCreateVariantsDto

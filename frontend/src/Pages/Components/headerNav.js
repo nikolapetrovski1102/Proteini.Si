@@ -324,6 +324,7 @@ export const buildCategoryNav = (translate) => {
       link: "/all-products/snacks",
       subItems: [
         { label: translate("proteinBars"), link: "/all-products/protein-bars-snacks" },
+        { label: translate("energyBars"), link: "/all-products/energy-bars" },
         { label: translate("muesli"), link: "/all-products/muesli" },
         { label: translate("snacksUpper"), link: "/all-products/snacks" },
         { label: translate("pancakes"), link: "/all-products/pancakes" },
@@ -331,7 +332,6 @@ export const buildCategoryNav = (translate) => {
         { label: translate("calorieFree"), link: "/all-products/calorie-free" },
         { label: translate("spreads"), link: "/all-products/spreads" },
         { label: translate("oils"), link: "/all-products/oils" },
-        { label: translate("energyBars"), link: "/all-products/energy-bars" },
       ],
     },
     {

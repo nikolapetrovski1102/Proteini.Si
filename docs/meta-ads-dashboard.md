@@ -73,6 +73,35 @@ Email codes are sent through the existing shop mail settings.
 5. **Payment method.** The ad account needs a payment method. Ads stay paused until someone switches
    them on in the dashboard or in Ads Manager.
 
+### Feeds, Stories and Reels
+
+Every card is drawn twice: a square 1080×1080 image for feeds and a full-screen 1080×1920 image for
+Stories and Reels. The 9:16 image keeps the top 14% and the bottom ~31% free, because Meta puts the page
+name there, and the caption and button. The Design step has a "Feeds 1:1 / Stories & Reels 9:16" switch
+that shows both, with those bands marked.
+
+* **Single image and Collection:** one ad that carries both images. Meta shows the square one in feeds
+  and the 9:16 one in Stories/Reels (placement asset customization, `asset_feed_spec`). With the
+  "Feeds" placement only the square image is uploaded and the ad is a plain link ad.
+* **Carousel with a new ad set and placements that include Stories/Reels:** one campaign with the
+  budget on the campaign (Advantage campaign budget) and two ad sets: "· feeds" with the carousel in
+  Facebook/Instagram feeds, and "· stories & reels" with one full-screen ad per card. Meta moves the
+  money to whichever works better.
+* **Carousel with the "Stories & Reels" placement:** only the full-screen ads (no carousel).
+* **Carousel in feeds, or added to an existing ad set:** the carousel alone, as before.
+
+### Collection ads
+
+The **Collection** format needs no setup in Meta. It is one image ad: the cover banner (big text,
+small text, up to three products) with the first four products and their prices under it, plus Meta's
+button. There is a feed version (1080×1090) and a Stories/Reels version (1080×1920).
+
+Tapping the ad opens `https://proteini.mk/collection?p=v12,p5,…&t=title&s=subtitle` (with UTM tags):
+a shop page with the title, the subtitle and a 2-column grid of every picked product (4–50). The page
+reads names, photos and prices from `GET /api/feed/collection?items=…` (the same data as the Meta
+catalog feed, cached for 10 minutes), keeps the order of the ad and skips products that are gone. Each
+product opens its product page. The link uses the same site as the products, so stage ads open stage.
+
 The header of the dashboard shows the account, currency, Page, Instagram and Pixel it is connected to.
 If something is missing, a yellow note at the top lists which settings are missing.
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ctaLabel } from "./copy";
 import { META_FORMATS } from "./metaFormats";
 
-const Avatar = ({ size = 36, ring = false }) => (
+export const Avatar = ({ size = 36, ring = false }) => (
   <div
     className={`shrink-0 rounded-full grid place-items-center bg-white ${ring ? "p-[2px] bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7]" : "border border-[#e4e6eb]"}`}
     style={{ width: size, height: size }}
@@ -137,30 +137,42 @@ function InstagramMock({ handle, primaryText, cta, cards }) {
   );
 }
 
-/** Instant, approximate Stories / Reels look: 9:16, the square card in the middle, CTA at the bottom. */
+/**
+ * Instant, approximate Stories / Reels look. With a vertical image (card.vthumb) the ad fills the screen, the way it
+ * runs; without one the square card floats in the middle, as Meta would show it.
+ */
 function StoryMock({ handle, primaryText, cta, cards }) {
   const [index, setIndex] = useState(0);
   const count = cards.length;
   const current = Math.min(index, Math.max(0, count - 1));
   const card = cards[current];
+  const full = Boolean(card?.vthumb);
 
   return (
     <div className="relative w-full max-w-[300px] aspect-[9/16] rounded-2xl overflow-hidden bg-[#141409] text-white shadow-sm select-none">
-      {card?.thumb && <img src={card.thumb} alt="" className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-50 scale-110" />}
+      {full ? (
+        <img src={card.vthumb} alt="" className="absolute inset-0 w-full h-full" />
+      ) : (
+        card?.thumb && <img src={card.thumb} alt="" className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-50 scale-110" />
+      )}
       <div className="absolute top-2 inset-x-2 flex gap-1">
         {(count ? cards : [null]).map((c, i) => (
           <span key={c?.key || i} className={`h-0.5 flex-1 rounded-full ${i <= current ? "bg-white" : "bg-white/35"}`} />
         ))}
       </div>
-      <div className="absolute top-5 inset-x-3 flex items-center gap-2 text-[12px]">
+      <div className="absolute top-5 inset-x-3 flex items-center gap-2 text-[12px] drop-shadow">
         <Avatar size={28} />
         <span className="font-semibold truncate">{handle}</span>
         <span className="text-white/70">Sponsored</span>
       </div>
-      <div className="absolute inset-x-0 top-[18%] px-3">
-        {card?.thumb ? <img src={card.thumb} alt="" className="w-full aspect-square rounded-lg" /> : <div className="aspect-square rounded-lg bg-white/10 grid place-items-center text-white/60 text-sm">No cards yet</div>}
-        <p className="mt-3 text-[12px] leading-snug line-clamp-3 drop-shadow">{primaryText}</p>
-      </div>
+      {full ? (
+        <p className="absolute inset-x-3 bottom-[76px] text-[12px] leading-snug line-clamp-2 drop-shadow">{primaryText}</p>
+      ) : (
+        <div className="absolute inset-x-0 top-[18%] px-3">
+          {card?.thumb ? <img src={card.thumb} alt="" className="w-full aspect-square rounded-lg" /> : <div className="aspect-square rounded-lg bg-white/10 grid place-items-center text-white/60 text-sm">No cards yet</div>}
+          <p className="mt-3 text-[12px] leading-snug line-clamp-3 drop-shadow">{primaryText}</p>
+        </div>
+      )}
       <div className="absolute bottom-4 inset-x-0 flex flex-col items-center gap-1">
         <span className="text-lg leading-none">⌃</span>
         <span className="rounded-full bg-white text-[#141409] px-4 py-1.5 text-[13px] font-semibold">{ctaLabel(cta)}</span>

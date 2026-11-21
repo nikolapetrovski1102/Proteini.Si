@@ -31,6 +31,14 @@ public partial class MetaAdsService(
     private static readonly HashSet<string> CallToActions =
         ["SHOP_NOW", "BUY_NOW", "ORDER_NOW", "GET_OFFER", "LEARN_MORE", "SIGN_UP", "CONTACT_US"];
 
+    private const string SquareLabel = "pmads_square";
+    private const string VerticalLabel = "pmads_vertical";
+    private const int CollectionMin = 4;
+    private const int CollectionMax = 50;
+
+    /// <summary>Full-screen preview formats; a carousel previews its first Stories/Reels ad there.</summary>
+    private static readonly HashSet<string> StoryFormats = ["FACEBOOK_STORY_MOBILE", "FACEBOOK_REELS_MOBILE", "INSTAGRAM_STORY", "INSTAGRAM_REELS"];
+
     private static readonly HashSet<string> PreviewFormats =
     [
         "MOBILE_FEED_STANDARD", "DESKTOP_FEED_STANDARD", "FACEBOOK_STORY_MOBILE", "FACEBOOK_REELS_MOBILE",
@@ -170,8 +178,8 @@ public partial class MetaAdsService(
     public async Task<List<MetaAdPreviewDto>> PreviewAsync(MetaAdPublishDto request)
     {
         var options = RequireConfigured();
-        var spec = BuildObjectStorySpec(request, options, Slug(request.Name ?? "preview"));
-        var creative = new JsonObject { ["object_story_spec"] = spec }.ToJsonString();
+        var name = Clean(request.Name, 200) ?? "preview";
+        var plan = BuildPlan(request, options, name, request.Delivery ?? new MetaAdDeliveryDto());
 
         var formats = (request.PreviewFormats ?? [])
             .Select(f => f.Trim().ToUpperInvariant())
@@ -190,9 +198,13 @@ public partial class MetaAdsService(
         var previews = new List<MetaAdPreviewDto>();
         foreach (var format in formats)
         {
+            // Stories/Reels of a carousel run as the full-screen single ads, so preview the first of those there.
+            var creative = (StoryFormats.Contains(format) || plan.Main is null) && plan.Stories.Count > 0
+                ? plan.Stories[0]
+                : plan.Main ?? plan.Stories[0];
             var result = await GetAsync(options, $"{options.AdAccountNode}/generatepreviews", new()
             {
-                ["creative"] = creative,
+                ["creative"] = creative.ToJsonString(),
                 ["ad_format"] = format,
             });
 
@@ -220,22 +232,29 @@ public partial class MetaAdsService(
         var options = RequireConfigured();
         var status = NormalizeStatus(request.Status);
         var delivery = request.Delivery ?? new MetaAdDeliveryDto();
-        var name = Clean(request.Name, 200) ?? $"{(IsCarousel(request) ? "Carousel" : "Image")} {DateTime.UtcNow:yyyy-MM-dd HH:mm}";
-        var spec = BuildObjectStorySpec(request, options, Slug(name));
+        var name = Clean(request.Name, 200) ?? $"{(IsCollection(request) ? "Collection" : IsCarousel(request) ? "Carousel" : "Image")} {DateTime.UtcNow:yyyy-MM-dd HH:mm}";
 
         string? existingAdSetId = null;
         if (string.Equals(delivery.Mode, "existing", StringComparison.OrdinalIgnoreCase))
             existingAdSetId = RequireId(delivery.AdSetId, "Choose the ad set to add this ad to.");
+        var plan = BuildPlan(request, options, name, delivery);
 
         var result = new MetaAdPublishResultDto();
+        string? storyAdSetId = null;
+        var storyCreativeIds = new List<string>();
         try
         {
-            var creative = await PostAsync(options, $"{options.AdAccountNode}/adcreatives", new()
+            if (plan.Main is not null)
             {
-                ["name"] = $"{name} · creative",
-                ["object_story_spec"] = spec.ToJsonString(),
-            });
-            result.CreativeId = Str(creative, "id");
+                var creative = await PostAsync(options, $"{options.AdAccountNode}/adcreatives", CreativeForm($"{name} · creative", plan.Main));
+                result.CreativeId = Str(creative, "id");
+            }
+            for (var i = 0; i < plan.Stories.Count; i++)
+            {
+                var creative = await PostAsync(options, $"{options.AdAccountNode}/adcreatives", CreativeForm($"{name} · story {i + 1} · creative", plan.Stories[i]));
+                storyCreativeIds.Add(Str(creative, "id")!);
+                result.CreativeId ??= storyCreativeIds[^1];
+            }
 
             if (existingAdSetId is null)
             {
@@ -243,39 +262,65 @@ public partial class MetaAdsService(
                 if (goal == "SALES" && options.PixelId.Length == 0)
                     throw new BadRequestException("The SALES goal needs MetaAds__PixelId. Use TRAFFIC or set the pixel.");
 
-                var campaign = await PostAsync(options, $"{options.AdAccountNode}/campaigns", new()
+                // Two ad sets (feeds carousel + full-screen Stories/Reels ads) share one budget at campaign level,
+                // so Meta moves money to whichever works better and the total stays what was set.
+                var split = plan.Main is not null && plan.Stories.Count > 0;
+                var currency = await GetCurrencyAsync(options);
+                var campaignForm = new Dictionary<string, string?>
                 {
                     ["name"] = Clean(delivery.CampaignName, 200) ?? name,
                     ["objective"] = goal switch { "AWARENESS" => "OUTCOME_AWARENESS", "SALES" => "OUTCOME_SALES", _ => "OUTCOME_TRAFFIC" },
                     ["status"] = status,
                     ["buying_type"] = "AUCTION",
                     ["special_ad_categories"] = "[]",
-                    ["is_adset_budget_sharing_enabled"] = "false",
-                });
+                };
+                if (split)
+                {
+                    var (key, value) = BudgetField(delivery, currency);
+                    campaignForm[key] = value;
+                    campaignForm["bid_strategy"] = "LOWEST_COST_WITHOUT_CAP";
+                }
+                else
+                {
+                    campaignForm["is_adset_budget_sharing_enabled"] = "false";
+                }
+                var campaign = await PostAsync(options, $"{options.AdAccountNode}/campaigns", campaignForm);
                 result.CampaignId = Str(campaign, "id");
 
-                var currency = await GetCurrencyAsync(options);
-                var adSet = await PostAsync(options, $"{options.AdAccountNode}/adsets", BuildAdSetForm(delivery, goal, options, name, result.CampaignId!, currency, status));
-                result.AdSetId = Str(adSet, "id");
+                if (plan.Main is not null)
+                {
+                    var targeting = BuildTargeting(delivery, split ? "feeds" : null);
+                    var adSet = await PostAsync(options, $"{options.AdAccountNode}/adsets",
+                        BuildAdSetForm(delivery, goal, options, split ? $"{name} · feeds" : name, result.CampaignId!, currency, status, targeting, campaignBudget: split));
+                    result.AdSetId = Str(adSet, "id");
+                    result.AdSetIds.Add(result.AdSetId!);
+                }
+                if (plan.Stories.Count > 0)
+                {
+                    var adSet = await PostAsync(options, $"{options.AdAccountNode}/adsets",
+                        BuildAdSetForm(delivery, goal, options, $"{name} · stories & reels", result.CampaignId!, currency, status,
+                            BuildTargeting(delivery, "stories"), campaignBudget: split));
+                    storyAdSetId = Str(adSet, "id");
+                    result.AdSetId ??= storyAdSetId;
+                    result.AdSetIds.Add(storyAdSetId!);
+                }
             }
             else
             {
                 result.AdSetId = existingAdSetId;
+                result.AdSetIds.Add(existingAdSetId);
             }
 
-            var ad = await PostAsync(options, $"{options.AdAccountNode}/ads", new()
-            {
-                ["name"] = name,
-                ["adset_id"] = result.AdSetId,
-                ["creative"] = new JsonObject { ["creative_id"] = result.CreativeId }.ToJsonString(),
-                ["status"] = status,
-            });
-            result.AdId = Str(ad, "id");
+            if (plan.Main is not null)
+                result.AdIds.Add(await CreateAdAsync(options, name, result.AdSetId!, result.CreativeId!, status));
+            for (var i = 0; i < storyCreativeIds.Count; i++)
+                result.AdIds.Add(await CreateAdAsync(options, $"{name} · story {i + 1}", storyAdSetId ?? result.AdSetId!, storyCreativeIds[i], status));
+            result.AdId = result.AdIds.FirstOrDefault();
         }
         catch (BadRequestException ex)
         {
-            logger.LogWarning("Meta ads: publish by {User} stopped: {Message} (creative {CreativeId}, campaign {CampaignId}, ad set {AdSetId})",
-                publishedBy, ex.Message, result.CreativeId, result.CampaignId, result.AdSetId);
+            logger.LogWarning("Meta ads: publish by {User} stopped: {Message} (creative {CreativeId}, campaign {CampaignId}, ad sets {AdSetIds})",
+                publishedBy, ex.Message, result.CreativeId, result.CampaignId, string.Join(",", result.AdSetIds));
             throw new BadRequestException(ex.Message, new
             {
                 status = false,
@@ -283,44 +328,78 @@ public partial class MetaAdsService(
                 creativeId = result.CreativeId,
                 campaignId = result.CampaignId,
                 adSetId = result.AdSetId,
-                note = result.CampaignId is null ? null : "The campaign/ad set already created stay in Ads Manager; delete them there or retry with \"existing ad set\".",
+                adIds = result.AdIds,
+                note = result.CampaignId is null ? null : "The campaign/ad sets already created stay in Ads Manager; delete them there or retry with \"existing ad set\".",
             });
         }
 
         result.Status = true;
         result.AdsManagerUrl = AdsManagerUrl(options, result.AdId);
+        var count = result.AdIds.Count > 1 ? $"{result.AdIds.Count} ads" : "Ad";
         result.Message = status == "ACTIVE"
-            ? "Ad published. Meta reviews it before it starts delivering (usually within a few hours)."
-            : "Ad created as paused. Check it in Ads Manager and switch it on when ready.";
-        logger.LogInformation("Meta ads: {User} published ad {AdId} ({Status}) creative {CreativeId} ad set {AdSetId}",
-            publishedBy, result.AdId, status, result.CreativeId, result.AdSetId);
+            ? $"{count} published. Meta reviews them before they start delivering (usually within a few hours)."
+            : $"{count} created as paused. Check in Ads Manager and switch on when ready.";
+        if (result.AdSetIds.Count > 1)
+            result.Message += " Feeds show the carousel, Stories and Reels show one full-screen ad per product; Meta splits the budget between them.";
+        logger.LogInformation("Meta ads: {User} published ads {AdIds} ({Status}) ad sets {AdSetIds}",
+            publishedBy, string.Join(",", result.AdIds), status, string.Join(",", result.AdSetIds));
         return result;
     }
 
-    private static Dictionary<string, string?> BuildAdSetForm(MetaAdDeliveryDto delivery, string goal, MetaAdsOptions options, string name,
-        string campaignId, string currency, string status)
+    private async Task<string> CreateAdAsync(MetaAdsOptions options, string name, string adSetId, string creativeId, string status)
+    {
+        var ad = await PostAsync(options, $"{options.AdAccountNode}/ads", new()
+        {
+            ["name"] = name,
+            ["adset_id"] = adSetId,
+            ["creative"] = new JsonObject { ["creative_id"] = creativeId }.ToJsonString(),
+            ["status"] = status,
+        });
+        return Str(ad, "id") ?? throw new BadRequestException("Meta did not return the new ad's ID.");
+    }
+
+    /// <summary>Each top-level creative field (object_story_spec, asset_feed_spec) goes as its own JSON form value.</summary>
+    private static Dictionary<string, string?> CreativeForm(string name, JsonObject creative)
+    {
+        var form = new Dictionary<string, string?> { ["name"] = name };
+        foreach (var (key, value) in creative)
+            form[key] = value is JsonValue v && v.TryGetValue<string>(out var text) ? text : value?.ToJsonString();
+        return form;
+    }
+
+    private static (string Key, string Value) BudgetField(MetaAdDeliveryDto delivery, string currency)
     {
         var lifetime = string.Equals(delivery.BudgetType, "lifetime", StringComparison.OrdinalIgnoreCase);
         if (lifetime ? delivery.LifetimeBudget <= 0 : delivery.DailyBudget <= 0)
             throw new BadRequestException(lifetime ? "Set a total budget above zero." : "Set a daily budget above zero.");
         if (lifetime && delivery.EndTime is null)
             throw new BadRequestException("A total budget needs an end date.");
-
         var offset = WholeUnitCurrencies.Contains(currency) ? 1 : 100;
+        var budget = lifetime ? delivery.LifetimeBudget : delivery.DailyBudget;
+        return (lifetime ? "lifetime_budget" : "daily_budget", ((long)Math.Round(budget * offset)).ToString(CultureInfo.InvariantCulture));
+    }
+
+    private static Dictionary<string, string?> BuildAdSetForm(MetaAdDeliveryDto delivery, string goal, MetaAdsOptions options, string name,
+        string campaignId, string currency, string status, JsonObject targeting, bool campaignBudget)
+    {
+        var lifetime = string.Equals(delivery.BudgetType, "lifetime", StringComparison.OrdinalIgnoreCase);
+        var (budgetKey, budgetValue) = BudgetField(delivery, currency);
         var start = delivery.StartTime is { } s && s > DateTime.UtcNow ? s.ToUniversalTime() : DateTime.UtcNow.AddMinutes(5);
         var form = new Dictionary<string, string?>
         {
             ["name"] = $"{name} · ad set",
             ["campaign_id"] = campaignId,
             ["billing_event"] = "IMPRESSIONS",
-            ["bid_strategy"] = "LOWEST_COST_WITHOUT_CAP",
             ["optimization_goal"] = OptimizationGoal(goal),
-            ["targeting"] = BuildTargeting(delivery).ToJsonString(),
+            ["targeting"] = targeting.ToJsonString(),
             ["start_time"] = start.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
             ["status"] = status,
         };
-        var budget = lifetime ? delivery.LifetimeBudget : delivery.DailyBudget;
-        form[lifetime ? "lifetime_budget" : "daily_budget"] = ((long)Math.Round(budget * offset)).ToString(CultureInfo.InvariantCulture);
+        if (!campaignBudget)
+        {
+            form["bid_strategy"] = "LOWEST_COST_WITHOUT_CAP";
+            form[budgetKey] = budgetValue;
+        }
         if (goal != "AWARENESS")
             form["destination_type"] = "WEBSITE";
         if (goal == "SALES")
@@ -338,8 +417,11 @@ public partial class MetaAdsService(
     private static string OptimizationGoal(string goal) =>
         goal switch { "AWARENESS" => "REACH", "SALES" => "OFFSITE_CONVERSIONS", _ => "LINK_CLICKS" };
 
-    /// <summary>Countries, age, gender and placements for a new ad set (also used for the audience estimate).</summary>
-    private static JsonObject BuildTargeting(MetaAdDeliveryDto delivery)
+    /// <summary>
+    /// Countries, age, gender and placements for a new ad set (also used for the audience estimate). <paramref name="group"/>
+    /// ("feeds" or "stories") narrows the chosen platforms to those positions, for the two ad sets of a carousel with Stories &amp; Reels.
+    /// </summary>
+    private static JsonObject BuildTargeting(MetaAdDeliveryDto delivery, string? group = null)
     {
         var countries = (delivery.Countries ?? [])
             .Select(code => code.Trim().ToUpperInvariant())
@@ -365,24 +447,25 @@ public partial class MetaAdsService(
                 targeting["genders"] = new JsonArray(2);
                 break;
         }
-        switch ((delivery.Placements ?? "auto").ToLowerInvariant())
+        var placements = (delivery.Placements ?? "auto").Trim().ToLowerInvariant();
+        if (placements is "feeds" or "stories")
+            group = placements;
+        var facebook = placements != "instagram";
+        var instagram = placements != "facebook";
+        var platforms = new JsonArray();
+        if (facebook) platforms.Add("facebook");
+        if (instagram) platforms.Add("instagram");
+        if (group is "feeds" or "stories" || placements is "facebook" or "instagram")
+            targeting["publisher_platforms"] = platforms;
+        if (group == "feeds")
         {
-            case "facebook":
-                targeting["publisher_platforms"] = new JsonArray("facebook");
-                break;
-            case "instagram":
-                targeting["publisher_platforms"] = new JsonArray("instagram");
-                break;
-            case "feeds":
-                targeting["publisher_platforms"] = new JsonArray("facebook", "instagram");
-                targeting["facebook_positions"] = new JsonArray("feed");
-                targeting["instagram_positions"] = new JsonArray("stream");
-                break;
-            case "stories":
-                targeting["publisher_platforms"] = new JsonArray("facebook", "instagram");
-                targeting["facebook_positions"] = new JsonArray("story", "facebook_reels");
-                targeting["instagram_positions"] = new JsonArray("story", "reels");
-                break;
+            if (facebook) targeting["facebook_positions"] = new JsonArray("feed");
+            if (instagram) targeting["instagram_positions"] = new JsonArray("stream");
+        }
+        else if (group == "stories")
+        {
+            if (facebook) targeting["facebook_positions"] = new JsonArray("story", "facebook_reels");
+            if (instagram) targeting["instagram_positions"] = new JsonArray("story", "reels");
         }
         return targeting;
     }
@@ -444,9 +527,18 @@ public partial class MetaAdsService(
             : long.TryParse(Str(element, name), out var parsed) ? parsed : null
             : null;
 
-    /// <summary>The Page post behind the ad: one image + link, or a carousel of 2–10 cards.</summary>
-    private static JsonObject BuildObjectStorySpec(MetaAdPublishDto request, MetaAdsOptions options, string utmCampaign)
+    // ---------- Creatives ----------
+
+    /// <summary>
+    /// What gets posted. <see cref="Main"/> is the ad's creative fields (null when a carousel runs only in Stories &amp; Reels);
+    /// <see cref="Stories"/> are full-screen single-image creatives, one per carousel card, for a separate Stories &amp; Reels
+    /// ad set (Meta has no vertical carousel cards, and a square carousel looks lost in a full-screen placement).
+    /// </summary>
+    private sealed record AdPlan(JsonObject? Main, List<JsonObject> Stories);
+
+    private static AdPlan BuildPlan(MetaAdPublishDto request, MetaAdsOptions options, string name, MetaAdDeliveryDto delivery)
     {
+        var utmCampaign = Slug(name);
         var cta = (request.CallToAction ?? "SHOP_NOW").Trim().ToUpperInvariant();
         if (!CallToActions.Contains(cta))
             throw new BadRequestException($"Unknown call to action \"{request.CallToAction}\".");
@@ -454,66 +546,165 @@ public partial class MetaAdsService(
         var message = Clean(request.PrimaryText, 2000) ?? throw new BadRequestException("Write the primary text (the text above the ad).");
         var cards = request.Cards ?? [];
         var carousel = IsCarousel(request);
+        var collection = IsCollection(request);
         if (carousel && cards.Count is < 2 or > 10)
             throw new BadRequestException("A carousel needs 2 to 10 cards.");
         if (!carousel && cards.Count == 0)
-            throw new BadRequestException("Add an image.");
-
-        var links = cards.Select((card, index) =>
-            WithUtm(RequireLink(card.Link, $"Card {index + 1} needs a link."), request.AddUtm, utmCampaign)).ToList();
+            throw new BadRequestException(collection ? "The collection image was not uploaded." : "Add an image.");
+        if (!carousel)
+            cards = cards.Take(1).ToList();
         for (var i = 0; i < cards.Count; i++)
             if (string.IsNullOrWhiteSpace(cards[i].ImageHash))
                 throw new BadRequestException($"Card {i + 1} has no uploaded image.");
+
+        if (collection)
+        {
+            var link = WithUtm(CollectionLink(request), request.AddUtm, utmCampaign);
+            var card = cards[0];
+            return new AdPlan(SingleCreative(options, message, cta, card.ImageHash!, card.VerticalImageHash, link, card.Headline, card.Description), []);
+        }
+
+        var links = cards.Select((card, index) =>
+            WithUtm(RequireLink(card.Link, $"Card {index + 1} needs a link."), request.AddUtm, utmCampaign)).ToList();
+
+        if (!carousel)
+            return new AdPlan(SingleCreative(options, message, cta, cards[0].ImageHash!, cards[0].VerticalImageHash, links[0], cards[0].Headline, cards[0].Description), []);
 
         var mainLink = string.IsNullOrWhiteSpace(request.Link)
             ? links[0]
             : WithUtm(RequireLink(request.Link, "The main link is not valid."), request.AddUtm, utmCampaign);
 
-        JsonObject linkData;
-        if (carousel)
-        {
-            var children = new JsonArray();
-            for (var i = 0; i < cards.Count; i++)
-            {
-                var child = new JsonObject
-                {
-                    ["link"] = links[i],
-                    ["image_hash"] = cards[i].ImageHash!.Trim(),
-                    ["call_to_action"] = new JsonObject { ["type"] = cta, ["value"] = new JsonObject { ["link"] = links[i] } },
-                };
-                if (Clean(cards[i].Headline, 255) is { } headline) child["name"] = headline;
-                if (Clean(cards[i].Description, 255) is { } description) child["description"] = description;
-                children.Add(child);
-            }
+        // Full-screen ads only with a new ad set (an existing one keeps its own placements) and when the placements include Stories/Reels.
+        var placements = (delivery.Placements ?? "auto").Trim().ToLowerInvariant();
+        var newAdSet = !string.Equals(delivery.Mode, "existing", StringComparison.OrdinalIgnoreCase);
+        var stories = newAdSet && placements != "feeds" && cards.All(c => !string.IsNullOrWhiteSpace(c.VerticalImageHash))
+            ? cards.Select((card, i) => StoryCreative(options, message, cta, card.VerticalImageHash!, links[i], card.Headline, card.Description)).ToList()
+            : [];
+        if (stories.Count > 0 && placements == "stories")
+            return new AdPlan(null, stories);
 
-            linkData = new JsonObject
-            {
-                ["link"] = mainLink,
-                ["message"] = message,
-                ["child_attachments"] = children,
-                ["multi_share_optimized"] = request.OptimizeCardOrder,
-                ["multi_share_end_card"] = false,
-                ["call_to_action"] = new JsonObject { ["type"] = cta, ["value"] = new JsonObject { ["link"] = mainLink } },
-            };
-        }
-        else
+        var children = new JsonArray();
+        for (var i = 0; i < cards.Count; i++)
         {
-            var card = cards[0];
-            linkData = new JsonObject
+            var child = new JsonObject
             {
-                ["link"] = links[0],
-                ["message"] = message,
-                ["image_hash"] = card.ImageHash!.Trim(),
-                ["call_to_action"] = new JsonObject { ["type"] = cta, ["value"] = new JsonObject { ["link"] = links[0] } },
+                ["link"] = links[i],
+                ["image_hash"] = cards[i].ImageHash!.Trim(),
+                ["call_to_action"] = new JsonObject { ["type"] = cta, ["value"] = new JsonObject { ["link"] = links[i] } },
             };
-            if (Clean(card.Headline, 255) is { } headline) linkData["name"] = headline;
-            if (Clean(card.Description, 255) is { } description) linkData["description"] = description;
+            if (Clean(cards[i].Headline, 255) is { } headline) child["name"] = headline;
+            if (Clean(cards[i].Description, 255) is { } description) child["description"] = description;
+            children.Add(child);
         }
 
-        var spec = new JsonObject { ["page_id"] = options.PageId, ["link_data"] = linkData };
+        var linkData = new JsonObject
+        {
+            ["link"] = mainLink,
+            ["message"] = message,
+            ["child_attachments"] = children,
+            ["multi_share_optimized"] = request.OptimizeCardOrder,
+            ["multi_share_end_card"] = false,
+            ["call_to_action"] = new JsonObject { ["type"] = cta, ["value"] = new JsonObject { ["link"] = mainLink } },
+        };
+        return new AdPlan(new JsonObject { ["object_story_spec"] = StorySpec(options, linkData) }, stories);
+    }
+
+    private static JsonObject StorySpec(MetaAdsOptions options, JsonObject? linkData)
+    {
+        var spec = new JsonObject { ["page_id"] = options.PageId };
+        if (linkData is not null)
+            spec["link_data"] = linkData;
         if (options.InstagramUserId.Length > 0)
             spec["instagram_user_id"] = options.InstagramUserId;
         return spec;
+    }
+
+    private static JsonObject LinkData(string message, string cta, string imageHash, string link, string? headline, string? description)
+    {
+        var linkData = new JsonObject
+        {
+            ["link"] = link,
+            ["message"] = message,
+            ["image_hash"] = imageHash.Trim(),
+            ["call_to_action"] = new JsonObject { ["type"] = cta, ["value"] = new JsonObject { ["link"] = link } },
+        };
+        if (Clean(headline, 255) is { } h) linkData["name"] = h;
+        if (Clean(description, 255) is { } d) linkData["description"] = d;
+        return linkData;
+    }
+
+    /// <summary>Full-screen ad for a Stories &amp; Reels-only ad set: a plain single image, the vertical one.</summary>
+    private static JsonObject StoryCreative(MetaAdsOptions options, string message, string cta, string verticalHash, string link, string? headline, string? description) =>
+        new() { ["object_story_spec"] = StorySpec(options, LinkData(message, cta, verticalHash, link, headline, description)) };
+
+    /// <summary>
+    /// One image + link. With a vertical version it becomes a placement-customised ad (asset_feed_spec): the square image
+    /// in feeds, the 9:16 one in Stories and Reels, in the same ad and ad set.
+    /// </summary>
+    private static JsonObject SingleCreative(MetaAdsOptions options, string message, string cta, string imageHash, string? verticalHash,
+        string link, string? headline, string? description)
+    {
+        if (string.IsNullOrWhiteSpace(verticalHash))
+            return new JsonObject { ["object_story_spec"] = StorySpec(options, LinkData(message, cta, imageHash, link, headline, description)) };
+
+        var feed = new JsonObject
+        {
+            ["images"] = new JsonArray(
+                new JsonObject { ["hash"] = imageHash.Trim(), ["adlabels"] = new JsonArray(new JsonObject { ["name"] = SquareLabel }) },
+                new JsonObject { ["hash"] = verticalHash.Trim(), ["adlabels"] = new JsonArray(new JsonObject { ["name"] = VerticalLabel }) }),
+            ["bodies"] = new JsonArray(new JsonObject { ["text"] = message }),
+            ["link_urls"] = new JsonArray(new JsonObject { ["website_url"] = link }),
+            ["call_to_action_types"] = new JsonArray(cta),
+            ["ad_formats"] = new JsonArray("SINGLE_IMAGE"),
+            ["optimization_type"] = "PLACEMENT",
+            ["asset_customization_rules"] = new JsonArray(
+                new JsonObject
+                {
+                    ["customization_spec"] = new JsonObject
+                    {
+                        ["publisher_platforms"] = new JsonArray("facebook", "instagram"),
+                        ["facebook_positions"] = new JsonArray("story", "facebook_reels"),
+                        ["instagram_positions"] = new JsonArray("story", "reels"),
+                    },
+                    ["image_label"] = new JsonObject { ["name"] = VerticalLabel },
+                    ["priority"] = 1,
+                },
+                new JsonObject
+                {
+                    ["customization_spec"] = new JsonObject
+                    {
+                        ["publisher_platforms"] = new JsonArray("facebook", "instagram", "audience_network", "messenger"),
+                        ["facebook_positions"] = new JsonArray("feed", "marketplace", "video_feeds", "search", "right_hand_column", "profile_feed"),
+                        ["instagram_positions"] = new JsonArray("stream", "explore", "explore_home", "profile_feed"),
+                    },
+                    ["image_label"] = new JsonObject { ["name"] = SquareLabel },
+                    ["priority"] = 2,
+                }),
+        };
+        if (Clean(headline, 255) is { } h) feed["titles"] = new JsonArray(new JsonObject { ["text"] = h });
+        if (Clean(description, 255) is { } d) feed["descriptions"] = new JsonArray(new JsonObject { ["text"] = d });
+        return new JsonObject { ["object_story_spec"] = StorySpec(options, null), ["asset_feed_spec"] = feed };
+    }
+
+    /// <summary>
+    /// The proteini.mk page a collection ad opens: /collection with the picked feed items, title and subtitle in the URL,
+    /// on the same site as the shop link (so stage ads open stage).
+    /// </summary>
+    private static string CollectionLink(MetaAdPublishDto request)
+    {
+        var ids = (request.ProductIds ?? []).Select(id => id.Trim().ToLowerInvariant()).Where(id => id.Length > 0).Distinct().ToList();
+        if (ids.Count < CollectionMin)
+            throw new BadRequestException($"A collection needs at least {CollectionMin} products.");
+        if (ids.Count > CollectionMax)
+            throw new BadRequestException($"A collection can show up to {CollectionMax} products.");
+        if (ids.FirstOrDefault(id => !CatalogItemId().IsMatch(id)) is { } bad)
+            throw new BadRequestException($"Unknown product \"{bad}\".");
+
+        var site = new Uri(RequireLink(string.IsNullOrWhiteSpace(request.Link) ? "https://proteini.mk/" : request.Link, "The shop link is not valid."));
+        var query = $"p={string.Join(",", ids)}";
+        if (Clean(request.StoreTitle, 80) is { } title) query += $"&t={Uri.EscapeDataString(title)}";
+        if (Clean(request.StoreSubtitle, 160) is { } subtitle) query += $"&s={Uri.EscapeDataString(subtitle)}";
+        return $"{site.GetLeftPart(UriPartial.Authority)}/collection?{query}";
     }
 
     // ---------- Lists ----------
@@ -604,30 +795,31 @@ public partial class MetaAdsService(
         return Str(account, "currency")?.ToUpperInvariant() ?? "EUR";
     }
 
-    private async Task<JsonElement> GetAsync(MetaAdsOptions options, string path, Dictionary<string, string?> query)
+    private async Task<JsonElement> GetAsync(MetaAdsOptions options, string path, Dictionary<string, string?> query, string? token = null)
     {
         if (options.AppSecret.Length > 0)
-            query["appsecret_proof"] = Proof(options);
+            query["appsecret_proof"] = Proof(options, token);
         var queryString = string.Join("&", query.Where(pair => pair.Value is not null)
             .Select(pair => $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value!)}"));
         using var request = new HttpRequestMessage(HttpMethod.Get, $"{Url(options, path)}?{queryString}");
-        return await SendAsync(options, request);
+        return await SendAsync(options, request, token);
     }
 
-    private async Task<JsonElement> PostAsync(MetaAdsOptions options, string path, Dictionary<string, string?> form)
+    private async Task<JsonElement> PostAsync(MetaAdsOptions options, string path, Dictionary<string, string?> form, string? token = null)
     {
         if (options.AppSecret.Length > 0)
-            form["appsecret_proof"] = Proof(options);
+            form["appsecret_proof"] = Proof(options, token);
         using var request = new HttpRequestMessage(HttpMethod.Post, Url(options, path))
         {
             Content = new FormUrlEncodedContent(form.Where(pair => pair.Value is not null).Select(pair => new KeyValuePair<string, string>(pair.Key, pair.Value!))),
         };
-        return await SendAsync(options, request);
+        return await SendAsync(options, request, token);
     }
 
-    private async Task<JsonElement> SendAsync(MetaAdsOptions options, HttpRequestMessage request)
+    /// <param name="token">A Page access token for Page edges (photos, Instant Experiences); null = the system user token.</param>
+    private async Task<JsonElement> SendAsync(MetaAdsOptions options, HttpRequestMessage request, string? token = null)
     {
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.AccessToken);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token ?? options.AccessToken);
         var client = httpClientFactory.CreateClient(HttpClientName);
 
         HttpResponseMessage response;
@@ -682,8 +874,8 @@ public partial class MetaAdsService(
             form.Add(new StringContent(Proof(options)), "appsecret_proof");
     }
 
-    private static string Proof(MetaAdsOptions options) =>
-        Convert.ToHexString(HMACSHA256.HashData(Encoding.UTF8.GetBytes(options.AppSecret), Encoding.UTF8.GetBytes(options.AccessToken))).ToLowerInvariant();
+    private static string Proof(MetaAdsOptions options, string? token = null) =>
+        Convert.ToHexString(HMACSHA256.HashData(Encoding.UTF8.GetBytes(options.AppSecret), Encoding.UTF8.GetBytes(token ?? options.AccessToken))).ToLowerInvariant();
 
     private static IEnumerable<JsonElement> Rows(JsonElement result) =>
         result.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array ? data.EnumerateArray() : [];
@@ -701,7 +893,10 @@ public partial class MetaAdsService(
     // ---------- Validation helpers ----------
 
     private static bool IsCarousel(MetaAdPublishDto request) =>
-        !string.Equals(request.Format, "single", StringComparison.OrdinalIgnoreCase);
+        string.Equals(request.Format?.Trim(), "carousel", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(request.Format);
+
+    private static bool IsCollection(MetaAdPublishDto request) =>
+        string.Equals(request.Format?.Trim(), "collection", StringComparison.OrdinalIgnoreCase);
 
     private static string NormalizeStatus(string? status) =>
         string.Equals(status?.Trim(), "ACTIVE", StringComparison.OrdinalIgnoreCase) ? "ACTIVE" : "PAUSED";
@@ -745,4 +940,7 @@ public partial class MetaAdsService(
 
     [GeneratedRegex(@"[^a-z0-9]+")]
     private static partial Regex NonSlug();
+
+    [GeneratedRegex(@"^[vp][0-9]{1,10}$")]
+    private static partial Regex CatalogItemId();
 }

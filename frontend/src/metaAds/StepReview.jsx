@@ -2,7 +2,7 @@ import { TEMPLATES, BACKGROUNDS } from "./cardRender";
 import { ctaLabel } from "./copy";
 import { COUNTRIES, GENDERS, GOALS, PLACEMENTS, runDays } from "./deliveryOptions";
 import { META_FORMATS } from "./metaFormats";
-import { MetaPreview, MockPreview } from "./Previews";
+import { MetaPreview } from "./Previews";
 import { Button, Notice } from "./ui";
 import { dot } from "./format";
 
@@ -25,9 +25,8 @@ export default function StepReview({
   problems,
   cardsForAd,
   thumbFor,
-  pageName,
-  instagramHandle,
   metaPreviews,
+  mock,
   loadMetaPreview,
   publish,
   work,
@@ -38,6 +37,7 @@ export default function StepReview({
   const d = draft.delivery;
   const currency = status?.currency || "";
   const days = runDays(d);
+  const collection = draft.format === "collection";
   const formats = META_FORMATS.filter((f) => !f.instagram || status?.instagramUserId);
   const toggleFormat = (id) =>
     update((x) => {
@@ -53,7 +53,11 @@ export default function StepReview({
         <div className="mx-auto h-14 w-14 rounded-full bg-green-600 text-white grid place-items-center text-3xl">✓</div>
         <h3 className="font-display text-3xl uppercase tracking-wide">{live ? "Ad published" : "Ad created (paused)"}</h3>
         <p className="text-[#6b6b63]">{work.result.message}</p>
-        <div className="text-sm text-[#6b6b63]">{dot(work.result.campaignId && `Campaign ${work.result.campaignId}`, `Ad set ${work.result.adSetId}`, `Ad ${work.result.adId}`)}</div>
+        <div className="text-sm text-[#6b6b63]">{dot(
+            work.result.campaignId && `Campaign ${work.result.campaignId}`,
+            (work.result.adSetIds?.length || 0) > 1 ? `${work.result.adSetIds.length} ad sets` : `Ad set ${work.result.adSetId}`,
+            (work.result.adIds?.length || 0) > 1 ? `${work.result.adIds.length} ads` : work.result.adId && `Ad ${work.result.adId}`,
+          )}</div>
         <div className="flex flex-wrap justify-center gap-3 pt-2">
           {work.result.adsManagerUrl && (
             <a className="inline-flex items-center rounded-lg bg-[#141409] px-4 py-2.5 text-sm font-semibold text-white" href={work.result.adsManagerUrl} target="_blank" rel="noreferrer">
@@ -77,7 +81,9 @@ export default function StepReview({
           <h3 className="font-display text-lg uppercase tracking-wide mb-1">Summary</h3>
           <div className="divide-y divide-[#e7e4da] border-y border-[#e7e4da]">
             <Row label="Format" onEdit={() => goTo(0)}>
-              <span className="font-semibold">{draft.format === "single" ? "Single image" : `Carousel · ${cardsForAd.length} cards`}</span>
+              <span className="font-semibold">
+                {draft.format === "single" ? "Single image" : collection ? `Collection · ${cardsForAd.length} products` : `Carousel · ${cardsForAd.length} cards`}
+              </span>
               <div className="mt-1.5 flex gap-1.5 overflow-x-auto scroll-x">
                 {cardsForAd.map((c) => (
                   <div key={c.key} className="w-12 h-12 shrink-0 rounded-md overflow-hidden bg-[#f6f5f1]">
@@ -87,11 +93,15 @@ export default function StepReview({
               </div>
             </Row>
             <Row label="Design" onEdit={() => goTo(1)}>
-              {dot(TEMPLATES.find((t) => t.id === draft.template)?.label, BACKGROUNDS.find((b) => b.id === draft.style.background)?.label)}
+              {collection
+                ? dot("Cover banner", draft.cover.big || "suggested text")
+                : dot(TEMPLATES.find((t) => t.id === draft.template)?.label, BACKGROUNDS.find((b) => b.id === draft.style.background)?.label)}
             </Row>
             <Row label="Text" onEdit={() => goTo(2)}>
               <p className="line-clamp-3 whitespace-pre-line">{draft.primaryText || <span className="text-red-700">missing</span>}</p>
-              <div className="text-[#6b6b63] mt-0.5">{dot(`Button: ${ctaLabel(draft.cta)}`, draft.addUtm && "UTM tags on", draft.name.trim() && `Name: ${draft.name.trim()}`)}</div>
+              <div className="text-[#6b6b63] mt-0.5">
+                {dot(collection && `Headline: ${draft.headline}`, `Button: ${ctaLabel(draft.cta)}`, draft.addUtm && "UTM tags on", draft.name.trim() && `Name: ${draft.name.trim()}`)}
+              </div>
             </Row>
             <Row label="Delivery" onEdit={() => goTo(3)}>
               {d.mode === "existing" ? (
@@ -143,14 +153,7 @@ export default function StepReview({
       </div>
 
       <div className="space-y-5 lg:sticky lg:top-4 self-start">
-        <MockPreview
-          pageName={pageName}
-          instagramHandle={instagramHandle}
-          placements={d.mode === "existing" ? "auto" : d.placements}
-          primaryText={draft.primaryText}
-          cta={draft.cta}
-          cards={cardsForAd.map((c) => ({ ...c, thumb: thumbFor(c) }))}
-        />
+        {mock}
 
         <div className="rounded-xl border border-[#e7e4da] p-4 space-y-3">
           <div className="grid grid-cols-2 gap-2">

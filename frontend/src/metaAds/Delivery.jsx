@@ -285,6 +285,11 @@ export default function Delivery({ value: d, onChange, adSets, status }) {
                     <Choice key={p.value} selected={d.placements === p.value} onClick={() => set({ placements: p.value })} title={p.label} hint={p.hint} />
                   ))}
                 </div>
+                <p className="mt-3 text-sm text-[#6b6b63]">
+                  Every ad gets a square image for feeds and a full-screen 9:16 image for Stories and Reels. A carousel with Stories
+                  and Reels becomes two ad sets on one campaign budget: the carousel in feeds and one full-screen ad per card in
+                  Stories and Reels.
+                </p>
               </Group>
 
               <Field label="Campaign name" hint="Defaults to the ad name">

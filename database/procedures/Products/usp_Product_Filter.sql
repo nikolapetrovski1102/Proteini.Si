@@ -168,6 +168,8 @@ BEGIN
         v.Variant_Id,
         CASE WHEN v.Variant_Id IS NULL THEN 0 ELSE 1 END AS IsVariant,
         v.Packaging_Name AS VariantPackagingName,
+        v.Unit_Count AS VariantUnitCount,
+        v.Unit_Form AS VariantUnitForm,
         v.Flavor_Name AS VariantFlavorName,
         CAST(CASE WHEN ap.Product_Id IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS IsApparel,
         CASE WHEN p.HasVariants = 1 THEN COALESCE(vc.PackagingCount, 0) ELSE 1 END AS PackagingCount,

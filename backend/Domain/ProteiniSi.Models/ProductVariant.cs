@@ -8,6 +8,8 @@ public class VariantWriteValues
     public string? PackagingLookupName { get; set; }
     public decimal? PackagingWeight { get; set; }
     public bool HasPackagingWeight { get; set; }
+    public int? UnitCount { get; set; }
+    public string? UnitForm { get; set; }
 }
 
 public class VariantGalleryCreated
