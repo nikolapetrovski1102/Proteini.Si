@@ -1877,7 +1877,7 @@ const translations = {
     "unit_gummies": "гумени бонбони",
     "moreAboutRatings": "(повеќе за оцените)",
     "quickPurchase": "Брза набавка",
-    "productsOnSale": "Производи на продажба",
+    "productsOnSale": "Производи на акција",
     "brands": "Брендови",
     "offers": "Понуди",
     "upcomingPromotions": "Претстојни акции",
